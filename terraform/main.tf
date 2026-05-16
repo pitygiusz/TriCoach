@@ -10,7 +10,6 @@ terraform {
     }
   }
 
-  # WSPÓŁDZIELONY PLIK STANU (Zmieńcie nazwę bucketu na swoją!)
   backend "gcs" {
     bucket = "tricoach-terraform" 
     prefix = "terraform/state"
