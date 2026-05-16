@@ -1,225 +1,167 @@
 terraform {
   required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 3.100.0"
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
     }
     random = {
       source  = "hashicorp/random"
       version = "~> 3.6.0"
     }
   }
-}
 
-provider "azurerm" {
-  features {
-    key_vault {
-      purge_soft_delete_on_destroy    = true
-      recover_soft_deleted_key_vaults = true
-    }
-    resource_group {
-      prevent_deletion_if_contains_resources = false
-    }
+  # WSPÓŁDZIELONY PLIK STANU (Zmieńcie nazwę bucketu na swoją!)
+  backend "gcs" {
+    bucket = "tricoach-terraform" 
+    prefix = "terraform/state"
   }
 }
 
-data "azurerm_client_config" "current" {}
+variable "project_id" {
+  description = "GCP Project ID"
+  type        = string
+}
 
-variable "location" {
-  default = "Central US"
+variable "region" {
+  description = "Deployment Region"
+  default     = "europe-central2" # Warsaw
 }
 
 variable "prefix" {
   default = "tricoach"
 }
 
+provider "google" {
+  project = var.project_id
+  region  = var.region
+}
+
 resource "random_string" "suffix" {
-  length  = 6
+  length  = 4
   special = false
   upper   = false
 }
 
-resource "random_password" "sql_admin_password" {
+resource "random_password" "sql_password" {
   length           = 16
   special          = true
   override_special = "!#$%&*-_=+"
 }
 
-# Resource Group
-resource "azurerm_resource_group" "rg" {
-  name     = "${var.prefix}-rg-${random_string.suffix.result}"
-  location = var.location
-}
+# 1. Cloud SQL (PostgreSQL Database)
+resource "google_sql_database_instance" "sql_instance" {
+  name             = "${var.prefix}-sql-${random_string.suffix.result}"
+  database_version = "POSTGRES_15"
+  region           = var.region
 
-# SQL Database
-resource "azurerm_mssql_server" "sql_server" {
-  name                         = "${var.prefix}-sql-${random_string.suffix.result}"
-  resource_group_name          = azurerm_resource_group.rg.name
-  location                     = azurerm_resource_group.rg.location
-  version                      = "12.0"
-  administrator_login          = "tricoachadmin"
-  administrator_login_password = random_password.sql_admin_password.result
-}
-
-resource "azurerm_mssql_database" "sql_db" {
-  name      = "${var.prefix}-db"
-  server_id = azurerm_mssql_server.sql_server.id
-  sku_name  = "Basic"
-}
-
-# Cosmos DB
-resource "azurerm_cosmosdb_account" "cosmos" {
-  name                = "${var.prefix}-cosmos-${random_string.suffix.result}"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  offer_type          = "Standard"
-  kind                = "GlobalDocumentDB"
-
-  consistency_policy {
-    consistency_level = "Session"
+  settings {
+    tier = "db-f1-micro"
   }
-
-  geo_location {
-    location          = azurerm_resource_group.rg.location
-    failover_priority = 0
-  }
+  deletion_protection = false
 }
 
-resource "azurerm_cosmosdb_sql_database" "cosmos_db" {
-  name                = "${var.prefix}-social-db"
-  resource_group_name = azurerm_resource_group.rg.name
-  account_name        = azurerm_cosmosdb_account.cosmos.name
-  throughput          = 400
+resource "google_sql_database" "database" {
+  name     = "${var.prefix}-db"
+  instance = google_sql_database_instance.sql_instance.name
 }
 
-# Service Bus
-resource "azurerm_servicebus_namespace" "sb" {
-  name                = "${var.prefix}-sb-${random_string.suffix.result}"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  sku                 = "Standard"
+resource "google_sql_user" "users" {
+  name     = "tricoachadmin"
+  instance = google_sql_database_instance.sql_instance.name
+  password = random_password.sql_password.result
 }
 
-resource "azurerm_servicebus_topic" "training_events" {
-  name         = "training-events"
-  namespace_id = azurerm_servicebus_namespace.sb.id
+# 2. Firestore (NoSQL for Social features)
+resource "google_firestore_database" "database" {
+  project     = var.project_id
+  name        = "(default)"
+  location_id = var.region
+  type        = "FIRESTORE_NATIVE"
 }
 
-# Blob Storage
-resource "azurerm_storage_account" "storage" {
-  name                     = "${var.prefix}store${random_string.suffix.result}"
-  resource_group_name      = azurerm_resource_group.rg.name
-  location                 = azurerm_resource_group.rg.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
+# 3. Cloud Storage (Profile pictures)
+resource "google_storage_bucket" "profiles_bucket" {
+  name          = "${var.prefix}-profiles-${random_string.suffix.result}"
+  location      = var.region
+  force_destroy = true
 }
 
-resource "azurerm_storage_container" "profiles" {
-  name                  = "user-profiles"
-  storage_account_name  = azurerm_storage_account.storage.name
-  container_access_type = "private"
+# 4. Pub/Sub (Event messaging)
+resource "google_pubsub_topic" "training_events" {
+  name = "training-events"
 }
 
-# Key Vault
-resource "azurerm_key_vault" "kv" {
-  name                        = "${var.prefix}-kv-${random_string.suffix.result}"
-  location                    = azurerm_resource_group.rg.location
-  resource_group_name         = azurerm_resource_group.rg.name
-  tenant_id                   = data.azurerm_client_config.current.tenant_id
-  sku_name                    = "standard"
-
-  access_policy {
-    tenant_id          = data.azurerm_client_config.current.tenant_id
-    object_id          = data.azurerm_client_config.current.object_id
-    secret_permissions = ["Get", "List", "Set", "Delete", "Purge"]
+# 5. Secret Manager (Storing SQL Password)
+resource "google_secret_manager_secret" "sql_secret" {
+  secret_id = "sql-admin-password"
+  replication {
+    auto {}
   }
 }
 
-resource "azurerm_key_vault_secret" "sql_password" {
-  name         = "sql-admin-password"
-  value        = random_password.sql_admin_password.result
-  key_vault_id = azurerm_key_vault.kv.id
+resource "google_secret_manager_secret_version" "sql_secret_data" {
+  secret      = google_secret_manager_secret.sql_secret.id
+  secret_data = random_password.sql_password.result
 }
 
-# Container Registry
-resource "azurerm_container_registry" "acr" {
-  name                = "${var.prefix}acr${random_string.suffix.result}"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  sku                 = "Basic"
-  admin_enabled       = true
+# 6. Artifact Registry (Docker images)
+resource "google_artifact_registry_repository" "acr" {
+  location      = var.region
+  repository_id = "${var.prefix}-repo"
+  description   = "Docker repository for TriCoach microservices"
+  format        = "DOCKER"
 }
 
-# Monitoring
-resource "azurerm_log_analytics_workspace" "law" {
-  name                = "${var.prefix}-law-${random_string.suffix.result}"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  sku                 = "PerGB2018"
-  retention_in_days   = 30
-}
-
-resource "azurerm_application_insights" "app_insights" {
-  name                = "${var.prefix}-appinsights-${random_string.suffix.result}"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  workspace_id        = azurerm_log_analytics_workspace.law.id
-  application_type    = "web"
-}
-
-# Compute: App Service Plan & Microservices
-resource "azurerm_service_plan" "asp" {
-  name                = "${var.prefix}-asp"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
-  os_type             = "Linux"
-  sku_name            = "B1" 
-}
-
+# 7. Cloud Run (Microservices Compute Layer)
 locals {
   microservices = {
-    "gateway"   = { port = "3000" }
-    "user"      = { port = "3001" }
-    "training"  = { port = "3002" }
-    "analytics" = { port = "3003" }
-    "social"    = { port = "3004" }
-    "race"      = { port = "3005" }
+    "gateway"   = { port = 3000 }
+    "user"      = { port = 3001 }
+    "training"  = { port = 3002 }
+    "analytics" = { port = 3003 }
+    "social"    = { port = 3004 }
+    "race"      = { port = 3005 }
   }
 }
 
-resource "azurerm_linux_web_app" "microservices" {
-  for_each            = local.microservices
-  
-  name                = "${var.prefix}-${each.key}-${random_string.suffix.result}"
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_service_plan.asp.location
-  service_plan_id     = azurerm_service_plan.asp.id
+resource "google_cloud_run_v2_service" "microservices" {
+  for_each = local.microservices
 
-  site_config {
-    application_stack {
-      docker_image_name   = "nginx:latest"
-      docker_registry_url = "https://index.docker.io"
+  name     = "${var.prefix}-${each.key}"
+  location = var.region
+
+  template {
+    containers {
+      image = "us-docker.pkg.dev/cloudrun/container/hello"
+      ports {
+        container_port = each.value.port
+      }
     }
   }
+}
 
-  app_settings = {
-    "WEBSITES_PORT"                         = each.value.port
-    "APPINSIGHTS_INSTRUMENTATIONKEY"        = azurerm_application_insights.app_insights.instrumentation_key
-    "APPLICATIONINSIGHTS_CONNECTION_STRING" = azurerm_application_insights.app_insights.connection_string
-  }
+# Allow public access for testing purposes
+resource "google_cloud_run_service_iam_member" "public_access" {
+  for_each = local.microservices
+
+  location = google_cloud_run_v2_service.microservices[each.key].location
+  project  = google_cloud_run_v2_service.microservices[each.key].project
+  service  = google_cloud_run_v2_service.microservices[each.key].name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
 
 # Outputs
-output "sql_server_fqdn" {
-  value = azurerm_mssql_server.sql_server.fully_qualified_domain_name
+output "sql_instance_connection_name" {
+  value = google_sql_database_instance.sql_instance.connection_name
 }
 
-output "acr_login_server" {
-  value = azurerm_container_registry.acr.login_server
+output "artifact_registry_url" {
+  value = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.acr.name}"
 }
 
 output "microservice_urls" {
   value = {
-    for k, v in azurerm_linux_web_app.microservices : k => "https://${v.default_hostname}"
+    for k, v in google_cloud_run_v2_service.microservices : k => v.uri
   }
 }

@@ -1,44 +1,40 @@
+# =========================
 # Terraform
+# =========================
+# Local directories
+**/.terraform/*
+
+# State files (Should be in GCS, but just in case)
 *.tfstate
 *.tfstate.*
-.terraform/
-.terraform.lock.hcl
+
+# Crash logs
 crash.log
+crash.*.log
+
+# Variables files containing secrets/IDs
+*.tfvars
+*.tfvars.json
+
+# Ignore override files
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
+# Ignore plan files
+*.tfplan
 
-# Dependencies
+# =========================
+# Application (Node.js/React)
+# =========================
 node_modules/
-*.egg-info/
-__pycache__/
-*.pyc
-dist/
-build/
-
-# Environment
+npm-debug.log
+yarn-error.log
 .env
 .env.local
-.env.*.local
-
-# Logs
-*.log
-logs/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Build outputs
-out/
-bin/
-obj/
+.env.development.local
+.env.test.local
+.env.production.local
+dist/
+build/
