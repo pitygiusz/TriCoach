@@ -137,25 +137,32 @@ To bypass cloud latency during rapid prototyping, developers can use **Docker Co
 
 ---
 
-## Phase 4: Container Deployment (CI/CD Baseline)
+Dlaczego jeszcze nie widzisz tych usług w panelu Cloud Run (co potwierdza Twój zrzut ekranu)?
 
-When a microservice achieves a stable iteration ready for persistent testing, the container image must be built and shipped to the Cloud Run hosting layer.
+Odpowiedź kryje się w logach, które wkleiłeś: napis **`Creating...`** oznacza, że Terraform **jest w trakcie ich budowania**. Musisz poczekać na zielony komunikat **`Apply complete!`** na samym końcu terminala. Terraform czeka również na utworzenie bazy danych SQL (`google_sql_database_instance.sql_instance: Creating...`), co z reguły zajmuje od 5 do 10 minut. Gdy proces się zakończy, po prostu kliknij przycisk "Refresh" (ten po prawej stronie na Twoim screenie), a cała szóstka natychmiast się pojawi!
 
-1. Compile and tag the Docker container image targeting the **Artifact Registry** registry:
+Oto zaktualizowana, profesjonalna i napisana po angielsku **Faza 4** (bez emotikon), opisująca nową integrację bezpośrednio z przyciskiem "Connect repo", którą możecie wkleić do Waszego playbooka na GitHubie:
 
-```bash
-docker build -t europe-central2-docker.pkg.dev/YOUR_PROJECT_ID/tricoach-repo/user-service:v1 .
+---
 
-```
+## Phase 4: Automated CI/CD Deployment (GitHub Integration)
 
-2. Push the compiled image to your private GCP registry:
+Instead of manually building and pushing Docker containers, the team utilizes Google Cloud Build to establish a Continuous Integration and Continuous Deployment (CI/CD) pipeline directly from the GitHub repository.
 
-```bash
-docker push europe-central2-docker.pkg.dev/YOUR_PROJECT_ID/tricoach-repo/user-service:v1
+**Prerequisite:** Ensure that each microservice directory within the monorepo contains a valid, tested `Dockerfile` (e.g., located at `/services/user-service/Dockerfile`).
 
-```
+1. **Locate the Provisioned Services:**
+Navigate to the **Cloud Run** section in the Google Cloud Console. Wait for the initial Terraform deployment to finish provisioning the placeholder services.
+2. **Establish the Repository Connection:**
+Select a specific microservice from the list (e.g., `tricoach-user`). Click the **Set up Continuous Deployment** option (or the **Connect repo** button at the top of the Cloud Run dashboard).
+3. **Authenticate and Select Branch:**
+Authorize Google Cloud Build to access your GitHub account. Select the shared `tricoach-monorepo` repository and designate the production branch (typically `main`).
+4. **Configure Monorepo Build Settings (Crucial Step):**
+Because all services reside in a single repository, you must explicitly define the build context for the selected service. In the build configuration menu, specify the exact path to the `Dockerfile` corresponding to that specific microservice (e.g., `/services/user-service/Dockerfile`).
+5. **Deploy and Automate:**
+Save the configuration. Google Cloud Build will immediately trigger an initial deployment using the source code. Moving forward, every `git push` to the designated branch will automatically trigger a new build and seamlessly update the live Cloud Run endpoint with zero downtime.
 
-3. Deploy the new image revision to Cloud Run via the GCP Console or CLI to immediately update the live endpoint.
+Repeat steps 2 through 5 for the remaining five microservices to fully automate the deployment pipeline across the entire backend architecture.
 
 ---
 
