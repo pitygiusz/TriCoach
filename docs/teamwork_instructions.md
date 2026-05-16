@@ -47,6 +47,7 @@ git clone <repository-url>
 ```
 
 *(Note: This file is strictly excluded by `.gitignore` and must be created manually on each machine).*
+
 4. Initialize the Terraform workspace to establish the connection with the remote GCS backend and download the required cloud providers:
 
 ```bash
