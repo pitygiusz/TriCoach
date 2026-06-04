@@ -3,6 +3,7 @@ import express, { Request, Response } from 'express';
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || '8080';
+const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
 
 const testHTML = `<!DOCTYPE html>
 <html lang="en">
@@ -388,7 +389,7 @@ const testHTML = `<!DOCTYPE html>
     </div>
 
     <script>
-        const GATEWAY_URL = 'https://tricoach-gateway-773151647315.europe-central2.run.app/';
+        const GATEWAY_URL = '${gatewayUrl}';
 
         // Initialize status checks
         window.addEventListener('load', () => {

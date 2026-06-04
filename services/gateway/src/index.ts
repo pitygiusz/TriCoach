@@ -1,7 +1,9 @@
 import express, { Request, Response, NextFunction } from 'express';
 import axios from 'axios';
+import cors from 'cors';
 
 const app = express();
+app.use(cors({ origin: true }));
 app.use(express.json());
 const port = process.env.PORT || '3000';
 
