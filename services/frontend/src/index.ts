@@ -350,9 +350,8 @@ const testHTML = `<!DOCTYPE html>
                     </select>
                 </div>
                 
-                <button onclick="predictRace()">Predict Race Time</button>
-                <button onclick="getRaces()">Get Races Info</button>
                 <button onclick="simulateRace()">Simulate Race</button>
+                <button onclick="getRaces()">Get Races Info</button>
                 <button class="secondary" onclick="clearRaceResponse()">Clear</button>
                 
                 <div class="response-panel">
@@ -593,26 +592,17 @@ const testHTML = `<!DOCTYPE html>
         }
 
         // RACE SERVICE
-        async function predictRace() {
-            const data = {
-                user_id: document.getElementById('race-user-id').value,
-                race_type: document.getElementById('race-type').value,
-            };
-            const response = await makeRequest('POST', '/api/race/predict', data);
-            document.getElementById('race-response').textContent = response;
-        }
-
-        async function getRaces() {
-            const response = await makeRequest('GET', '/api/races');
-            document.getElementById('race-response').textContent = response;
-        }
-
         async function simulateRace() {
             const data = {
                 user_id: document.getElementById('race-user-id').value,
                 race_type: document.getElementById('race-type').value,
             };
             const response = await makeRequest('POST', '/api/race/simulate', data);
+            document.getElementById('race-response').textContent = response;
+        }
+
+        async function getRaces() {
+            const response = await makeRequest('GET', '/api/races');
             document.getElementById('race-response').textContent = response;
         }
 

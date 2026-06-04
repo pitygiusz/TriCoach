@@ -263,15 +263,6 @@ app.get('/api/following/:userId', async (req: Request, res: Response) => {
 });
 
 // RACE SERVICE ROUTES
-app.post('/api/race/predict', async (req: Request, res: Response) => {
-  try {
-    const response = await axios.post(`${SERVICES.race}/predict`, req.body);
-    res.status(response.status).json(response.data);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
 app.get('/api/races', async (req: Request, res: Response) => {
   try {
     const response = await axios.get(`${SERVICES.race}/races`);
