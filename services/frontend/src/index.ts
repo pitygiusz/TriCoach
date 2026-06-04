@@ -205,8 +205,8 @@ const testHTML = `<!DOCTYPE html>
                     <input type="text" id="user-username" placeholder="username" value="testuser">
                 </div>
                 <div class="form-group">
-                    <label>Password Hash</label>
-                    <input type="text" id="user-password" placeholder="password_hash" value="hash123">
+                    <label>Password</label>
+                    <input type="text" id="user-password" placeholder="password" value="test123">
                 </div>
                 <div class="form-group">
                     <label>Age</label>
@@ -218,6 +218,7 @@ const testHTML = `<!DOCTYPE html>
                 </div>
                 
                 <button onclick="registerUser()">Register User</button>
+                <button onclick="loginUser()">Login User</button>
                 <button onclick="getProfile()">Get Profile</button>
                 <button class="secondary" onclick="clearUserResponse()">Clear</button>
                 
@@ -388,8 +389,26 @@ const testHTML = `<!DOCTYPE html>
         </div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script>
         const GATEWAY_URL = '${gatewayUrl}';
+        let currentUser = null;
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAaoBFEBTXeKpO0U8BxIFFCm7wqDQotAWo",
+            authDomain: "tricoach-496512.firebaseapp.com",
+            projectId: "tricoach-496512",
+            storageBucket: "tricoach-496512.firebasestorage.app",
+            messagingSenderId: "773151647315",
+            appId: "1:773151647315:web:8dfd4db218097a4d4ec8a6",
+            measurementId: "G-167FSD406N"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
 
         // Initialize status checks
         window.addEventListener('load', () => {
@@ -427,16 +446,61 @@ const testHTML = `<!DOCTYPE html>
             }
         }
 
-        // USER SERVICE
+        // USER SERVICE – Firebase Auth
         async function registerUser() {
-            const data = {
-                username: document.getElementById('user-username').value,
-                email: document.getElementById('user-email').value,
-                password_hash: document.getElementById('user-password').value,
-                age: parseInt(document.getElementById('user-age').value),
-            };
-            const response = await makeRequest('POST', '/api/users/register', data);
-            document.getElementById('user-response').textContent = response;
+            try {
+                const email = document.getElementById('user-email').value;
+                const password = document.getElementById('user-password').value;
+                const username = document.getElementById('user-username').value;
+                const age = parseInt(document.getElementById('user-age').value);
+
+                // Create user via Firebase Auth
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                await userCredential.user.updateProfile({ displayName: username });
+                const idToken = await userCredential.user.getIdToken();
+
+                // Optionally store extra profile data via backend
+                const response = await makeRequest('POST', '/api/users/register', {
+                    username,
+                    email,
+                    password,
+                    age,
+                    idToken,
+                });
+
+                currentUser = userCredential.user;
+                document.getElementById('user-response').textContent = response;
+            } catch (error: any) {
+                document.getElementById('user-response').textContent = JSON.stringify({
+                    error: error.message,
+                    code: error.code,
+                }, null, 2);
+            }
+        }
+
+        async function loginUser() {
+            try {
+                const email = document.getElementById('user-email').value;
+                const password = document.getElementById('user-password').value;
+
+                const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                const idToken = await userCredential.user.getIdToken();
+
+                const response = await fetch(\`\${GATEWAY_URL}/api/users/login\`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, idToken }),
+                });
+                const result = await response.json();
+
+                currentUser = userCredential.user;
+                document.getElementById('user-response').textContent = JSON.stringify(result, null, 2);
+            } catch (error: any) {
+                document.getElementById('user-response').textContent = JSON.stringify({
+                    error: error.message,
+                    code: error.code,
+                }, null, 2);
+            }
         }
 
         async function getProfile() {
