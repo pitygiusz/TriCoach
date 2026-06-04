@@ -388,7 +388,7 @@ const testHTML = `<!DOCTYPE html>
     </div>
 
     <script>
-        const GATEWAY_URL = 'http://localhost:3000';
+        const GATEWAY_URL = 'https://tricoach-gateway-773151647315.europe-central2.run.app/';
 
         // Initialize status checks
         window.addEventListener('load', () => {
