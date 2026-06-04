@@ -22,7 +22,7 @@ app.get('/', (req: Request, res: Response) => {
 // Log a workout
 app.post('/workouts', async (req: Request, res: Response) => {
   try {
-    const { user_id, type, duration_minutes, distance_km, pace_per_km, calories_burned, notes } = req.body;
+    const { user_id, type, duration_minutes, distance_km } = req.body;
 
     if (!user_id || !type || !duration_minutes) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -30,10 +30,10 @@ app.post('/workouts', async (req: Request, res: Response) => {
     }
 
     const result = await db.query(
-      `INSERT INTO "TrainingHistory" (user_id, type, duration_minutes, distance_km, pace_per_km, calories_burned, notes, timestamp)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-       RETURNING id, user_id, type, duration_minutes, distance_km, pace_per_km, calories_burned, notes, timestamp`,
-      [user_id, type, duration_minutes, distance_km || null, pace_per_km || null, calories_burned || null, notes || null]
+      `INSERT INTO "TrainingHistory" (user_id, type, duration_minutes, distance_km, timestamp)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING id, user_id, type, duration_minutes, distance_km, timestamp`,
+      [user_id, type, duration_minutes, distance_km || null]
     );
 
     res.status(201).json({
@@ -50,7 +50,9 @@ app.post('/workouts', async (req: Request, res: Response) => {
 app.get('/workouts/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const { type, limit = 50, offset = 0 } = req.query;
+    const { type } = req.query;
+    const limit = parseInt(req.query.limit as string, 10) || 50;
+    const offset = parseInt(req.query.offset as string, 10) || 0;
 
     let query = `SELECT * FROM "TrainingHistory" WHERE user_id = $1`;
     const params: any[] = [userId];
@@ -78,7 +80,7 @@ app.get('/workouts/:userId', async (req: Request, res: Response) => {
 // Create training plan
 app.post('/plans', async (req: Request, res: Response) => {
   try {
-    const { user_id, name, target_distance_km, goal_date, description } = req.body;
+    const { user_id, name, target_distance_km } = req.body;
 
     if (!user_id || !name || !target_distance_km) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -86,10 +88,10 @@ app.post('/plans', async (req: Request, res: Response) => {
     }
 
     const result = await db.query(
-      `INSERT INTO "TrainingPlans" (user_id, name, target_distance_km, goal_date, description, created_at)
-       VALUES ($1, $2, $3, $4, $5, NOW())
-       RETURNING id, user_id, name, target_distance_km, goal_date, description, created_at`,
-      [user_id, name, target_distance_km, goal_date || null, description || null]
+      `INSERT INTO "TrainingPlans" (user_id, name, target_distance_km)
+       VALUES ($1, $2, $3)
+       RETURNING id, user_id, name, target_distance_km`,
+      [user_id, name, target_distance_km]
     );
 
     res.status(201).json({
@@ -108,8 +110,8 @@ app.get('/plans/:userId', async (req: Request, res: Response) => {
     const { userId } = req.params;
 
     const result = await db.query(
-      `SELECT id, user_id, name, target_distance_km, goal_date, description, created_at 
-       FROM "TrainingPlans" WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT id, user_id, name, target_distance_km 
+       FROM "TrainingPlans" WHERE user_id = $1`,
       [userId]
     );
 
@@ -129,7 +131,7 @@ app.get('/plans/:userId/:planId', async (req: Request, res: Response) => {
     const { userId, planId } = req.params;
 
     const result = await db.query(
-      `SELECT id, user_id, name, target_distance_km, goal_date, description, created_at 
+      `SELECT id, user_id, name, target_distance_km 
        FROM "TrainingPlans" WHERE id = $1 AND user_id = $2`,
       [planId, userId]
     );
@@ -150,17 +152,15 @@ app.get('/plans/:userId/:planId', async (req: Request, res: Response) => {
 app.put('/plans/:planId', async (req: Request, res: Response) => {
   try {
     const { planId } = req.params;
-    const { name, target_distance_km, goal_date, description } = req.body;
+    const { name, target_distance_km } = req.body;
 
     const result = await db.query(
       `UPDATE "TrainingPlans"
        SET name = COALESCE($1, name),
-           target_distance_km = COALESCE($2, target_distance_km),
-           goal_date = COALESCE($3, goal_date),
-           description = COALESCE($4, description)
-       WHERE id = $5
-       RETURNING id, user_id, name, target_distance_km, goal_date, description, created_at`,
-      [name, target_distance_km, goal_date, description, planId]
+           target_distance_km = COALESCE($2, target_distance_km)
+       WHERE id = $3
+       RETURNING id, user_id, name, target_distance_km`,
+      [name, target_distance_km, planId]
     );
 
     if (result.rows.length === 0) {
