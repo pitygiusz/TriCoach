@@ -5,12 +5,28 @@ const app = express();
 app.use(express.json());
 const port = process.env.PORT || '3005';
 
-const db = new Client({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password',
-  database: 'tricoach-db',
-});
+// Cloud SQL connection via Unix socket when in GCP, fallback to host for local dev
+const dbHost = process.env.DB_HOST || 'localhost';
+const dbUser = process.env.DB_USER || 'postgres';
+const dbPassword = process.env.DB_PASSWORD || 'password';
+const dbName = process.env.DB_NAME || 'tricoach-db';
+const cloudSqlConnectionName = process.env.CLOUD_SQL_CONNECTION_NAME;
+
+const db = new Client(
+  cloudSqlConnectionName
+    ? {
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+        host: `/cloudsql/${cloudSqlConnectionName}`,
+      }
+    : {
+        host: dbHost,
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+      }
+);
 
 db.connect().catch(err => console.error('Database connection failed:', err));
 
@@ -55,17 +71,17 @@ app.post('/predict', async (req: Request, res: Response) => {
 
     // Get user's average paces from training history
     const swimResult = await db.query(
-      `SELECT AVG(pace_per_km) as avg_pace FROM "TrainingHistory" WHERE user_id = $1 AND type = 'swim'`,
+      `SELECT AVG(duration_minutes / NULLIF(distance_km, 0)) as avg_pace FROM "TrainingHistory" WHERE user_id = $1 AND type = 'swim'`,
       [user_id]
     );
 
     const bikeResult = await db.query(
-      `SELECT AVG(pace_per_km) as avg_pace FROM "TrainingHistory" WHERE user_id = $1 AND type = 'bike'`,
+      `SELECT AVG(duration_minutes / NULLIF(distance_km, 0)) as avg_pace FROM "TrainingHistory" WHERE user_id = $1 AND type = 'bike'`,
       [user_id]
     );
 
     const runResult = await db.query(
-      `SELECT AVG(pace_per_km) as avg_pace FROM "TrainingHistory" WHERE user_id = $1 AND type = 'run'`,
+      `SELECT AVG(duration_minutes / NULLIF(distance_km, 0)) as avg_pace FROM "TrainingHistory" WHERE user_id = $1 AND type = 'run'`,
       [user_id]
     );
 
@@ -154,9 +170,9 @@ app.post('/simulate', async (req: Request, res: Response) => {
     // Get historical data
     const statsResult = await db.query(
       `SELECT 
-         AVG(CASE WHEN type = 'swim' THEN pace_per_km END) as swim_pace,
-         AVG(CASE WHEN type = 'bike' THEN pace_per_km END) as bike_pace,
-         AVG(CASE WHEN type = 'run' THEN pace_per_km END) as run_pace,
+         AVG(CASE WHEN type = 'swim' THEN duration_minutes / NULLIF(distance_km, 0) END) as swim_pace,
+         AVG(CASE WHEN type = 'bike' THEN duration_minutes / NULLIF(distance_km, 0) END) as bike_pace,
+         AVG(CASE WHEN type = 'run' THEN duration_minutes / NULLIF(distance_km, 0) END) as run_pace,
          COUNT(*) as total_workouts
        FROM "TrainingHistory"
        WHERE user_id = $1`,
