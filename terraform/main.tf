@@ -120,6 +120,7 @@ locals {
     "analytics" = { port = 3003 }
     "social"    = { port = 3004 }
     "race"      = { port = 3005 }
+    "frontend"  = { port = 8080 }
   }
 }
 
@@ -136,6 +137,12 @@ resource "google_cloud_run_v2_service" "microservices" {
         container_port = each.value.port
       }
     }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image
+    ]
   }
 }
 
