@@ -5,12 +5,28 @@ const app = express();
 app.use(express.json());
 const port = process.env.PORT || '3002';
 
-const db = new Client({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password',
-  database: 'tricoach-db',
-});
+// Cloud SQL connection via Unix socket when in GCP, fallback to host for local dev
+const dbHost = process.env.DB_HOST || 'localhost';
+const dbUser = process.env.DB_USER || 'postgres';
+const dbPassword = process.env.DB_PASSWORD || 'password';
+const dbName = process.env.DB_NAME || 'tricoach-db';
+const cloudSqlConnectionName = process.env.CLOUD_SQL_CONNECTION_NAME;
+
+const db = new Client(
+  cloudSqlConnectionName
+    ? {
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+        host: `/cloudsql/${cloudSqlConnectionName}`,
+      }
+    : {
+        host: dbHost,
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+      }
+);
 
 db.connect().catch(err => console.error('Database connection failed:', err));
 
