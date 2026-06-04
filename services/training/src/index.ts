@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { Client } from 'pg';
+import crypto from 'crypto';
 
 const app = express();
 app.use(express.json());
@@ -45,11 +46,13 @@ app.post('/workouts', async (req: Request, res: Response) => {
       return;
     }
 
+    const id = crypto.randomUUID();
+
     const result = await db.query(
-      `INSERT INTO "TrainingHistory" (user_id, type, duration_minutes, distance_km, timestamp)
-       VALUES ($1, $2, $3, $4, NOW())
+      `INSERT INTO "TrainingHistory" (id, user_id, type, duration_minutes, distance_km, timestamp)
+       VALUES ($1, $2, $3, $4, $5, NOW())
        RETURNING id, user_id, type, duration_minutes, distance_km, timestamp`,
-      [user_id, type, duration_minutes, distance_km || null]
+      [id, user_id, type, duration_minutes, distance_km || null]
     );
 
     res.status(201).json({
@@ -103,11 +106,13 @@ app.post('/plans', async (req: Request, res: Response) => {
       return;
     }
 
+    const id = crypto.randomUUID();
+
     const result = await db.query(
-      `INSERT INTO "TrainingPlans" (user_id, name, target_distance_km)
-       VALUES ($1, $2, $3)
+      `INSERT INTO "TrainingPlans" (id, user_id, name, target_distance_km)
+       VALUES ($1, $2, $3, $4)
        RETURNING id, user_id, name, target_distance_km`,
-      [user_id, name, target_distance_km]
+      [id, user_id, name, target_distance_km]
     );
 
     res.status(201).json({
