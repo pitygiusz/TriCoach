@@ -561,14 +561,7 @@ const testHTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-app.get('/', (req: Request, res: Response) => {
-  res.status(200).send(testHTML);
-});
-
-app.listen(Number(port), () => {
-  console.log(`🎯 Frontend Test Console running on port ${port}`);
-  console.log(`📍 Access at http://localhost:${port}`);
-});
+const luxeHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -1197,14 +1190,15 @@ app.listen(Number(port), () => {
 
         console.log('✨ TriCoach Elite Frontend Loaded - Serving Luxury Gains Since Day 1 👑');
     </script>
-</head>
 </body>
 </html>`;
 
+// Serve the test console at the root
 app.get('/', (req: Request, res: Response) => {
-  res.status(200).send(luxeHTML);
+  res.status(200).send(testHTML);
 });
 
 app.listen(Number(port), () => {
-  console.log(`TriCoach Elite Frontend serving on port ${port} 👑`);
+  console.log(`🎯 Frontend Test Console running on port ${port}`);
+  console.log(`📍 Access at http://localhost:${port}`);
 });
