@@ -290,6 +290,15 @@ app.post('/api/race/simulate', async (req: Request, res: Response) => {
   }
 });
 
+app.post('/api/race/simulate-ai', async (req: Request, res: Response) => {
+  try {
+    const response = await axios.post(`${SERVICES.race}/simulate-ai`, req.body);
+    res.status(response.status).json(response.data);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: error.message });
+  }
+});
+
 app.listen(Number(port), () => {
   console.log(`🚪 API Gateway running on port ${port}`);
   console.log(`📍 Service URLs:`, SERVICES);

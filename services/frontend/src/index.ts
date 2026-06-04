@@ -351,6 +351,7 @@ const testHTML = `<!DOCTYPE html>
                 </div>
                 
                 <button onclick="simulateRace()">Simulate Race</button>
+                <button onclick="simulateRaceAI()">AI Simulate</button>
                 <button onclick="getRaces()">Get Races Info</button>
                 <button class="secondary" onclick="clearRaceResponse()">Clear</button>
                 
@@ -598,6 +599,16 @@ const testHTML = `<!DOCTYPE html>
                 race_type: document.getElementById('race-type').value,
             };
             const response = await makeRequest('POST', '/api/race/simulate', data);
+            document.getElementById('race-response').textContent = response;
+        }
+
+        async function simulateRaceAI() {
+            const data = {
+                user_id: document.getElementById('race-user-id').value,
+                race_type: document.getElementById('race-type').value,
+            };
+            document.getElementById('race-response').textContent = '⏳ AI is analyzing your training data...';
+            const response = await makeRequest('POST', '/api/race/simulate-ai', data);
             document.getElementById('race-response').textContent = response;
         }
 
