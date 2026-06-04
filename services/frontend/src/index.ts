@@ -5,6 +5,15 @@ app.use(express.json());
 const port = process.env.PORT || '8080';
 const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
 
+// Firebase config from env vars with fallback defaults
+const firebaseApiKey = process.env.FIREBASE_API_KEY || 'api_key';
+const firebaseAuthDomain = process.env.FIREBASE_AUTH_DOMAIN || 'key';
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || 'key';
+const firebaseStorageBucket = process.env.FIREBASE_STORAGE_BUCKET || 'key';
+const firebaseMessagingSenderId = process.env.FIREBASE_MESSAGING_SENDER_ID || 'key';
+const firebaseAppId = process.env.FIREBASE_APP_ID || 'key';
+const firebaseMeasurementId = process.env.FIREBASE_MEASUREMENT_ID || 'key';
+
 const testHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -394,31 +403,19 @@ const testHTML = `<!DOCTYPE html>
     <script>
         const GATEWAY_URL = '${gatewayUrl}';
         let currentUser = null;
+        let auth = null;
 
-        // Your web app's Firebase configuration
-        const firebaseConfig = {
-            apiKey: "AIzaSyAaoBFEBTXeKpO0U8BxIFFCm7wqDQotAWo",
-            authDomain: "tricoach-496512.firebaseapp.com",
-            projectId: "tricoach-496512",
-            storageBucket: "tricoach-496512.firebasestorage.app",
-            messagingSenderId: "773151647315",
-            appId: "1:773151647315:web:8dfd4db218097a4d4ec8a6",
-            measurementId: "G-167FSD406N"
-        };
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-
-        // Initialize status checks
-        window.addEventListener('load', () => {
+        // Firestore status check (runs immediately, no Firebase dependency)
+        function startStatusChecks() {
             checkServiceStatus('user', 'User Service');
             checkServiceStatus('training', 'Training Service');
             checkServiceStatus('analytics', 'Analytics Service');
             checkServiceStatus('social', 'Social Service');
             checkServiceStatus('race', 'Race Service');
             checkServiceStatus('gateway', 'API Gateway');
-        });
+        }
+
+        window.addEventListener('load', startStatusChecks);
 
         async function checkServiceStatus(service, name) {
             try {
@@ -446,7 +443,26 @@ const testHTML = `<!DOCTYPE html>
             }
         }
 
-        // USER SERVICE – Firebase Auth
+        // Initialize Firebase (if SDK loaded successfully)
+        try {
+            const firebaseConfig = {
+                apiKey: '${firebaseApiKey}',
+                authDomain: '${firebaseAuthDomain}',
+                projectId: '${firebaseProjectId}',
+                storageBucket: '${firebaseStorageBucket}',
+                messagingSenderId: '${firebaseMessagingSenderId}',
+                appId: '${firebaseAppId}',
+                measurementId: '${firebaseMeasurementId}',
+            };
+
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            console.log('🔥 Firebase Auth initialized');
+        } catch (e) {
+            console.warn('Firebase SDK not available, login/register will use backend fallback');
+        }
+
+        // USER SERVICE – Firebase Auth with fallback
         async function registerUser() {
             try {
                 const email = document.getElementById('user-email').value;
@@ -454,22 +470,24 @@ const testHTML = `<!DOCTYPE html>
                 const username = document.getElementById('user-username').value;
                 const age = parseInt(document.getElementById('user-age').value);
 
-                // Create user via Firebase Auth
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                await userCredential.user.updateProfile({ displayName: username });
-                const idToken = await userCredential.user.getIdToken();
+                if (auth) {
+                    // Create user via Firebase Auth SDK
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    await userCredential.user.updateProfile({ displayName: username });
+                    const idToken = await userCredential.user.getIdToken();
 
-                // Optionally store extra profile data via backend
-                const response = await makeRequest('POST', '/api/users/register', {
-                    username,
-                    email,
-                    password,
-                    age,
-                    idToken,
-                });
-
-                currentUser = userCredential.user;
-                document.getElementById('user-response').textContent = response;
+                    const response = await makeRequest('POST', '/api/users/register', {
+                        username, email, password, age, idToken,
+                    });
+                    currentUser = userCredential.user;
+                    document.getElementById('user-response').textContent = response;
+                } else {
+                    // Fallback: backend handles everything
+                    const response = await makeRequest('POST', '/api/users/register', {
+                        username, email, password, age,
+                    });
+                    document.getElementById('user-response').textContent = response;
+                }
             } catch (error: any) {
                 document.getElementById('user-response').textContent = JSON.stringify({
                     error: error.message,
@@ -483,18 +501,24 @@ const testHTML = `<!DOCTYPE html>
                 const email = document.getElementById('user-email').value;
                 const password = document.getElementById('user-password').value;
 
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                const idToken = await userCredential.user.getIdToken();
+                if (auth) {
+                    // Login via Firebase Auth SDK
+                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    const idToken = await userCredential.user.getIdToken();
 
-                const response = await fetch(\`\${GATEWAY_URL}/api/users/login\`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password, idToken }),
-                });
-                const result = await response.json();
-
-                currentUser = userCredential.user;
-                document.getElementById('user-response').textContent = JSON.stringify(result, null, 2);
+                    const response = await fetch(\`\${GATEWAY_URL}/api/users/login\`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password, idToken }),
+                    });
+                    const result = await response.json();
+                    currentUser = userCredential.user;
+                    document.getElementById('user-response').textContent = JSON.stringify(result, null, 2);
+                } else {
+                    // Fallback: backend handles via REST API
+                    const response = await makeRequest('POST', '/api/users/login', { email, password });
+                    document.getElementById('user-response').textContent = response;
+                }
             } catch (error: any) {
                 document.getElementById('user-response').textContent = JSON.stringify({
                     error: error.message,
