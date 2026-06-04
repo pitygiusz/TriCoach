@@ -488,7 +488,7 @@ const testHTML = `<!DOCTYPE html>
                     });
                     document.getElementById('user-response').textContent = response;
                 }
-            } catch (error: any) {
+            } catch (error) {
                 document.getElementById('user-response').textContent = JSON.stringify({
                     error: error.message,
                     code: error.code,
@@ -519,7 +519,7 @@ const testHTML = `<!DOCTYPE html>
                     const response = await makeRequest('POST', '/api/users/login', { email, password });
                     document.getElementById('user-response').textContent = response;
                 }
-            } catch (error: any) {
+            } catch (error) {
                 document.getElementById('user-response').textContent = JSON.stringify({
                     error: error.message,
                     code: error.code,
