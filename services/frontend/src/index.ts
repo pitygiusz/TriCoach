@@ -6,10 +6,6 @@ app.use(express.json());
 const port = process.env.PORT || '8080';
 const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
 
-// Serve static assets from this src folder (so index.html can load local files)
-const staticDir = path.join(__dirname);
-app.use(express.static(staticDir));
-
 // Firebase config from env vars with fallback defaults
 const firebaseApiKey = process.env.FIREBASE_API_KEY || 'api_key';
 const firebaseAuthDomain = process.env.FIREBASE_AUTH_DOMAIN || 'key';
@@ -1288,15 +1284,9 @@ const luxeHTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Serve main index.html at the root
+// Serve the test console at the root
 app.get('/', (req: Request, res: Response) => {
-    const indexPath = path.join(staticDir, 'index.html');
-    res.status(200).sendFile(indexPath);
-});
-
-// Serve the test console at /console
-app.get('/console', (req: Request, res: Response) => {
-    res.status(200).send(testHTML);
+  res.status(200).send(testHTML);
 });
 
 app.listen(Number(port), () => {
