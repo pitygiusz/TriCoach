@@ -652,8 +652,13 @@ const testHTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Serve the test console at the root
+// Serve the main frontend page at the root
 app.get('/', (req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Serve the test console at /console
+app.get('/console', (req: Request, res: Response) => {
   res.status(200).send(testHTML);
 });
 
