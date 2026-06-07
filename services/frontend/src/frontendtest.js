@@ -1,4 +1,4 @@
-const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
+const gatewayUrl = (typeof process !== 'undefined' && process.env && process.env.GATEWAY_URL) || 'http://localhost:3000';
 const postsEndpoint = `${gatewayUrl}/posts`;
 const postsContainer = document.getElementById("postsContainer");
 const menuPanel = document.getElementById("menuPanel");
@@ -128,12 +128,21 @@ async function fetchWorkouts() {
     const response = await fetch(WORKOUTS_API);
     const data = await response.json();
     
+    // const data = {
+    //   workouts: [
+    //     { id: "wk_101", name: "10km Morning Run" },
+    //     { id: "wk_102", name: "40km Zone 2 Ride" },
+    //     { id: "wk_103", name: "1500m Pool Swim" }
+    //   ]
+    // };
+
     workoutSelect.innerHTML = '<option value="">-- Select a training (Optional) --</option>';
     
     data.workouts.forEach(workout => {
       const option = document.createElement("option");
       option.value = workout.id;
-      option.textContent = workout.name;
+      const distance = parseFloat(workout.distance_km) || 0;
+      option.textContent = `${workout.type || 'workout'} • ${workout.duration_minutes || 0} min • ${distance.toFixed(2)} km`;
       workoutSelect.appendChild(option);
     });
     
