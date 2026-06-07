@@ -1,4 +1,5 @@
-const postsEndpoint = "/posts";
+const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
+const postsEndpoint = `${gatewayUrl}/posts`;
 const postsContainer = document.getElementById("postsContainer");
 const menuPanel = document.getElementById("menuPanel");
 const hamburgerBtn = document.getElementById("hamburgerBtn");
@@ -105,9 +106,8 @@ const workoutSelect = document.getElementById("workoutSelect");
 const submitPostBtn = document.getElementById("submitPostBtn");
 const postContentInput = document.getElementById("postContentInput");
 
-// Dummy API Endpoints
-const WORKOUTS_API = "https://dummyapi.com/v1/workouts";
-const CREATE_POST_API = "https://dummyapi.com/v1/posts";
+const WORKOUTS_API = `${gatewayUrl}/workouts`;
+const CREATE_POST_API = `${gatewayUrl}/posts`;
 
 // 1. Open modal and fetch workouts
 openCreatePostBtn.addEventListener("click", async () => {
@@ -125,18 +125,8 @@ async function fetchWorkouts() {
   workoutSelect.innerHTML = '<option value="">Loading...</option>';
   
   try {
-    // In a real scenario, you'd un-comment the fetch:
-    // const response = await fetch(WORKOUTS_API);
-    // const data = await response.json();
-    
-    // MOCKING the API response for now:
-    const data = {
-      workouts: [
-        { id: "wk_101", name: "10km Morning Run" },
-        { id: "wk_102", name: "40km Zone 2 Ride" },
-        { id: "wk_103", name: "1500m Pool Swim" }
-      ]
-    };
+    const response = await fetch(WORKOUTS_API);
+    const data = await response.json();
     
     workoutSelect.innerHTML = '<option value="">-- Select a training (Optional) --</option>';
     
@@ -172,8 +162,6 @@ submitPostBtn.addEventListener("click", async () => {
   };
 
   try {
-    // In a real scenario, you'd un-comment this POST request:
-    /*
     const response = await fetch(CREATE_POST_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -181,7 +169,6 @@ submitPostBtn.addEventListener("click", async () => {
     });
     
     if (!response.ok) throw new Error("Failed to post");
-    */
 
     // Logging the payload to the console so you can verify it works
     console.log("SUCCESS! Payload sent to API:", postPayload);
