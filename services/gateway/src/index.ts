@@ -1,7 +1,9 @@
 import express, { Request, Response, NextFunction } from 'express';
 import axios from 'axios';
+import cors from 'cors';
 
 const app = express();
+app.use(cors({ origin: true }));
 app.use(express.json());
 const port = process.env.PORT || '3000';
 
@@ -261,15 +263,6 @@ app.get('/api/following/:userId', async (req: Request, res: Response) => {
 });
 
 // RACE SERVICE ROUTES
-app.post('/api/race/predict', async (req: Request, res: Response) => {
-  try {
-    const response = await axios.post(`${SERVICES.race}/predict`, req.body);
-    res.status(response.status).json(response.data);
-  } catch (error: any) {
-    res.status(error.response?.status || 500).json({ error: error.message });
-  }
-});
-
 app.get('/api/races', async (req: Request, res: Response) => {
   try {
     const response = await axios.get(`${SERVICES.race}/races`);
@@ -291,6 +284,15 @@ app.get('/api/race/predictions/:userId', async (req: Request, res: Response) => 
 app.post('/api/race/simulate', async (req: Request, res: Response) => {
   try {
     const response = await axios.post(`${SERVICES.race}/simulate`, req.body);
+    res.status(response.status).json(response.data);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: error.message });
+  }
+});
+
+app.post('/api/race/simulate-ai', async (req: Request, res: Response) => {
+  try {
+    const response = await axios.post(`${SERVICES.race}/simulate-ai`, req.body);
     res.status(response.status).json(response.data);
   } catch (error: any) {
     res.status(error.response?.status || 500).json({ error: error.message });

@@ -2,6 +2,9 @@ import express, { Request, Response } from 'express';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, doc, serverTimestamp, increment } from 'firebase/firestore';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FirestoreDoc = Record<string, any>;
+
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || '3004';
@@ -66,7 +69,7 @@ app.get('/feed/:userId', async (req: Request, res: Response) => {
       query(collection(db, 'follows'), where('followerId', '==', userId))
     );
 
-    const followedUserIds = followingSnapshot.docs.map(doc => doc.data().followingId);
+    const followedUserIds = followingSnapshot.docs.map((doc: any) => doc.data().followingId);
     followedUserIds.push(userId); // Include own posts
 
     // Get posts from followed users
@@ -76,13 +79,13 @@ app.get('/feed/:userId', async (req: Request, res: Response) => {
     );
 
     const postsSnapshot = await getDocs(postsQuery);
-    const posts = postsSnapshot.docs.map(doc => ({
+    const posts: any[] = postsSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
     }));
 
     // Sort by date and paginate
-    const sortedPosts = posts.sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
+    const sortedPosts = posts.sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
     const paginatedPosts = sortedPosts.slice(Number(offset), Number(offset) + Number(limit));
 
     res.status(200).json({
@@ -159,7 +162,7 @@ app.get('/followers/:userId', async (req: Request, res: Response) => {
       query(collection(db, 'follows'), where('followingId', '==', userId))
     );
 
-    const followers = followersSnapshot.docs.map(doc => ({
+    const followers = followersSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -183,7 +186,7 @@ app.get('/following/:userId', async (req: Request, res: Response) => {
       query(collection(db, 'follows'), where('followerId', '==', userId))
     );
 
-    const following = followingSnapshot.docs.map(doc => ({
+    const following = followingSnapshot.docs.map((doc: any) => ({
       id: doc.id,
       ...doc.data(),
     }));

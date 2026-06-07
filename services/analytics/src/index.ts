@@ -5,12 +5,28 @@ const app = express();
 app.use(express.json());
 const port = process.env.PORT || '3003';
 
-const db = new Client({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password',
-  database: 'tricoach-db',
-});
+// Cloud SQL connection via Unix socket when in GCP, fallback to host for local dev
+const dbHost = process.env.DB_HOST || 'localhost';
+const dbUser = process.env.DB_USER || 'postgres';
+const dbPassword = process.env.DB_PASSWORD || 'password';
+const dbName = process.env.DB_NAME || 'tricoach-db';
+const cloudSqlConnectionName = process.env.CLOUD_SQL_CONNECTION_NAME;
+
+const db = new Client(
+  cloudSqlConnectionName
+    ? {
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+        host: `/cloudsql/${cloudSqlConnectionName}`,
+      }
+    : {
+        host: dbHost,
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+      }
+);
 
 db.connect().catch(err => console.error('Database connection failed:', err));
 
@@ -32,8 +48,6 @@ app.get('/stats/:userId', async (req: Request, res: Response) => {
          SUM(CASE WHEN type = 'run' THEN 1 ELSE 0 END) as run_count,
          SUM(duration_minutes) as total_duration_minutes,
          SUM(distance_km) as total_distance_km,
-         SUM(calories_burned) as total_calories,
-         AVG(pace_per_km) as avg_pace,
          MAX(timestamp) as last_workout
        FROM "TrainingHistory"
        WHERE user_id = $1`,
@@ -57,8 +71,7 @@ app.get('/trends/:userId/weekly', async (req: Request, res: Response) => {
          DATE_TRUNC('week', timestamp) as week_start,
          COUNT(*) as workouts,
          SUM(duration_minutes) as duration_minutes,
-         SUM(distance_km) as distance_km,
-         SUM(calories_burned) as calories_burned
+         SUM(distance_km) as distance_km
        FROM "TrainingHistory"
        WHERE user_id = $1 AND timestamp >= NOW() - INTERVAL '12 weeks'
        GROUP BY DATE_TRUNC('week', timestamp)
@@ -83,8 +96,7 @@ app.get('/trends/:userId/monthly', async (req: Request, res: Response) => {
          DATE_TRUNC('month', timestamp) as month_start,
          COUNT(*) as workouts,
          SUM(duration_minutes) as duration_minutes,
-         SUM(distance_km) as distance_km,
-         SUM(calories_burned) as calories_burned
+         SUM(distance_km) as distance_km
        FROM "TrainingHistory"
        WHERE user_id = $1 AND timestamp >= NOW() - INTERVAL '12 months'
        GROUP BY DATE_TRUNC('month', timestamp)

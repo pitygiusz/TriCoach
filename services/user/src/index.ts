@@ -1,47 +1,72 @@
 import express, { Request, Response } from 'express';
-import { Client } from 'pg';
+import admin from 'firebase-admin';
+import https from 'https';
 
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || '3001';
 
-const db = new Client({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password',
-  database: 'tricoach-db',
+// Initialize Firebase Admin SDK
+const firebaseAdmin = admin.initializeApp({
+  credential: admin.credential.applicationDefault(),
 });
 
-db.connect().catch(err => console.error('Database connection failed:', err));
+const auth = firebaseAdmin.auth();
+
+const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || '';
+const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`;
 
 // Health check
 app.get('/', (req: Request, res: Response) => {
-  res.status(200).json({ service: 'User Service', status: 'ok' });
+  res.status(200).json({ service: 'User Service (Firebase Auth)', status: 'ok' });
 });
 
 // Register new user
 app.post('/register', async (req: Request, res: Response) => {
   try {
-    const { username, email, password_hash, age, weight, experience_level } = req.body;
-    
-    if (!username || !email || !password_hash) {
-      res.status(400).json({ error: 'Missing required fields' });
+    const { username, email, password, age, weight, experience_level } = req.body;
+
+    if (!username || !email) {
+      res.status(400).json({ error: 'Missing required fields: username, email' });
       return;
     }
 
-    const result = await db.query(
-      `INSERT INTO "Users" (username, email, password_hash, age, weight, experience_level) 
-       VALUES ($1, $2, $3, $4, $5, $6) 
-       RETURNING id, username, email, age, weight, experience_level`,
-      [username, email, password_hash, age || null, weight || null, experience_level || 1]
-    );
+    let firebaseUser;
+    try {
+      // Try to create user in Firebase Auth
+      firebaseUser = await auth.createUser({
+        email,
+        password,
+        displayName: username,
+      });
+    } catch (createError: any) {
+      // If user already exists (e.g. created by frontend SDK), fetch them instead
+      if (createError.code === 'auth/email-already-exists') {
+        firebaseUser = await auth.getUserByEmail(email);
+      } else {
+        throw createError;
+      }
+    }
 
     res.status(201).json({
       message: 'User registered successfully',
-      user: result.rows[0],
+      user: {
+        uid: firebaseUser.uid,
+        username,
+        email: firebaseUser.email,
+        age: age || null,
+        weight: weight || null,
+        experience_level: experience_level || 1,
+      },
     });
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.error('Registration error:', error);
+
+    if (error.code === 'auth/weak-password') {
+      res.status(400).json({ error: 'Password must be at least 6 characters' });
+      return;
+    }
+
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -49,137 +74,163 @@ app.post('/register', async (req: Request, res: Response) => {
 // Login user
 app.post('/login', async (req: Request, res: Response) => {
   try {
-    const { email, password_hash } = req.body;
+    const { email, password, idToken } = req.body;
 
-    if (!email || !password_hash) {
+    // If idToken provided by frontend SDK, verify it directly
+    if (idToken) {
+      const decodedToken = await auth.verifyIdToken(idToken);
+      const firebaseUser = await auth.getUser(decodedToken.uid);
+
+      res.status(200).json({
+        message: 'Login successful',
+        user: {
+          uid: firebaseUser.uid,
+          username: firebaseUser.displayName,
+          email: firebaseUser.email,
+        },
+        token: idToken,
+      });
+      return;
+    }
+
+    // Fallback: email+password via REST API (for non-SDK clients)
+    if (!email || !password) {
       res.status(400).json({ error: 'Email and password required' });
       return;
     }
 
-    const result = await db.query(
-      `SELECT id, username, email, age, weight, experience_level FROM "Users" 
-       WHERE email = $1 AND password_hash = $2`,
-      [email, password_hash]
-    );
+    const response = await new Promise<any>((resolve, reject) => {
+      const postData = JSON.stringify({ email, password, returnSecureToken: true });
 
-    if (result.rows.length === 0) {
+      const parsedUrl = new URL(signInUrl);
+      const reqHttps = https.request(
+        {
+          hostname: parsedUrl.hostname,
+          path: parsedUrl.pathname + parsedUrl.search,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+        (res: any) => {
+          let data = '';
+          res.on('data', (chunk: string) => (data += chunk));
+          res.on('end', () => {
+            try {
+              const parsed = JSON.parse(data);
+              if (res.statusCode !== 200) {
+                reject(new Error(parsed.error?.message || 'Authentication failed'));
+              } else {
+                resolve(parsed);
+              }
+            } catch {
+              reject(new Error('Invalid response from Firebase'));
+            }
+          });
+        }
+      );
+      reqHttps.on('error', reject);
+      reqHttps.write(postData);
+      reqHttps.end();
+    });
+
+    const firebaseUser = await auth.getUser(response.localId);
+
+    res.status(200).json({
+      message: 'Login successful',
+      user: {
+        uid: firebaseUser.uid,
+        username: firebaseUser.displayName,
+        email: firebaseUser.email,
+      },
+      token: response.idToken,
+      refreshToken: response.refreshToken,
+    });
+  } catch (error: any) {
+    console.error('Login error:', error);
+
+    if (error.message === 'EMAIL_NOT_FOUND' || error.message === 'INVALID_PASSWORD' || error.message === 'INVALID_LOGIN_CREDENTIALS') {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
     }
 
-    res.status(200).json({
-      message: 'Login successful',
-      user: result.rows[0],
-      token: `token-${result.rows[0].id}`, // Simplified token
-    });
-  } catch (error) {
-    console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get user profile
+// Verify Firebase ID token and get user profile
 app.get('/profile/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
-    const result = await db.query(
-      `SELECT id, username, email, age, weight, experience_level FROM "Users" WHERE id = $1`,
-      [userId]
-    );
+    const firebaseUser = await auth.getUser(userId);
 
-    if (result.rows.length === 0) {
+    res.status(200).json({
+      uid: firebaseUser.uid,
+      username: firebaseUser.displayName,
+      email: firebaseUser.email,
+    });
+  } catch (error: any) {
+    console.error(error);
+    if (error.code === 'auth/user-not-found') {
       res.status(404).json({ error: 'User not found' });
       return;
     }
-
-    res.status(200).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Update user profile
+// Update user profile (displayName in Firebase)
 app.put('/profile/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const { username, age, weight, experience_level } = req.body;
+    const { username } = req.body;
 
-    const result = await db.query(
-      `UPDATE "Users" 
-       SET username = COALESCE($1, username), 
-           age = COALESCE($2, age), 
-           weight = COALESCE($3, weight), 
-           experience_level = COALESCE($4, experience_level)
-       WHERE id = $5
-       RETURNING id, username, email, age, weight, experience_level`,
-      [username, age, weight, experience_level, userId]
-    );
+    await auth.updateUser(userId, {
+      displayName: username || undefined,
+    });
 
-    if (result.rows.length === 0) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
+    const firebaseUser = await auth.getUser(userId);
 
     res.status(200).json({
       message: 'Profile updated successfully',
-      user: result.rows[0],
+      user: {
+        uid: firebaseUser.uid,
+        username: firebaseUser.displayName,
+        email: firebaseUser.email,
+      },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
+    if (error.code === 'auth/user-not-found') {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Get user preferences
-app.get('/preferences/:userId', async (req: Request, res: Response) => {
+// Verify token endpoint – used by gateway to validate requests
+app.post('/verify-token', async (req: Request, res: Response) => {
   try {
-    const { userId } = req.params;
+    const { idToken } = req.body;
 
-    const result = await db.query(
-      `SELECT id, user_id, theme, notifications_enabled, language 
-       FROM "UserPreferences" WHERE user_id = $1`,
-      [userId]
-    );
-
-    if (result.rows.length === 0) {
-      res.status(200).json({ theme: 'dark', notifications_enabled: true, language: 'en' });
+    if (!idToken) {
+      res.status(400).json({ error: 'ID token required' });
       return;
     }
 
-    res.status(200).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Update user preferences
-app.put('/preferences/:userId', async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.params;
-    const { theme, notifications_enabled, language } = req.body;
-
-    const result = await db.query(
-      `INSERT INTO "UserPreferences" (user_id, theme, notifications_enabled, language)
-       VALUES ($1, $2, $3, $4)
-       ON CONFLICT (user_id) 
-       DO UPDATE SET theme = $2, notifications_enabled = $3, language = $4
-       RETURNING id, user_id, theme, notifications_enabled, language`,
-      [userId, theme || 'dark', notifications_enabled !== undefined ? notifications_enabled : true, language || 'en']
-    );
+    const decodedToken = await auth.verifyIdToken(idToken);
 
     res.status(200).json({
-      message: 'Preferences updated successfully',
-      preferences: result.rows[0],
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+      valid: true,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(401).json({ error: 'Invalid or expired token' });
   }
 });
 
 app.listen(Number(port), () => {
-  console.log(`🏃 User Service running on port ${port}`);
+  console.log(`🏃 User Service (Firebase Auth) running on port ${port}`);
 });

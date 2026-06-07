@@ -10,6 +10,15 @@ const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
 const staticDir = path.join(__dirname);
 app.use(express.static(staticDir));
 
+// Firebase config from env vars with fallback defaults
+const firebaseApiKey = process.env.FIREBASE_API_KEY || 'api_key';
+const firebaseAuthDomain = process.env.FIREBASE_AUTH_DOMAIN || 'key';
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || 'key';
+const firebaseStorageBucket = process.env.FIREBASE_STORAGE_BUCKET || 'key';
+const firebaseMessagingSenderId = process.env.FIREBASE_MESSAGING_SENDER_ID || 'key';
+const firebaseAppId = process.env.FIREBASE_APP_ID || 'key';
+const firebaseMeasurementId = process.env.FIREBASE_MEASUREMENT_ID || 'key';
+
 const testHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -210,8 +219,8 @@ const testHTML = `<!DOCTYPE html>
                     <input type="text" id="user-username" placeholder="username" value="testuser">
                 </div>
                 <div class="form-group">
-                    <label>Password Hash</label>
-                    <input type="text" id="user-password" placeholder="password_hash" value="hash123">
+                    <label>Password</label>
+                    <input type="text" id="user-password" placeholder="password" value="test123">
                 </div>
                 <div class="form-group">
                     <label>Age</label>
@@ -223,6 +232,7 @@ const testHTML = `<!DOCTYPE html>
                 </div>
                 
                 <button onclick="registerUser()">Register User</button>
+                <button onclick="loginUser()">Login User</button>
                 <button onclick="getProfile()">Get Profile</button>
                 <button class="secondary" onclick="clearUserResponse()">Clear</button>
                 
@@ -345,9 +355,9 @@ const testHTML = `<!DOCTYPE html>
                     </select>
                 </div>
                 
-                <button onclick="predictRace()">Predict Race Time</button>
-                <button onclick="getRaces()">Get Races Info</button>
                 <button onclick="simulateRace()">Simulate Race</button>
+                <button onclick="simulateRaceAI()">AI Simulate</button>
+                <button onclick="getRaces()">Get Races Info</button>
                 <button class="secondary" onclick="clearRaceResponse()">Clear</button>
                 
                 <div class="response-panel">
@@ -393,18 +403,24 @@ const testHTML = `<!DOCTYPE html>
         </div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script>
         const GATEWAY_URL = '${gatewayUrl}';
+        let currentUser = null;
+        let auth = null;
 
-        // Initialize status checks
-        window.addEventListener('load', () => {
+        // Firestore status check (runs immediately, no Firebase dependency)
+        function startStatusChecks() {
             checkServiceStatus('user', 'User Service');
             checkServiceStatus('training', 'Training Service');
             checkServiceStatus('analytics', 'Analytics Service');
             checkServiceStatus('social', 'Social Service');
             checkServiceStatus('race', 'Race Service');
             checkServiceStatus('gateway', 'API Gateway');
-        });
+        }
+
+        window.addEventListener('load', startStatusChecks);
 
         async function checkServiceStatus(service, name) {
             try {
@@ -432,16 +448,88 @@ const testHTML = `<!DOCTYPE html>
             }
         }
 
-        // USER SERVICE
-        async function registerUser() {
-            const data = {
-                username: document.getElementById('user-username').value,
-                email: document.getElementById('user-email').value,
-                password_hash: document.getElementById('user-password').value,
-                age: parseInt(document.getElementById('user-age').value),
+        // Initialize Firebase (if SDK loaded successfully)
+        try {
+            const firebaseConfig = {
+                apiKey: '${firebaseApiKey}',
+                authDomain: '${firebaseAuthDomain}',
+                projectId: '${firebaseProjectId}',
+                storageBucket: '${firebaseStorageBucket}',
+                messagingSenderId: '${firebaseMessagingSenderId}',
+                appId: '${firebaseAppId}',
+                measurementId: '${firebaseMeasurementId}',
             };
-            const response = await makeRequest('POST', '/api/users/register', data);
-            document.getElementById('user-response').textContent = response;
+
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            console.log('🔥 Firebase Auth initialized');
+        } catch (e) {
+            console.warn('Firebase SDK not available, login/register will use backend fallback');
+        }
+
+        // USER SERVICE – Firebase Auth with fallback
+        async function registerUser() {
+            try {
+                const email = document.getElementById('user-email').value;
+                const password = document.getElementById('user-password').value;
+                const username = document.getElementById('user-username').value;
+                const age = parseInt(document.getElementById('user-age').value);
+
+                if (auth) {
+                    // Create user via Firebase Auth SDK
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    await userCredential.user.updateProfile({ displayName: username });
+                    const idToken = await userCredential.user.getIdToken();
+
+                    const response = await makeRequest('POST', '/api/users/register', {
+                        username, email, password, age, idToken,
+                    });
+                    currentUser = userCredential.user;
+                    document.getElementById('user-response').textContent = response;
+                } else {
+                    // Fallback: backend handles everything
+                    const response = await makeRequest('POST', '/api/users/register', {
+                        username, email, password, age,
+                    });
+                    document.getElementById('user-response').textContent = response;
+                }
+            } catch (error) {
+                document.getElementById('user-response').textContent = JSON.stringify({
+                    error: error.message,
+                    code: error.code,
+                }, null, 2);
+            }
+        }
+
+        async function loginUser() {
+            try {
+                const email = document.getElementById('user-email').value;
+                const password = document.getElementById('user-password').value;
+
+                if (auth) {
+                    // Login via Firebase Auth SDK
+                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    const idToken = await userCredential.user.getIdToken();
+
+                    const response = await fetch(\`\${GATEWAY_URL}/api/users/login\`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password, idToken }),
+                    });
+                    const result = await response.json();
+                    currentUser = userCredential.user;
+                    document.getElementById('user-response').textContent = JSON.stringify(result, null, 2);
+                } else {
+                    // Fallback: backend handles via REST API
+                    const response = await makeRequest('POST', '/api/users/login', { email, password });
+                    document.getElementById('user-response').textContent = response;
+                }
+            } catch (error) {
+                document.getElementById('user-response').textContent = JSON.stringify({
+                    error: error.message,
+                    code: error.code,
+                }, null, 2);
+            }
         }
 
         async function getProfile() {
@@ -510,26 +598,27 @@ const testHTML = `<!DOCTYPE html>
         }
 
         // RACE SERVICE
-        async function predictRace() {
-            const data = {
-                user_id: document.getElementById('race-user-id').value,
-                race_type: document.getElementById('race-type').value,
-            };
-            const response = await makeRequest('POST', '/api/race/predict', data);
-            document.getElementById('race-response').textContent = response;
-        }
-
-        async function getRaces() {
-            const response = await makeRequest('GET', '/api/races');
-            document.getElementById('race-response').textContent = response;
-        }
-
         async function simulateRace() {
             const data = {
                 user_id: document.getElementById('race-user-id').value,
                 race_type: document.getElementById('race-type').value,
             };
             const response = await makeRequest('POST', '/api/race/simulate', data);
+            document.getElementById('race-response').textContent = response;
+        }
+
+        async function simulateRaceAI() {
+            const data = {
+                user_id: document.getElementById('race-user-id').value,
+                race_type: document.getElementById('race-type').value,
+            };
+            document.getElementById('race-response').textContent = '⏳ AI is analyzing your training data...';
+            const response = await makeRequest('POST', '/api/race/simulate-ai', data);
+            document.getElementById('race-response').textContent = response;
+        }
+
+        async function getRaces() {
+            const response = await makeRequest('GET', '/api/races');
             document.getElementById('race-response').textContent = response;
         }
 

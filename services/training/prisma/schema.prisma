@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TrainingHistory {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  timestamp         DateTime @map("timestamp")
+  type              String   // 'run', 'bike', 'swim'
+  durationMinutes   Int      @map("duration_minutes")
+  distanceKm        Decimal  @map("distance_km")
+
+  @@map("TrainingHistory")
+}
+
+model TrainingPlan {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  name              String
+  targetDistanceKm  Decimal  @map("target_distance_km")
+
+  @@map("TrainingPlans")
+}

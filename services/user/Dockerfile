@@ -13,6 +13,7 @@ FROM node:20-alpine AS release
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3001
+ENV FIREBASE_AUTH_EMULATOR_HOST=
 
 COPY package*.json ./
 COPY --from=build /app/node_modules ./node_modules

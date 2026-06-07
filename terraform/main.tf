@@ -55,6 +55,14 @@ resource "google_sql_database_instance" "sql_instance" {
 
   settings {
     tier = "db-f1-micro"
+    
+    ip_configuration {
+      ipv4_enabled = true
+      authorized_networks {
+        name  = "public-access"
+        value = "0.0.0.0/0"
+      }
+    }
   }
   deletion_protection = false
 }
@@ -136,6 +144,35 @@ resource "google_cloud_run_v2_service" "microservices" {
       ports {
         container_port = each.value.port
       }
+
+      env {
+        name  = "DB_HOST"
+        value = google_sql_database_instance.sql_instance.public_ip_address
+      }
+
+      env {
+        name  = "DB_USER"
+        value = google_sql_database_instance.sql_instance.name == "" ? "tricoachadmin" : google_sql_user.users.name
+      }
+
+      env {
+        name  = "DB_PASSWORD"
+        value = random_password.sql_password.result
+      }
+
+      env {
+        name  = "DB_NAME"
+        value = google_sql_database.database.name
+      }
+    }
+
+    scaling {
+      max_instance_count = 1
+    }
+
+    vpc_access {
+      connector = google_vpc_access_connector.cloud_sql_connector.id
+      egress    = "PRIVATE_RANGES_ONLY"
     }
   }
 
@@ -144,6 +181,17 @@ resource "google_cloud_run_v2_service" "microservices" {
       template[0].containers[0].image
     ]
   }
+}
+
+# VPC Access Connector to reach Cloud SQL privately
+resource "google_vpc_access_connector" "cloud_sql_connector" {
+  name          = "${var.prefix}-sql-connector"
+  region        = var.region
+  network       = "default"
+  ip_cidr_range = "10.8.0.0/28"
+  machine_type  = "e2-micro"
+  min_instances = 2
+  max_instances = 3
 }
 
 # Allow public access for testing purposes
