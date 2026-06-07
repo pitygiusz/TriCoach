@@ -3,6 +3,7 @@ import path from 'path';
 
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname)));
 const port = process.env.PORT || '8080';
 const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
 
