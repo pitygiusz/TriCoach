@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Post Feed</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <div class="main-area">
+      <header class="topbar">
+        <button id="hamburgerBtn" class="hamburger" aria-label="Open menu">&#9776;</button>
+        <button class="toggle-btn" id="toggle" aria-label="Toggle menu">
+          <img src="https://i.pravatar.cc/48?img=47" alt="Profile" />
+        </button>
+        <div class="title-group">
+          <span class="app-label">TriCoach</span>
+          <h1>TriPosts</h1>
+        </div>
+        <div class="simulate_train">
+          <img src="https://i.pravatar.cc/48?img=12" alt="User" />
+          <div>
+            <strong>Simulate run</strong>
+            <span>Find goals</span>
+          </div>
+        </div>
+      </header>
+
+      <div id="menuPanel" class="menu-panel hidden" aria-hidden="true">
+        <!-- <button id="closeMenu" class="menu-close" aria-label="Close menu">×</button> -->
+        <div class="menu-content">
+          <h2>Menu</h2>
+          <button id="newPostBtn" class="menu-item">Create Post</button>
+          <button id="draftsBtn" class="menu-item">Drafts</button>
+          <button id="settingsBtn" class="menu-item">Settings</button>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button id="openCreatePostBtn" class="action-pill active">New Post</button>
+        <button class="action-pill">Following</button>
+        <button class="action-pill">Popular</button>
+        <button class="action-pill">New</button>
+      </div>
+
+      <main class="feed">
+        <div id="postsContainer" class="posts-container">
+          <div class="empty-state">Loading posts…</div>
+        </div>
+      </main>
+    </div>
+
+    <aside class="sidebar" id="sidebarHid">
+      <div class="sidebar-card">
+        <h2>Profile</h2>
+        <div class="profile-card">
+          <button class="profileBtn" id="profileBtn" aria-label="btnprofile">
+            <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
+          </button>
+          <!-- <img src="https://i.pravatar.cc/80?img=47" alt="Profile" /> -->
+          <div>
+            <strong>Jane Doe</strong>
+            <span>@janedoe</span>
+          </div>
+        </div>
+      </div>
+      <div class="sidebar-card">
+        <h2>Trending</h2>
+        <ul>
+          <li>#frontend</li>
+          <li>#microservices</li>
+          <li>#design</li>
+          <li>#performance</li>
+        </ul>
+      </div>
+      <div class="sidebar-card">
+        <h2>Options</h2>
+        <ul>
+          <li>Settings</li>
+          <li>Notifications</li>
+          <li>Help</li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+  <div id="createPostModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2>Create New Post</h2>
+        <button id="closePostModalBtn" class="menu-close" aria-label="Close modal">×</button>
+      </header>
+
+      <div class="modal-body">
+        <textarea id="postContentInput" placeholder="How was your training today?"></textarea>
+
+        <div class="workout-selector">
+          <label for="workoutSelect">Attach a Training:</label>
+          <select id="workoutSelect">
+            <option value="">Loading workouts...</option>
+          </select>
+        </div>
+      </div>
+
+      <footer class="modal-actions">
+        <button id="submitPostBtn" class="action-pill active">Post</button>
+      </footer>
+    </div>
+  </div>
+  <script src="frontendtest.js"></script>
+</body>
+</html>

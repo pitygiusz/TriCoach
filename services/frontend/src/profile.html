@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jane Doe - Profile</title>
+  <!-- Links to your existing stylesheet -->
+  <link rel="stylesheet" href="styles.css" /> 
+</head>
+<body>
+    <div class="app-shell">
+        
+        <div class="main-area">
+            <!-- Topbar with a back button -->
+            <header class="topbar">
+                <button onclick="window.location.href='index.html'" class="hamburger" aria-label="Go back">←</button>
+                <div class="title-group">
+                  <span class="app-label">TriCoach</span>
+                  <h1>User Profile</h1>
+                </div>
+            </header>
+            
+            <!-- Profile Overview (Reusing the sidebar-card styling for a main element) -->
+            <div class="sidebar-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 40px 20px;">
+                <img src="https://i.pravatar.cc/150?img=47" alt="Jane Doe" style="width: 120px; height: 120px; border-radius: 999px; object-fit: cover; border: 3px solid var(--primary);" />
+                <div>
+                    <h2 style="margin: 0 0 8px; font-size: 1.8rem; color: var(--text);">Jane Doe</h2>
+                    <span style="color: var(--muted); font-size: 1.1rem;">@janedoe</span>
+                </div>
+                <p style="margin: 0; max-width: 500px; line-height: 1.6;">Frontend developer and triathlon enthusiast. Sharing my training progress and coding milestones step by step.</p>
+                
+                <!-- Reusing action-pill for stats -->
+                <div class="action-bar" style="justify-content: center; width: 100%; margin-top: 10px;">
+                    <div class="action-pill"><strong>142</strong> Posts</div>
+                    <div class="action-pill"><strong>1.2k</strong> Followers</div>
+                    <div class="action-pill"><strong>300</strong> Following</div>
+                </div>
+            </div>
+            
+            <!-- Filters for the user's content -->
+            <div class="action-bar">
+                <button class="action-pill active">Recent Posts</button>
+                <button class="action-pill">Media</button>
+                <button class="action-pill">Likes</button>
+            </div>
+            
+            <!-- User's Post Feed -->
+            <main class="feed">
+                <div class="posts-container">
+                    <!-- A static example of a post-card matching your JS generation -->
+                    <article class="post-card">
+                        <header>
+                          <img class="avatar" src="https://i.pravatar.cc/80?img=47" alt="Jane Doe" />
+                          <div class="post-author">
+                            <strong>Jane Doe</strong>
+                            <span>@janedoe · 2 hours ago</span>
+                          </div>
+                        </header>
+                        <h3>Just finished a 10k run!</h3>
+                        <p>Felt great today. The new training schedule is really paying off. Next up: cycling.</p>
+                        <div class="post-meta">
+                          <span>12 comments</span>
+                          <span>45 likes</span>
+                        </div>
+                    </article>
+
+                    <article class="post-card">
+                        <header>
+                          <img class="avatar" src="https://i.pravatar.cc/80?img=47" alt="Jane Doe" />
+                          <div class="post-author">
+                            <strong>Jane Doe</strong>
+                            <span>@janedoe · 1 day ago</span>
+                          </div>
+                        </header>
+                        <h3>Refactoring the Frontend</h3>
+                        <p>Spent the whole afternoon moving our monolithic CSS into modern, scoped custom properties. The dark theme looks incredibly sleek now!</p>
+                        <div class="post-meta">
+                          <span>34 comments</span>
+                          <span>120 likes</span>
+                        </div>
+                    </article>
+                </div>
+            </main>
+        </div>
+        
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebarHid">
+          <div class="sidebar-card">
+            <h2>About</h2>
+            <ul>
+              <li style="color: var(--muted); font-size: 0.95rem; line-height: 1.5;">Joined March 2023</li>
+              <li style="color: var(--muted); font-size: 0.95rem; line-height: 1.5;">San Francisco, CA</li>
+            </ul>
+          </div>
+          <div class="sidebar-card">
+            <h2>Mutual Friends</h2>
+            <div class="profile-card" style="margin-bottom: 12px;">
+              <img src="https://i.pravatar.cc/80?img=12" alt="John Smith" />
+              <div>
+                <strong>John Smith</strong>
+                <span>@jsmith</span>
+              </div>
+            </div>
+             <div class="profile-card">
+              <img src="https://i.pravatar.cc/80?img=33" alt="Alice M" />
+              <div>
+                <strong>Alice M</strong>
+                <span>@alicem</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+    </div>
+</body>
+</html>

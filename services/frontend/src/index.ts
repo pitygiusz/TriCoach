@@ -1,9 +1,14 @@
 import express, { Request, Response } from 'express';
+import path from 'path';
 
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || '8080';
 const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
+
+// Serve static assets from this src folder (so index.html can load local files)
+const staticDir = path.join(__dirname);
+app.use(express.static(staticDir));
 
 const testHTML = `<!DOCTYPE html>
 <html lang="en">
@@ -1194,9 +1199,15 @@ const luxeHTML = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Serve the test console at the root
+// Serve main index.html at the root
 app.get('/', (req: Request, res: Response) => {
-  res.status(200).send(testHTML);
+    const indexPath = path.join(staticDir, 'index.html');
+    res.status(200).sendFile(indexPath);
+});
+
+// Serve the test console at /console
+app.get('/console', (req: Request, res: Response) => {
+    res.status(200).send(testHTML);
 });
 
 app.listen(Number(port), () => {
