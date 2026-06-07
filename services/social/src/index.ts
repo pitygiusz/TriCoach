@@ -27,7 +27,7 @@ app.get('/', (req: Request, res: Response) => {
 // Create a post
 app.post('/posts', async (req: Request, res: Response) => {
   try {
-    const { user_id, content } = req.body;
+    const { user_id, content, training_id } = req.body;
 
     if (!user_id || !content) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -36,6 +36,7 @@ app.post('/posts', async (req: Request, res: Response) => {
 
     const postData = {
       userId: user_id,
+      trainingId: training_id || null,
       content,
       likes: 0,
       likedBy: [],
@@ -52,6 +53,37 @@ app.post('/posts', async (req: Request, res: Response) => {
         ...postData,
       },
     });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get all posts
+app.get('/posts', async (req: Request, res: Response) => {
+  try {
+    const postsSnapshot = await getDocs(collection(db, 'posts'));
+    const posts = postsSnapshot.docs.map((doc: any) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        userId: data.userId,
+        trainingId: data.trainingId || null,
+        content: data.content,
+        likes: data.likes || 0,
+        likedBy: data.likedBy || [],
+        createdAt: data.createdAt?.toMillis ? new Date(data.createdAt.toMillis()).toISOString() : null,
+        updatedAt: data.updatedAt?.toMillis ? new Date(data.updatedAt.toMillis()).toISOString() : null,
+      };
+    });
+
+    const sortedPosts = posts.sort((a: any, b: any) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    res.status(200).json(sortedPosts);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });

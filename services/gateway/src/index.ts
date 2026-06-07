@@ -215,6 +215,26 @@ app.post('/api/posts', async (req: Request, res: Response) => {
   }
 });
 
+app.get('/posts', async (req: Request, res: Response) => {
+  try {
+    const response = await axios.get(`${SERVICES.social}/posts`, {
+      params: req.query,
+    });
+    res.status(response.status).json(response.data);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: error.message });
+  }
+});
+
+app.post('/posts', async (req: Request, res: Response) => {
+  try {
+    const response = await axios.post(`${SERVICES.social}/posts`, req.body);
+    res.status(response.status).json(response.data);
+  } catch (error: any) {
+    res.status(error.response?.status || 500).json({ error: error.message });
+  }
+});
+
 app.get('/api/feed/:userId', async (req: Request, res: Response) => {
   try {
     const response = await axios.get(`${SERVICES.social}/feed/${req.params.userId}`, {

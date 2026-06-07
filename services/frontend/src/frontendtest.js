@@ -9,22 +9,37 @@ const draftsBtn = document.getElementById("draftsBtn");
 const settingsBtn = document.getElementById("settingsBtn");
 const toggle = document.getElementById("toggle");
 
+function formatTimeAgo(timestamp) {
+  if (!timestamp) return 'just now';
+  const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp);
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  if (diffMinutes < 1) return 'just now';
+  if (diffMinutes < 60) return `${diffMinutes}m ago`;
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+}
+
 function createPostCard(post) {
   const card = document.createElement("article");
   card.className = "post-card";
+  const authorName = post.userId || post.user_name || 'Anonymous';
+  const createdAt = post.createdAt || post.created_at || null;
   card.innerHTML = `
     <header>
-      <img class="avatar" src="${post.author.avatar || 'https://i.pravatar.cc/48'}" alt="${post.author.name}" />
+      <img class="avatar" src="https://i.pravatar.cc/48?u=${authorName}" alt="${authorName}" />
       <div class="post-author">
-        <strong>${post.author.name}</strong>
-        <span>${post.author.username} · ${post.timeAgo}</span>
+        <strong>${authorName}</strong>
+        <span>${formatTimeAgo(createdAt)}</span>
       </div>
     </header>
-    <h3>${post.title}</h3>
-    <p>${post.body}</p>
+    <h3>${post.trainingId ? 'Training update' : 'New post'}</h3>
+    <p>${post.content || post.body || ''}</p>
     <div class="post-meta">
-      <span>${post.comments} comments</span>
-      <span>${post.likes} likes</span>
+      <span>${post.likes || 0} likes</span>
+      <span>${post.trainingId ? 'Training attached' : 'No training attached'}</span>
     </div>
   `;
   return card;
@@ -164,17 +179,16 @@ submitPostBtn.addEventListener("click", async () => {
 
   // Constructing your exact payload structure
   const postPayload = {
-    id: "post_" + Math.random().toString(36).substr(2, 9), // Generating a dummy ID
-    userId: "user_janedoe_47", // Assuming a logged-in user
-    content: content,
-    trainingId: trainingId
+    user_id: "user_janedoe_47", // Assuming a logged-in user
+    content,
+    training_id: trainingId,
   };
 
   try {
     const response = await fetch(CREATE_POST_API, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(postPayload)
+      body: JSON.stringify(postPayload),
     });
     
     if (!response.ok) throw new Error("Failed to post");
@@ -187,8 +201,8 @@ submitPostBtn.addEventListener("click", async () => {
     workoutSelect.value = "";
     createPostModal.classList.add("hidden");
     
-    // Optional: Call loadPosts() here to refresh the feed!
-    
+    // Refresh the feed so the new post appears immediately
+    loadPosts();
   } catch (error) {
     console.error("Error creating post:", error);
     alert("Failed to create post. Try again.");
