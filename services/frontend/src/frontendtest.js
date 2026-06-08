@@ -11,6 +11,22 @@ const draftsBtn = document.getElementById("draftsBtn");
 const settingsBtn = document.getElementById("settingsBtn");
 const toggle = document.getElementById("toggle");
 
+// Modal DOM Elements
+const createPostModal = document.getElementById("createPostModal");
+const openCreatePostBtn = document.getElementById("openCreatePostBtn");
+const closePostModalBtn = document.getElementById("closePostModalBtn");
+const workoutSelect = document.getElementById("workoutSelect");
+const submitPostBtn = document.getElementById("submitPostBtn");
+const postContentInput = document.getElementById("postContentInput");
+
+const createTrainingModal = document.getElementById("createTrainingModal");
+const openCreateTrainingBtn = document.getElementById("openCreateTrainingBtn");
+const closeTrainingModalBtn = document.getElementById("closeTrainingModalBtn");
+const trainingType = document.getElementById("trainingType");
+const trainingDuration = document.getElementById("trainingDuration");
+const trainingDistance = document.getElementById("trainingDistance");
+const submitTrainingBtn = document.getElementById("submitTrainingBtn");
+
 function formatTimeAgo(timestamp) {
   if (!timestamp) return 'just now';
   const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp);
@@ -61,6 +77,28 @@ function renderError(error) {
   postsContainer.innerHTML = `<div class="error-state">Unable to load posts. ${error.message || "Please check your posts service."}</div>`;
 }
 
+// Helper function to make API requests (inspired by index.ts makeRequest)
+async function makeApiRequest(method, endpoint, data = null) {
+  try {
+    const options = {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+    };
+    if (data) options.body = JSON.stringify(data);
+
+    const response = await fetch(`${gatewayUrl}${endpoint}`, options);
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`${response.status}: ${errorBody}`);
+    }
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error(`API Error [${method} ${endpoint}]:`, error);
+    throw error;
+  }
+}
+
 async function loadPosts() {
   try {
     const data = await makeApiRequest('GET', '/api/posts');
@@ -68,6 +106,35 @@ async function loadPosts() {
   } catch (error) {
     console.warn("Fetch posts failed:", error);
     renderError(error);
+  }
+}
+
+// Fetch workouts function (for post modal dropdown)
+async function fetchWorkouts() {
+  workoutSelect.innerHTML = '<option value="">Loading workouts...</option>';
+
+  try {
+    console.log(`Fetching workouts for user: ${currentUserId}`);
+    const result = await makeApiRequest('GET', `/api/workouts/${currentUserId}`);
+    console.log("Workouts fetched:", result);
+
+    workoutSelect.innerHTML = '<option value="">-- Select a training (Optional) --</option>';
+
+    if (!Array.isArray(result.workouts) || result.workouts.length === 0) {
+      workoutSelect.innerHTML = '<option value="">No past trainings found</option>';
+      return;
+    }
+
+    result.workouts.forEach(workout => {
+      const option = document.createElement("option");
+      option.value = workout.id;
+      const distance = parseFloat(workout.distance_km) || 0;
+      option.textContent = `${workout.type || 'workout'} • ${workout.duration_minutes || 0} min • ${distance.toFixed(2)} km`;
+      workoutSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.error("Error fetching workouts:", error);
+    workoutSelect.innerHTML = '<option value="">Failed to load workouts</option>';
   }
 }
 
@@ -110,44 +177,6 @@ loadPosts();
 
 
 
-
-// Modal DOM Elements
-const createPostModal = document.getElementById("createPostModal");
-const openCreatePostBtn = document.getElementById("openCreatePostBtn");
-const closePostModalBtn = document.getElementById("closePostModalBtn");
-const workoutSelect = document.getElementById("workoutSelect");
-const submitPostBtn = document.getElementById("submitPostBtn");
-const postContentInput = document.getElementById("postContentInput");
-
-const createTrainingModal = document.getElementById("createTrainingModal");
-const openCreateTrainingBtn = document.getElementById("openCreateTrainingBtn");
-const closeTrainingModalBtn = document.getElementById("closeTrainingModalBtn");
-const trainingType = document.getElementById("trainingType");
-const trainingDuration = document.getElementById("trainingDuration");
-const trainingDistance = document.getElementById("trainingDistance");
-const submitTrainingBtn = document.getElementById("submitTrainingBtn");
-
-// Helper function to make API requests (inspired by index.ts makeRequest)
-async function makeApiRequest(method, endpoint, data = null) {
-  try {
-    const options = {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-    };
-    if (data) options.body = JSON.stringify(data);
-
-    const response = await fetch(`${gatewayUrl}${endpoint}`, options);
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`${response.status}: ${errorBody}`);
-    }
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error(`API Error [${method} ${endpoint}]:`, error);
-    throw error;
-  }
-}
 
 // 1. Open modal and fetch workouts
 openCreatePostBtn.addEventListener("click", async () => {
@@ -212,35 +241,6 @@ submitTrainingBtn.addEventListener("click", async () => {
     alert(`Unable to save training: ${error.message}`);
   }
 });
-
-// Fetch workouts function (for post modal dropdown)
-async function fetchWorkouts() {
-  workoutSelect.innerHTML = '<option value="">Loading workouts...</option>';
-
-  try {
-    console.log(`Fetching workouts for user: ${currentUserId}`);
-    const result = await makeApiRequest('GET', `/api/workouts/${currentUserId}`);
-    console.log("Workouts fetched:", result);
-
-    workoutSelect.innerHTML = '<option value="">-- Select a training (Optional) --</option>';
-
-    if (!Array.isArray(result.workouts) || result.workouts.length === 0) {
-      workoutSelect.innerHTML = '<option value="">No past trainings found</option>';
-      return;
-    }
-
-    result.workouts.forEach(workout => {
-      const option = document.createElement("option");
-      option.value = workout.id;
-      const distance = parseFloat(workout.distance_km) || 0;
-      option.textContent = `${workout.type || 'workout'} • ${workout.duration_minutes || 0} min • ${distance.toFixed(2)} km`;
-      workoutSelect.appendChild(option);
-    });
-  } catch (error) {
-    console.error("Error fetching workouts:", error);
-    workoutSelect.innerHTML = '<option value="">Failed to load workouts</option>';
-  }
-}
 
 // 4. Submit the post
 submitPostBtn.addEventListener("click", async () => {
