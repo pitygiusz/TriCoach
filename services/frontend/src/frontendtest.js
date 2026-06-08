@@ -1,5 +1,8 @@
-const gatewayUrl = (typeof process !== 'undefined' && process.env && process.env.GATEWAY_URL) || 'http://localhost:3000';
-const postsEndpoint = `${gatewayUrl}/posts`;
+const gatewayUrl = (typeof window !== 'undefined' && window.GATEWAY_URL)
+  || (typeof process !== 'undefined' && process.env && process.env.GATEWAY_URL)
+  || 'http://localhost:3000';
+const currentUserId = 'user_janedoe_47';
+const postsEndpoint = `${gatewayUrl}/api/posts`;
 const postsContainer = document.getElementById("postsContainer");
 const menuPanel = document.getElementById("menuPanel");
 const hamburgerBtn = document.getElementById("hamburgerBtn");
@@ -121,8 +124,16 @@ const workoutSelect = document.getElementById("workoutSelect");
 const submitPostBtn = document.getElementById("submitPostBtn");
 const postContentInput = document.getElementById("postContentInput");
 
-const WORKOUTS_API = `${gatewayUrl}/workouts`;
-const CREATE_POST_API = `${gatewayUrl}/posts`;
+const createTrainingModal = document.getElementById("createTrainingModal");
+const openCreateTrainingBtn = document.getElementById("openCreateTrainingBtn");
+const closeTrainingModalBtn = document.getElementById("closeTrainingModalBtn");
+const trainingType = document.getElementById("trainingType");
+const trainingDuration = document.getElementById("trainingDuration");
+const trainingDistance = document.getElementById("trainingDistance");
+const submitTrainingBtn = document.getElementById("submitTrainingBtn");
+
+const WORKOUTS_API_BASE = `${gatewayUrl}/api/workouts`;
+const CREATE_POST_API = `${gatewayUrl}/api/posts`;
 
 // 1. Open modal and fetch workouts
 openCreatePostBtn.addEventListener("click", async () => {
@@ -135,24 +146,75 @@ closePostModalBtn.addEventListener("click", () => {
   createPostModal.classList.add("hidden");
 });
 
+// Training modal handlers
+openCreateTrainingBtn.addEventListener("click", () => {
+  createTrainingModal.classList.remove("hidden");
+});
+closeTrainingModalBtn.addEventListener("click", () => {
+  createTrainingModal.classList.add("hidden");
+});
+submitTrainingBtn.addEventListener("click", async () => {
+  const type = trainingType.value.trim();
+  const duration = Number(trainingDuration.value);
+  const distance = trainingDistance.value.trim();
+
+  if (!type || !duration || duration <= 0) {
+    alert("Please enter a valid training type and duration.");
+    return;
+  }
+
+  const trainingPayload = {
+    user_id: currentUserId,
+    type,
+    duration_minutes: duration,
+    distance_km: distance ? parseFloat(distance).toFixed(2) : null,
+  };
+
+  try {
+    const response = await fetch(WORKOUTS_API_BASE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(trainingPayload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to save training (${response.status})`);
+    }
+
+    // Refresh the past trainings dropdown next time the post modal opens
+    await fetchWorkouts();
+
+    trainingType.value = "";
+    trainingDuration.value = "";
+    trainingDistance.value = "";
+    createTrainingModal.classList.add("hidden");
+  } catch (error) {
+    console.error("Error saving training:", error);
+    alert("Unable to save training. Please try again.");
+  }
+});
+
 // 3. Fetch workouts function
 async function fetchWorkouts() {
   workoutSelect.innerHTML = '<option value="">Loading...</option>';
   
   try {
-    const response = await fetch(WORKOUTS_API);
+    const url = `${WORKOUTS_API_BASE}/${currentUserId}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Workout fetch failed: ${response.status} ${body}`);
+    }
+
     const data = await response.json();
-    
-    // const data = {
-    //   workouts: [
-    //     { id: "wk_101", name: "10km Morning Run" },
-    //     { id: "wk_102", name: "40km Zone 2 Ride" },
-    //     { id: "wk_103", name: "1500m Pool Swim" }
-    //   ]
-    // };
 
     workoutSelect.innerHTML = '<option value="">-- Select a training (Optional) --</option>';
-    
+
+    if (!Array.isArray(data.workouts) || data.workouts.length === 0) {
+      workoutSelect.innerHTML = '<option value="">No past trainings found</option>';
+      return;
+    }
+
     data.workouts.forEach(workout => {
       const option = document.createElement("option");
       option.value = workout.id;
@@ -160,7 +222,6 @@ async function fetchWorkouts() {
       option.textContent = `${workout.type || 'workout'} • ${workout.duration_minutes || 0} min • ${distance.toFixed(2)} km`;
       workoutSelect.appendChild(option);
     });
-    
   } catch (error) {
     console.error("Error fetching workouts:", error);
     workoutSelect.innerHTML = '<option value="">Failed to load workouts</option>';
@@ -179,7 +240,7 @@ submitPostBtn.addEventListener("click", async () => {
 
   // Constructing your exact payload structure
   const postPayload = {
-    user_id: "user_janedoe_47", // Assuming a logged-in user
+    user_id: currentUserId,
     content,
     training_id: trainingId,
   };

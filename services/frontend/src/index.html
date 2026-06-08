@@ -21,13 +21,13 @@
           <span class="app-label">TriCoach</span>
           <h1>TriPosts</h1>
         </div>
-        <div class="simulate_train">
-          <img src="https://i.pravatar.cc/48?img=12" alt="User" />
+        <button id="openCreateTrainingBtn" type="button" class="simulate_train">
+          <!-- <img src="https://i.pravatar.cc/48?img=12" alt="User" /> -->
           <div>
-            <strong>Simulate run</strong>
-            <span>Find goals</span>
+            <strong>🏃 Log a training</strong>
+            <span>Record today&apos;s workout</span>
           </div>
-        </div>
+        </button>
       </header>
 
       <div id="menuPanel" class="menu-panel hidden" aria-hidden="true">
@@ -107,6 +107,42 @@
 
       <footer class="modal-actions">
         <button id="submitPostBtn" class="action-pill active">Post</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="createTrainingModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2>Record Training</h2>
+        <button id="closeTrainingModalBtn" class="menu-close" aria-label="Close modal">×</button>
+      </header>
+
+      <div class="modal-body">
+        <div class="workout-selector">
+          <label for="trainingType">Training Type</label>
+          <select id="trainingType">
+            <option value="">Select a type</option>
+            <option value="run">Run</option>
+            <option value="ride">Ride</option>
+            <option value="swim">Swim</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="workout-selector">
+          <label for="trainingDuration">Duration (minutes)</label>
+          <input id="trainingDuration" type="number" min="1" placeholder="e.g. 45" />
+        </div>
+
+        <div class="workout-selector">
+          <label for="trainingDistance">Distance (km)</label>
+          <input id="trainingDistance" type="number" min="0" step="0.01" placeholder="e.g. 5.00" />
+        </div>
+      </div>
+
+      <footer class="modal-actions">
+        <button id="submitTrainingBtn" class="action-pill active">Save Training</button>
       </footer>
     </div>
   </div>
