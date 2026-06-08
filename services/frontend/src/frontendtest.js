@@ -2,7 +2,6 @@ const gatewayUrl = (typeof window !== 'undefined' && window.GATEWAY_URL)
   || (typeof process !== 'undefined' && process.env && process.env.GATEWAY_URL)
   || 'http://localhost:3000';
 const currentUserId = 'user_janedoe_47';
-const postsEndpoint = `${gatewayUrl}/api/posts`;
 const postsContainer = document.getElementById("postsContainer");
 const menuPanel = document.getElementById("menuPanel");
 const hamburgerBtn = document.getElementById("hamburgerBtn");
@@ -64,11 +63,7 @@ function renderError(error) {
 
 async function loadPosts() {
   try {
-    const response = await fetch(postsEndpoint);
-    if (!response.ok) {
-      throw new Error(`Request failed with status ${response.status}`);
-    }
-    const data = await response.json();
+    const data = await makeApiRequest('GET', '/api/posts');
     renderPosts(data);
   } catch (error) {
     console.warn("Fetch posts failed:", error);
@@ -132,8 +127,27 @@ const trainingDuration = document.getElementById("trainingDuration");
 const trainingDistance = document.getElementById("trainingDistance");
 const submitTrainingBtn = document.getElementById("submitTrainingBtn");
 
-const WORKOUTS_API_BASE = `${gatewayUrl}/api/workouts`;
-const CREATE_POST_API = `${gatewayUrl}/api/posts`;
+// Helper function to make API requests (inspired by index.ts makeRequest)
+async function makeApiRequest(method, endpoint, data = null) {
+  try {
+    const options = {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+    };
+    if (data) options.body = JSON.stringify(data);
+
+    const response = await fetch(`${gatewayUrl}${endpoint}`, options);
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`${response.status}: ${errorBody}`);
+    }
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    console.error(`API Error [${method} ${endpoint}]:`, error);
+    throw error;
+  }
+}
 
 // 1. Open modal and fetch workouts
 openCreatePostBtn.addEventListener("click", async () => {
@@ -155,67 +169,67 @@ closeTrainingModalBtn.addEventListener("click", () => {
 });
 submitTrainingBtn.addEventListener("click", async () => {
   const type = trainingType.value.trim();
-  const duration = Number(trainingDuration.value);
+  const duration = trainingDuration.value.trim();
   const distance = trainingDistance.value.trim();
 
-  if (!type || !duration || duration <= 0) {
-    alert("Please enter a valid training type and duration.");
+  if (!type) {
+    alert("Please select a training type.");
+    return;
+  }
+
+  if (!duration || Number(duration) <= 0) {
+    alert("Please enter a valid duration (greater than 0).");
     return;
   }
 
   const trainingPayload = {
     user_id: currentUserId,
     type,
-    duration_minutes: duration,
-    distance_km: distance ? parseFloat(distance).toFixed(2) : null,
+    duration_minutes: parseInt(duration, 10),
+    distance_km: distance ? parseFloat(distance) : null,
   };
 
   try {
-    const response = await fetch(WORKOUTS_API_BASE, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(trainingPayload),
-    });
+    console.log("Submitting training:", trainingPayload);
+    const result = await makeApiRequest('POST', '/api/workouts', trainingPayload);
+    console.log("Training saved:", result);
 
-    if (!response.ok) {
-      throw new Error(`Failed to save training (${response.status})`);
-    }
+    // Show success message
+    alert("Training recorded successfully!");
 
-    // Refresh the past trainings dropdown next time the post modal opens
-    await fetchWorkouts();
-
+    // Clear form inputs
     trainingType.value = "";
     trainingDuration.value = "";
     trainingDistance.value = "";
+    
+    // Close training modal
     createTrainingModal.classList.add("hidden");
+
+    // Refresh the past trainings dropdown for the post modal
+    await fetchWorkouts();
   } catch (error) {
     console.error("Error saving training:", error);
-    alert("Unable to save training. Please try again.");
+    alert(`Unable to save training: ${error.message}`);
   }
 });
 
-// 3. Fetch workouts function
+// Fetch workouts function (for post modal dropdown)
 async function fetchWorkouts() {
-  workoutSelect.innerHTML = '<option value="">Loading...</option>';
-  
-  try {
-    const url = `${WORKOUTS_API_BASE}/${currentUserId}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      const body = await response.text();
-      throw new Error(`Workout fetch failed: ${response.status} ${body}`);
-    }
+  workoutSelect.innerHTML = '<option value="">Loading workouts...</option>';
 
-    const data = await response.json();
+  try {
+    console.log(`Fetching workouts for user: ${currentUserId}`);
+    const result = await makeApiRequest('GET', `/api/workouts/${currentUserId}`);
+    console.log("Workouts fetched:", result);
 
     workoutSelect.innerHTML = '<option value="">-- Select a training (Optional) --</option>';
 
-    if (!Array.isArray(data.workouts) || data.workouts.length === 0) {
+    if (!Array.isArray(result.workouts) || result.workouts.length === 0) {
       workoutSelect.innerHTML = '<option value="">No past trainings found</option>';
       return;
     }
 
-    data.workouts.forEach(workout => {
+    result.workouts.forEach(workout => {
       const option = document.createElement("option");
       option.value = workout.id;
       const distance = parseFloat(workout.distance_km) || 0;
@@ -246,26 +260,19 @@ submitPostBtn.addEventListener("click", async () => {
   };
 
   try {
-    const response = await fetch(CREATE_POST_API, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(postPayload),
-    });
-    
-    if (!response.ok) throw new Error("Failed to post");
+    console.log("Submitting post:", postPayload);
+    const result = await makeApiRequest('POST', '/api/posts', postPayload);
+    console.log("Post created:", result);
 
-    // Logging the payload to the console so you can verify it works
-    console.log("SUCCESS! Payload sent to API:", postPayload);
-    
     // Clean up and close modal
     postContentInput.value = "";
     workoutSelect.value = "";
     createPostModal.classList.add("hidden");
-    
+
     // Refresh the feed so the new post appears immediately
     loadPosts();
   } catch (error) {
     console.error("Error creating post:", error);
-    alert("Failed to create post. Try again.");
+    alert(`Failed to create post: ${error.message}`);
   }
 });
