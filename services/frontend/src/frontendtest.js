@@ -1,63 +1,81 @@
-const gatewayUrl = (typeof window !== 'undefined' && window.GATEWAY_URL)
-  || (typeof process !== 'undefined' && process.env && process.env.GATEWAY_URL)
-  || 'http://localhost:3000';
+// All API calls go to the same origin (port 8080).
+// The frontend server proxies /api/* to the gateway (port 3000) server-side,
+// so the browser never makes a cross-origin request.
 const currentUserId = 'user_janedoe_47';
-const postsContainer = document.getElementById("postsContainer");
-const menuPanel = document.getElementById("menuPanel");
-const hamburgerBtn = document.getElementById("hamburgerBtn");
-const closeMenuBtn = document.getElementById("closeMenu");
-const newPostBtn = document.getElementById("newPostBtn");
-const draftsBtn = document.getElementById("draftsBtn");
-const settingsBtn = document.getElementById("settingsBtn");
-const toggle = document.getElementById("toggle");
 
-// Modal DOM Elements
-const createPostModal = document.getElementById("createPostModal");
-const openCreatePostBtn = document.getElementById("openCreatePostBtn");
-const closePostModalBtn = document.getElementById("closePostModalBtn");
-const workoutSelect = document.getElementById("workoutSelect");
-const submitPostBtn = document.getElementById("submitPostBtn");
-const postContentInput = document.getElementById("postContentInput");
+// ─── DOM refs ─────────────────────────────────────────────────────────────────
+const postsContainer      = document.getElementById('postsContainer');
+const menuPanel           = document.getElementById('menuPanel');
+const hamburgerBtn        = document.getElementById('hamburgerBtn');
+const newPostBtn          = document.getElementById('newPostBtn');
+const draftsBtn           = document.getElementById('draftsBtn');
+const settingsBtn         = document.getElementById('settingsBtn');
+const toggle              = document.getElementById('toggle');
+const profileBtn          = document.getElementById('profileBtn');
+const overlay             = document.getElementById('overlay');
 
-const createTrainingModal = document.getElementById("createTrainingModal");
-const openCreateTrainingBtn = document.getElementById("openCreateTrainingBtn");
-const closeTrainingModalBtn = document.getElementById("closeTrainingModalBtn");
-const trainingType = document.getElementById("trainingType");
-const trainingDuration = document.getElementById("trainingDuration");
-const trainingDistance = document.getElementById("trainingDistance");
-const submitTrainingBtn = document.getElementById("submitTrainingBtn");
+// Create-post modal
+const createPostModal     = document.getElementById('createPostModal');
+const openCreatePostBtn   = document.getElementById('openCreatePostBtn');
+const closePostModalBtn   = document.getElementById('closePostModalBtn');
+const workoutSelect       = document.getElementById('workoutSelect');
+const submitPostBtn       = document.getElementById('submitPostBtn');
+const postContentInput    = document.getElementById('postContentInput');
 
+// Create-training modal
+const createTrainingModal  = document.getElementById('createTrainingModal');
+const openCreateTrainingBtn= document.getElementById('openCreateTrainingBtn');
+const closeTrainingModalBtn= document.getElementById('closeTrainingModalBtn');
+const trainingType         = document.getElementById('trainingType');
+const trainingDuration     = document.getElementById('trainingDuration');
+const trainingDistance     = document.getElementById('trainingDistance');
+const submitTrainingBtn    = document.getElementById('submitTrainingBtn');
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTimeAgo(timestamp) {
   if (!timestamp) return 'just now';
-  const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp);
-  const diffMs = Date.now() - date.getTime();
-  const diffMinutes = Math.floor(diffMs / 60000);
-  if (diffMinutes < 1) return 'just now';
-  if (diffMinutes < 60) return `${diffMinutes}m ago`;
-  const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}h ago`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `${diffDays}d ago`;
+  const diffMs = Date.now() - new Date(timestamp).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
+async function makeApiRequest(method, endpoint, data = null) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (data) opts.body = JSON.stringify(data);
+
+  const res = await fetch(endpoint, opts);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`${res.status}: ${body}`);
+  }
+  return res.json();
+}
+
+// ─── Feed ─────────────────────────────────────────────────────────────────────
 function createPostCard(post) {
-  const card = document.createElement("article");
-  card.className = "post-card";
-  const authorName = post.userId || post.user_name || 'Anonymous';
-  const createdAt = post.createdAt || post.created_at || null;
+  const card = document.createElement('article');
+  card.className = 'post-card';
+  const author = post.userId || 'Anonymous';
   card.innerHTML = `
     <header>
-      <img class="avatar" src="https://i.pravatar.cc/48?u=${authorName}" alt="${authorName}" />
+      <img class="avatar" src="https://i.pravatar.cc/48?u=${encodeURIComponent(author)}" alt="${author}" />
       <div class="post-author">
-        <strong>${authorName}</strong>
-        <span>${formatTimeAgo(createdAt)}</span>
+        <strong>${author}</strong>
+        <span>${formatTimeAgo(post.createdAt)}</span>
       </div>
     </header>
-    <h3>${post.trainingId ? 'Training update' : 'New post'}</h3>
-    <p>${post.content || post.body || ''}</p>
+    <h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>
+    <p>${post.content || ''}</p>
     <div class="post-meta">
       <span>${post.likes || 0} likes</span>
-      <span>${post.trainingId ? 'Training attached' : 'No training attached'}</span>
+      ${post.trainingId ? '<span>Training attached</span>' : ''}
     </div>
   `;
   return card;
@@ -65,214 +83,132 @@ function createPostCard(post) {
 
 function renderPosts(posts) {
   if (!Array.isArray(posts) || posts.length === 0) {
-    postsContainer.innerHTML = '<div class="empty-state">No posts are available right now.</div>';
+    postsContainer.innerHTML = '<div class="empty-state">No posts yet — log a training and share it!</div>';
     return;
   }
-
-  postsContainer.innerHTML = "";
-  posts.forEach(post => postsContainer.appendChild(createPostCard(post)));
-}
-
-function renderError(error) {
-  postsContainer.innerHTML = `<div class="error-state">Unable to load posts. ${error.message || "Please check your posts service."}</div>`;
-}
-
-// Helper function to make API requests (inspired by index.ts makeRequest)
-async function makeApiRequest(method, endpoint, data = null) {
-  try {
-    const options = {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-    };
-    if (data) options.body = JSON.stringify(data);
-
-    const response = await fetch(`${gatewayUrl}${endpoint}`, options);
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`${response.status}: ${errorBody}`);
-    }
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error(`API Error [${method} ${endpoint}]:`, error);
-    throw error;
-  }
+  postsContainer.innerHTML = '';
+  posts.forEach(p => postsContainer.appendChild(createPostCard(p)));
 }
 
 async function loadPosts() {
   try {
     const data = await makeApiRequest('GET', '/api/posts');
     renderPosts(data);
-  } catch (error) {
-    console.warn("Fetch posts failed:", error);
-    renderError(error);
+  } catch (err) {
+    postsContainer.innerHTML = `<div class="error-state">Could not load posts. ${err.message}</div>`;
   }
 }
 
-// Fetch workouts function (for post modal dropdown)
+// ─── Workouts dropdown (used inside the post modal) ───────────────────────────
 async function fetchWorkouts() {
-  workoutSelect.innerHTML = '<option value="">Loading workouts...</option>';
-
+  workoutSelect.innerHTML = '<option value="">Loading…</option>';
   try {
-    console.log(`Fetching workouts for user: ${currentUserId}`);
     const result = await makeApiRequest('GET', `/api/workouts/${currentUserId}`);
-    console.log("Workouts fetched:", result);
+    workoutSelect.innerHTML = '<option value="">— Attach a training (optional) —</option>';
 
-    workoutSelect.innerHTML = '<option value="">-- Select a training (Optional) --</option>';
-
-    if (!Array.isArray(result.workouts) || result.workouts.length === 0) {
-      workoutSelect.innerHTML = '<option value="">No past trainings found</option>';
+    if (!result.workouts?.length) {
+      workoutSelect.innerHTML = '<option value="">No trainings logged yet</option>';
       return;
     }
-
-    result.workouts.forEach(workout => {
-      const option = document.createElement("option");
-      option.value = workout.id;
-      const distance = parseFloat(workout.distance_km) || 0;
-      option.textContent = `${workout.type || 'workout'} • ${workout.duration_minutes || 0} min • ${distance.toFixed(2)} km`;
-      workoutSelect.appendChild(option);
+    result.workouts.forEach(w => {
+      const opt = document.createElement('option');
+      opt.value = w.id;
+      const km = parseFloat(w.distance_km) || 0;
+      opt.textContent = `${w.type} · ${w.duration_minutes} min · ${km.toFixed(2)} km`;
+      workoutSelect.appendChild(opt);
     });
-  } catch (error) {
-    console.error("Error fetching workouts:", error);
-    workoutSelect.innerHTML = '<option value="">Failed to load workouts</option>';
+  } catch (err) {
+    workoutSelect.innerHTML = '<option value="">Failed to load trainings</option>';
   }
 }
 
+// ─── Sidebar & menu ───────────────────────────────────────────────────────────
 function toggleSidebar() {
   document.getElementById('sidebarHid').classList.toggle('open');
-  document.getElementById('overlay').classList.toggle('visible');
+  overlay.classList.toggle('visible');
 }
-
-// function toggleSidebar() {
-//   document.getElementById('sidebar').classList.toggle('open');
-// }
-
-const profileBtn = document.getElementById("profileBtn");
-
-profileBtn.addEventListener("click", () => {
-  window.location.href = "profile.html";
-});
 
 function openMenu() {
-  menuPanel.classList.toggle("hidden");
-//   menuPanel.setAttribute("aria-hidden", "false");
+  menuPanel.classList.toggle('hidden');
 }
 
-// function closeMenu() {
-//   menuPanel.classList.add("hidden");
-//   menuPanel.setAttribute("aria-hidden", "true");
-// }
+toggle.addEventListener('click', toggleSidebar);
+overlay?.addEventListener('click', toggleSidebar);
+hamburgerBtn.addEventListener('click', openMenu);
+profileBtn.addEventListener('click', () => { window.location.href = 'profile.html'; });
 
-toggle.addEventListener("click", toggleSidebar);
-hamburgerBtn.addEventListener("click", openMenu);
-// closeMenuBtn.addEventListener("click", closeMenu);
-newPostBtn.addEventListener("click", () => alert("Open create post screen."));
-draftsBtn.addEventListener("click", () => alert("Show draft posts."));
-settingsBtn.addEventListener("click", () => alert("Open settings."));
+newPostBtn.addEventListener('click',  () => alert('Open create post screen.'));
+draftsBtn.addEventListener('click',   () => alert('Show draft posts.'));
+settingsBtn.addEventListener('click', () => alert('Open settings.'));
 
-
-// Initial load of posts
-loadPosts();
-
-
-
-
-
-// 1. Open modal and fetch workouts
-openCreatePostBtn.addEventListener("click", async () => {
-  createPostModal.classList.remove("hidden");
+// ─── Post modal ───────────────────────────────────────────────────────────────
+openCreatePostBtn.addEventListener('click', async () => {
+  createPostModal.classList.remove('hidden');
   await fetchWorkouts();
 });
-console.log("closePostModalBtn:", closePostModalBtn);
-// 2. Close modal
-closePostModalBtn.addEventListener("click", () => {
-  createPostModal.classList.add("hidden");
+
+closePostModalBtn.addEventListener('click', () => {
+  createPostModal.classList.add('hidden');
 });
 
-// Training modal handlers
-openCreateTrainingBtn.addEventListener("click", () => {
-  createTrainingModal.classList.remove("hidden");
+submitPostBtn.addEventListener('click', async () => {
+  const content    = postContentInput.value.trim();
+  const trainingId = workoutSelect.value || null;
+
+  if (!content) { alert('Write something first!'); return; }
+
+  try {
+    await makeApiRequest('POST', '/api/posts', {
+      user_id:     currentUserId,
+      content,
+      training_id: trainingId,
+    });
+    postContentInput.value = '';
+    workoutSelect.value    = '';
+    createPostModal.classList.add('hidden');
+    loadPosts();
+  } catch (err) {
+    alert(`Failed to post: ${err.message}`);
+  }
 });
-closeTrainingModalBtn.addEventListener("click", () => {
-  createTrainingModal.classList.add("hidden");
+
+// ─── Training modal ───────────────────────────────────────────────────────────
+openCreateTrainingBtn.addEventListener('click', () => {
+  createTrainingModal.classList.remove('hidden');
 });
-submitTrainingBtn.addEventListener("click", async () => {
-  const type = trainingType.value.trim();
+
+closeTrainingModalBtn.addEventListener('click', () => {
+  createTrainingModal.classList.add('hidden');
+});
+
+submitTrainingBtn.addEventListener('click', async () => {
+  const type     = trainingType.value.trim();
   const duration = trainingDuration.value.trim();
   const distance = trainingDistance.value.trim();
 
-  if (!type) {
-    alert("Please select a training type.");
-    return;
-  }
-
-  if (!duration || Number(duration) <= 0) {
-    alert("Please enter a valid duration (greater than 0).");
-    return;
-  }
-
-  const trainingPayload = {
-    user_id: currentUserId,
-    type,
-    duration_minutes: parseInt(duration, 10),
-    distance_km: distance ? parseFloat(distance) : null,
-  };
+  if (!type)              { alert('Select a training type.');                return; }
+  if (!duration || +duration <= 0) { alert('Enter a valid duration (> 0 minutes).'); return; }
 
   try {
-    console.log("Submitting training:", trainingPayload);
-    const result = await makeApiRequest('POST', '/api/workouts', trainingPayload);
-    console.log("Training saved:", result);
+    await makeApiRequest('POST', '/api/workouts', {
+      user_id:          currentUserId,
+      type,
+      duration_minutes: parseInt(duration, 10),
+      distance_km:      distance ? parseFloat(distance) : null,
+    });
 
-    // Show success message
-    alert("Training recorded successfully!");
+    trainingType.value     = '';
+    trainingDuration.value = '';
+    trainingDistance.value = '';
+    createTrainingModal.classList.add('hidden');
 
-    // Clear form inputs
-    trainingType.value = "";
-    trainingDuration.value = "";
-    trainingDistance.value = "";
-    
-    // Close training modal
-    createTrainingModal.classList.add("hidden");
-
-    // Refresh the past trainings dropdown for the post modal
+    // Silently refresh the workouts dropdown so it's ready when the post modal opens
     await fetchWorkouts();
-  } catch (error) {
-    console.error("Error saving training:", error);
-    alert(`Unable to save training: ${error.message}`);
+    alert('Training logged!');
+  } catch (err) {
+    alert(`Could not save training: ${err.message}`);
   }
 });
 
-// 4. Submit the post
-submitPostBtn.addEventListener("click", async () => {
-  const content = postContentInput.value.trim();
-  const trainingId = workoutSelect.value || null;
-
-  if (!content) {
-    alert("Please write something for your post!");
-    return;
-  }
-
-  // Constructing your exact payload structure
-  const postPayload = {
-    user_id: currentUserId,
-    content,
-    training_id: trainingId,
-  };
-
-  try {
-    console.log("Submitting post:", postPayload);
-    const result = await makeApiRequest('POST', '/api/posts', postPayload);
-    console.log("Post created:", result);
-
-    // Clean up and close modal
-    postContentInput.value = "";
-    workoutSelect.value = "";
-    createPostModal.classList.add("hidden");
-
-    // Refresh the feed so the new post appears immediately
-    loadPosts();
-  } catch (error) {
-    console.error("Error creating post:", error);
-    alert(`Failed to create post: ${error.message}`);
-  }
-});
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+loadPosts();

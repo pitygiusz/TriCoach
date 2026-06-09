@@ -1,0 +1,669 @@
+import express, { Request, Response } from 'express';
+import path from 'path';
+
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname)));
+const port = process.env.PORT || '8080';
+const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
+
+// Firebase config from env vars with fallback defaults
+const firebaseApiKey = process.env.FIREBASE_API_KEY || 'api_key';
+const firebaseAuthDomain = process.env.FIREBASE_AUTH_DOMAIN || 'key';
+const firebaseProjectId = process.env.FIREBASE_PROJECT_ID || 'key';
+const firebaseStorageBucket = process.env.FIREBASE_STORAGE_BUCKET || 'key';
+const firebaseMessagingSenderId = process.env.FIREBASE_MESSAGING_SENDER_ID || 'key';
+const firebaseAppId = process.env.FIREBASE_APP_ID || 'key';
+const firebaseMeasurementId = process.env.FIREBASE_MEASUREMENT_ID || 'key';
+
+const testHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TriCoach - Service Test Console</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #FFD700;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .service-card {
+            background: #2a2a2a;
+            border: 2px solid #FFD700;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+        }
+        .service-card h2 {
+            color: #FFD700;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            background: #ff4444;
+        }
+        .status-indicator.online {
+            background: #44ff44;
+        }
+        .service-status {
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+        .endpoint-list {
+            background: #1a1a1a;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .endpoint {
+            padding: 8px;
+            border-left: 3px solid #FFD700;
+            margin-bottom: 5px;
+            background: #222;
+            font-size: 0.85rem;
+        }
+        .endpoint.post { border-left-color: #4CAF50; }
+        .endpoint.get { border-left-color: #2196F3; }
+        .endpoint.put { border-left-color: #FF9800; }
+        .endpoint-method {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .endpoint-method.post { color: #4CAF50; }
+        .endpoint-method.get { color: #2196F3; }
+        .endpoint-method.put { color: #FF9800; }
+        button {
+            background: #FFD700;
+            color: #1a1a1a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+        button:hover {
+            background: #e6c200;
+            transform: scale(1.05);
+        }
+        button.secondary {
+            background: #555;
+            color: #fff;
+        }
+        button.secondary:hover {
+            background: #666;
+        }
+        .response-panel {
+            background: #0a0a0a;
+            border: 1px solid #FFD700;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .response-panel h3 {
+            color: #FFD700;
+            margin-bottom: 10px;
+        }
+        .response-content {
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.9rem;
+            color: #90EE90;
+        }
+        .response-content.error {
+            color: #FF6B6B;
+        }
+        input, select, textarea {
+            background: #333;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #FFD700;
+            box-shadow: 0 0 5px rgba(255, 215, 0, 0.3);
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        label {
+            display: block;
+            margin-bottom: 4px;
+            color: #FFD700;
+            font-size: 0.9rem;
+        }
+        .gateway-info {
+            background: #2a2a2a;
+            border: 1px solid #FFD700;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .gateway-info p {
+            margin: 5px 0;
+        }
+        .gateway-info code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #4CAF50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏃 TriCoach - Service Test Console</h1>
+        
+        <div class="gateway-info">
+            <p><strong>Gateway:</strong> <code>http://localhost:3000</code></p>
+            <p><strong>Status:</strong> <span class="status-indicator online"></span> Ready to test</p>
+        </div>
+
+        <div class="services-grid">
+            <!-- USER SERVICE -->
+            <div class="service-card">
+                <h2>👤 User Service</h2>
+                <div class="service-status">
+                    <span class="status-indicator" id="user-status"></span>
+                    <span id="user-status-text">Checking...</span>
+                </div>
+                
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="user-email" placeholder="user@example.com" value="test@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Username</label>
+                    <input type="text" id="user-username" placeholder="username" value="testuser">
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="text" id="user-password" placeholder="password" value="test123">
+                </div>
+                <div class="form-group">
+                    <label>Age</label>
+                    <input type="number" id="user-age" placeholder="30" value="30">
+                </div>
+                <div class="form-group">
+                    <label>User ID (for queries)</label>
+                    <input type="text" id="user-id" placeholder="uuid" value="123e4567-e89b-12d3-a456-426614174000">
+                </div>
+                
+                <button onclick="registerUser()">Register User</button>
+                <button onclick="loginUser()">Login User</button>
+                <button onclick="getProfile()">Get Profile</button>
+                <button class="secondary" onclick="clearUserResponse()">Clear</button>
+                
+                <div class="response-panel">
+                    <h3>Response</h3>
+                    <div class="response-content" id="user-response">Ready...</div>
+                </div>
+            </div>
+
+            <!-- TRAINING SERVICE -->
+            <div class="service-card">
+                <h2>🚴 Training Service</h2>
+                <div class="service-status">
+                    <span class="status-indicator" id="training-status"></span>
+                    <span id="training-status-text">Checking...</span>
+                </div>
+                
+                <div class="form-group">
+                    <label>User ID</label>
+                    <input type="text" id="training-user-id" placeholder="uuid" value="123e4567-e89b-12d3-a456-426614174000">
+                </div>
+                <div class="form-group">
+                    <label>Workout Type</label>
+                    <select id="workout-type">
+                        <option value="run">Run</option>
+                        <option value="bike">Bike</option>
+                        <option value="swim">Swim</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Duration (minutes)</label>
+                    <input type="number" id="workout-duration" placeholder="60" value="60">
+                </div>
+                <div class="form-group">
+                    <label>Distance (km)</label>
+                    <input type="number" id="workout-distance" placeholder="10" value="10">
+                </div>
+                
+                <button onclick="logWorkout()">Log Workout</button>
+                <button onclick="getWorkouts()">Get Workouts</button>
+                <button class="secondary" onclick="clearTrainingResponse()">Clear</button>
+                
+                <div class="response-panel">
+                    <h3>Response</h3>
+                    <div class="response-content" id="training-response">Ready...</div>
+                </div>
+            </div>
+
+            <!-- ANALYTICS SERVICE -->
+            <div class="service-card">
+                <h2>📊 Analytics Service</h2>
+                <div class="service-status">
+                    <span class="status-indicator" id="analytics-status"></span>
+                    <span id="analytics-status-text">Checking...</span>
+                </div>
+                
+                <div class="form-group">
+                    <label>User ID</label>
+                    <input type="text" id="analytics-user-id" placeholder="uuid" value="123e4567-e89b-12d3-a456-426614174000">
+                </div>
+                
+                <button onclick="getStats()">Get Stats</button>
+                <button onclick="getWeeklyTrends()">Weekly Trends</button>
+                <button onclick="getMonthlyTrends()">Monthly Trends</button>
+                <button onclick="getMilestones()">Get Milestones</button>
+                <button class="secondary" onclick="clearAnalyticsResponse()">Clear</button>
+                
+                <div class="response-panel">
+                    <h3>Response</h3>
+                    <div class="response-content" id="analytics-response">Ready...</div>
+                </div>
+            </div>
+
+            <!-- SOCIAL SERVICE -->
+            <div class="service-card">
+                <h2>💬 Social Service</h2>
+                <div class="service-status">
+                    <span class="status-indicator" id="social-status"></span>
+                    <span id="social-status-text">Checking...</span>
+                </div>
+                
+                <div class="form-group">
+                    <label>User ID</label>
+                    <input type="text" id="social-user-id" placeholder="uuid" value="123e4567-e89b-12d3-a456-426614174000">
+                </div>
+                <div class="form-group">
+                    <label>Post Content</label>
+                    <textarea id="post-content" placeholder="Just crushed 5km!" rows="3">Just crushed 5km in 25 mins! 🔥</textarea>
+                </div>
+                
+                <button onclick="createPost()">Create Post</button>
+                <button onclick="getFeed()">Get Feed</button>
+                <button class="secondary" onclick="clearSocialResponse()">Clear</button>
+                
+                <div class="response-panel">
+                    <h3>Response</h3>
+                    <div class="response-content" id="social-response">Ready...</div>
+                </div>
+            </div>
+
+            <!-- RACE SERVICE -->
+            <div class="service-card">
+                <h2>🏁 Race Service</h2>
+                <div class="service-status">
+                    <span class="status-indicator" id="race-status"></span>
+                    <span id="race-status-text">Checking...</span>
+                </div>
+                
+                <div class="form-group">
+                    <label>User ID</label>
+                    <input type="text" id="race-user-id" placeholder="uuid" value="123e4567-e89b-12d3-a456-426614174000">
+                </div>
+                <div class="form-group">
+                    <label>Race Type</label>
+                    <select id="race-type">
+                        <option value="sprint">Sprint</option>
+                        <option value="olympic">Olympic</option>
+                        <option value="half_ironman">Half Ironman</option>
+                        <option value="ironman">Ironman</option>
+                    </select>
+                </div>
+                
+                <button onclick="simulateRace()">Simulate Race</button>
+                <button onclick="simulateRaceAI()">AI Simulate</button>
+                <button onclick="getRaces()">Get Races Info</button>
+                <button class="secondary" onclick="clearRaceResponse()">Clear</button>
+                
+                <div class="response-panel">
+                    <h3>Response</h3>
+                    <div class="response-content" id="race-response">Ready...</div>
+                </div>
+            </div>
+
+            <!-- GATEWAY SERVICE -->
+            <div class="service-card">
+                <h2>🚪 API Gateway</h2>
+                <div class="service-status">
+                    <span class="status-indicator" id="gateway-status"></span>
+                    <span id="gateway-status-text">Checking...</span>
+                </div>
+                
+                <div class="form-group">
+                    <label>Custom Endpoint</label>
+                    <input type="text" id="custom-endpoint" placeholder="/api/users/profile/uuid">
+                </div>
+                <div class="form-group">
+                    <label>Method</label>
+                    <select id="custom-method">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Body (JSON)</label>
+                    <textarea id="custom-body" placeholder="{}"></textarea>
+                </div>
+                
+                <button onclick="customRequest()">Send Request</button>
+                <button onclick="checkGateway()">Check Gateway</button>
+                <button class="secondary" onclick="clearGatewayResponse()">Clear</button>
+                
+                <div class="response-panel">
+                    <h3>Response</h3>
+                    <div class="response-content" id="gateway-response">Ready...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script>
+        const GATEWAY_URL = '${gatewayUrl}';
+        let currentUser = null;
+        let auth = null;
+
+        // Firestore status check (runs immediately, no Firebase dependency)
+        function startStatusChecks() {
+            checkServiceStatus('user', 'User Service');
+            checkServiceStatus('training', 'Training Service');
+            checkServiceStatus('analytics', 'Analytics Service');
+            checkServiceStatus('social', 'Social Service');
+            checkServiceStatus('race', 'Race Service');
+            checkServiceStatus('gateway', 'API Gateway');
+        }
+
+        window.addEventListener('load', startStatusChecks);
+
+        async function checkServiceStatus(service, name) {
+            try {
+                const response = await fetch(\`\${GATEWAY_URL}/\`);
+                document.getElementById(\`\${service}-status\`).classList.add('online');
+                document.getElementById(\`\${service}-status-text\`).textContent = 'Online';
+            } catch (error) {
+                document.getElementById(\`\${service}-status-text\`).textContent = 'Offline';
+            }
+        }
+
+        async function makeRequest(method, endpoint, data = null) {
+            try {
+                const options = {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                };
+                if (data) options.body = JSON.stringify(data);
+
+                const response = await fetch(\`\${GATEWAY_URL}\${endpoint}\`, options);
+                const result = await response.json();
+                return JSON.stringify(result, null, 2);
+            } catch (error) {
+                return JSON.stringify({ error: error.message }, null, 2);
+            }
+        }
+
+        // Initialize Firebase (if SDK loaded successfully)
+        try {
+            const firebaseConfig = {
+                apiKey: '${firebaseApiKey}',
+                authDomain: '${firebaseAuthDomain}',
+                projectId: '${firebaseProjectId}',
+                storageBucket: '${firebaseStorageBucket}',
+                messagingSenderId: '${firebaseMessagingSenderId}',
+                appId: '${firebaseAppId}',
+                measurementId: '${firebaseMeasurementId}',
+            };
+
+            firebase.initializeApp(firebaseConfig);
+            auth = firebase.auth();
+            console.log('🔥 Firebase Auth initialized');
+        } catch (e) {
+            console.warn('Firebase SDK not available, login/register will use backend fallback');
+        }
+
+        // USER SERVICE – Firebase Auth with fallback
+        async function registerUser() {
+            try {
+                const email = document.getElementById('user-email').value;
+                const password = document.getElementById('user-password').value;
+                const username = document.getElementById('user-username').value;
+                const age = parseInt(document.getElementById('user-age').value);
+
+                if (auth) {
+                    // Create user via Firebase Auth SDK
+                    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                    await userCredential.user.updateProfile({ displayName: username });
+                    const idToken = await userCredential.user.getIdToken();
+
+                    const response = await makeRequest('POST', '/api/users/register', {
+                        username, email, password, age, idToken,
+                    });
+                    currentUser = userCredential.user;
+                    document.getElementById('user-response').textContent = response;
+                } else {
+                    // Fallback: backend handles everything
+                    const response = await makeRequest('POST', '/api/users/register', {
+                        username, email, password, age,
+                    });
+                    document.getElementById('user-response').textContent = response;
+                }
+            } catch (error) {
+                document.getElementById('user-response').textContent = JSON.stringify({
+                    error: error.message,
+                    code: error.code,
+                }, null, 2);
+            }
+        }
+
+        async function loginUser() {
+            try {
+                const email = document.getElementById('user-email').value;
+                const password = document.getElementById('user-password').value;
+
+                if (auth) {
+                    // Login via Firebase Auth SDK
+                    const userCredential = await auth.signInWithEmailAndPassword(email, password);
+                    const idToken = await userCredential.user.getIdToken();
+
+                    const response = await fetch(\`\${GATEWAY_URL}/api/users/login\`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password, idToken }),
+                    });
+                    const result = await response.json();
+                    currentUser = userCredential.user;
+                    document.getElementById('user-response').textContent = JSON.stringify(result, null, 2);
+                } else {
+                    // Fallback: backend handles via REST API
+                    const response = await makeRequest('POST', '/api/users/login', { email, password });
+                    document.getElementById('user-response').textContent = response;
+                }
+            } catch (error) {
+                document.getElementById('user-response').textContent = JSON.stringify({
+                    error: error.message,
+                    code: error.code,
+                }, null, 2);
+            }
+        }
+
+        async function getProfile() {
+            const userId = document.getElementById('user-id').value;
+            const response = await makeRequest('GET', \`/api/users/\${userId}/profile\`);
+            document.getElementById('user-response').textContent = response;
+        }
+
+        // TRAINING SERVICE
+        async function logWorkout() {
+            const data = {
+                user_id: document.getElementById('training-user-id').value,
+                type: document.getElementById('workout-type').value,
+                duration_minutes: parseInt(document.getElementById('workout-duration').value),
+                distance_km: parseFloat(document.getElementById('workout-distance').value),
+            };
+            const response = await makeRequest('POST', '/api/workouts', data);
+            document.getElementById('training-response').textContent = response;
+        }
+
+        async function getWorkouts() {
+            const userId = document.getElementById('training-user-id').value;
+            const response = await makeRequest('GET', \`/api/workouts/\${userId}\`);
+            document.getElementById('training-response').textContent = response;
+        }
+
+        // ANALYTICS SERVICE
+        async function getStats() {
+            const userId = document.getElementById('analytics-user-id').value;
+            const response = await makeRequest('GET', \`/api/stats/\${userId}\`);
+            document.getElementById('analytics-response').textContent = response;
+        }
+
+        async function getWeeklyTrends() {
+            const userId = document.getElementById('analytics-user-id').value;
+            const response = await makeRequest('GET', \`/api/trends/\${userId}/weekly\`);
+            document.getElementById('analytics-response').textContent = response;
+        }
+
+        async function getMonthlyTrends() {
+            const userId = document.getElementById('analytics-user-id').value;
+            const response = await makeRequest('GET', \`/api/trends/\${userId}/monthly\`);
+            document.getElementById('analytics-response').textContent = response;
+        }
+
+        async function getMilestones() {
+            const userId = document.getElementById('analytics-user-id').value;
+            const response = await makeRequest('GET', \`/api/milestones/\${userId}\`);
+            document.getElementById('analytics-response').textContent = response;
+        }
+
+        // SOCIAL SERVICE
+        async function createPost() {
+            const data = {
+                user_id: document.getElementById('social-user-id').value,
+                content: document.getElementById('post-content').value,
+            };
+            const response = await makeRequest('POST', '/api/posts', data);
+            document.getElementById('social-response').textContent = response;
+        }
+
+        async function getFeed() {
+            const userId = document.getElementById('social-user-id').value;
+            const response = await makeRequest('GET', \`/api/feed/\${userId}\`);
+            document.getElementById('social-response').textContent = response;
+        }
+
+        // RACE SERVICE
+        async function simulateRace() {
+            const data = {
+                user_id: document.getElementById('race-user-id').value,
+                race_type: document.getElementById('race-type').value,
+            };
+            const response = await makeRequest('POST', '/api/race/simulate', data);
+            document.getElementById('race-response').textContent = response;
+        }
+
+        async function simulateRaceAI() {
+            const data = {
+                user_id: document.getElementById('race-user-id').value,
+                race_type: document.getElementById('race-type').value,
+            };
+            document.getElementById('race-response').textContent = '⏳ AI is analyzing your training data...';
+            const response = await makeRequest('POST', '/api/race/simulate-ai', data);
+            document.getElementById('race-response').textContent = response;
+        }
+
+        async function getRaces() {
+            const response = await makeRequest('GET', '/api/races');
+            document.getElementById('race-response').textContent = response;
+        }
+
+        // GATEWAY
+        async function customRequest() {
+            const method = document.getElementById('custom-method').value;
+            const endpoint = document.getElementById('custom-endpoint').value;
+            const bodyText = document.getElementById('custom-body').value;
+            const data = bodyText ? JSON.parse(bodyText) : null;
+            const response = await makeRequest(method, endpoint, data);
+            document.getElementById('gateway-response').textContent = response;
+        }
+
+        async function checkGateway() {
+            const response = await makeRequest('GET', '/');
+            document.getElementById('gateway-response').textContent = response;
+        }
+
+        // Clear responses
+        const clearFunctions = {
+            clearUserResponse: 'user-response',
+            clearTrainingResponse: 'training-response',
+            clearAnalyticsResponse: 'analytics-response',
+            clearSocialResponse: 'social-response',
+            clearRaceResponse: 'race-response',
+            clearGatewayResponse: 'gateway-response',
+        };
+
+        Object.entries(clearFunctions).forEach(([fn, id]) => {
+            window[fn] = () => {
+                document.getElementById(id).textContent = 'Ready...';
+            };
+        });
+    </script>
+</body>
+</html>`;
+
+// Serve the main frontend page at the root
+app.get('/', (req: Request, res: Response) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Serve the test console at /console
+app.get('/console', (req: Request, res: Response) => {
+  res.status(200).send(testHTML);
+});
+
+app.listen(Number(port), () => {
+  console.log(`🎯 Frontend Test Console running on port ${port}`);
+  console.log(`📍 Access at http://localhost:${port}`);
+});
