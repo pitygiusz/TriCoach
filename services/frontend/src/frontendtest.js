@@ -334,6 +334,14 @@ hamburgerBtn.addEventListener('click', openMenu);
 profileBtn.addEventListener('click', () => { window.location.href = 'profile.html'; });
 
 newPostBtn.addEventListener('click',  () => { createPostModal.classList.remove('hidden'); fetchWorkouts(); });
+const workoutsMenuBtn = document.getElementById('workoutsMenuBtn');
+if (workoutsMenuBtn) {
+  workoutsMenuBtn.addEventListener('click', () => { window.location.href = 'workouts.html'; });
+}
+const aiMenuBtn = document.getElementById('aiMenuBtn');
+if (aiMenuBtn) {
+  aiMenuBtn.addEventListener('click', () => { window.location.href = 'ai-analysis.html'; });
+}
 draftsBtn.addEventListener('click',   () => alert('Show draft posts.'));
 settingsBtn.addEventListener('click', () => alert('Open settings.'));
 
@@ -361,6 +369,8 @@ function updateProfileSidebar() {
   if (optionsList) {
     if (uid) {
       optionsList.innerHTML = `
+        <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+        <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
         <li style="cursor:pointer;color:var(--text);" onclick="logoutUser()">🚪 Logout</li>
         <li>Settings</li>
         <li>Notifications</li>

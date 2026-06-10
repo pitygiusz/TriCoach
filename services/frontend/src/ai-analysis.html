@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TriCoach — AI Analyzer</title>
+  <link rel="stylesheet" href="styles.css" />
+  
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script>
+    try {
+      if (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.apiKey) {
+        firebase.initializeApp(window.__FIREBASE_CONFIG__);
+      } else {
+        console.warn('🔥 Firebase config missing or incomplete');
+      }
+    } catch (e) {
+      console.warn('🔥 Firebase init error:', e.message);
+    }
+  </script>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <!-- ── Main content ─────────────────────────────────────────────────── -->
+    <div class="main-area">
+
+      <header class="topbar">
+        <button onclick="window.location.href='index.html'" class="hamburger" aria-label="Go back">←</button>
+
+        <div class="title-group">
+          <span class="app-label">TriCoach</span>
+          <h1>AI Race Analyzer</h1>
+        </div>
+      </header>
+
+      <!-- Analysis Form -->
+      <section class="post-card" style="margin-bottom: 8px;">
+        <h3>AI Race Simulator</h3>
+        <p style="color: var(--muted); margin-bottom: 20px;">
+          Our AI model analyzes your logged workouts and predicts your finish time for standard triathlon distances, factoring in fatigue and transitions.
+        </p>
+
+        <div class="workout-selector" style="margin-bottom: 20px;">
+          <label for="raceTypeSelect">Select Target Race Distance:</label>
+          <select id="raceTypeSelect" style="width: 100%;">
+            <option value="sprint">Sprint (0.75k swim / 20k bike / 5k run)</option>
+            <option value="olympic" selected>Olympic (1.5k swim / 40k bike / 10k run)</option>
+            <option value="half_ironman">Half Ironman (1.9k swim / 90k bike / 21.1k run)</option>
+            <option value="ironman">Ironman (3.86k swim / 180k bike / 42.2k run)</option>
+          </select>
+        </div>
+
+        <button id="runAiSimulationBtn" class="action-pill active" style="width: 100%; font-weight: bold; padding: 14px;">
+          🔮 Run AI Simulation
+        </button>
+      </section>
+
+      <!-- Loading / Results area -->
+      <div id="aiResultArea" class="posts-container">
+        <!-- Results or loading messages will render here -->
+        <div class="empty-state">Select a race type and run the simulation.</div>
+      </div>
+
+    </div>
+
+    <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
+    <aside class="sidebar" id="sidebarHid">
+      <div class="sidebar-card">
+        <h2>Profile</h2>
+        <div class="profile-card" id="profileCard">
+          <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
+          <div>
+            <strong>Jane Doe</strong>
+            <span>@janedoe</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-card">
+        <h2>Options</h2>
+        <ul id="optionsList">
+          <li>Settings</li>
+          <li>Help</li>
+        </ul>
+      </div>
+    </aside>
+
+  </div>
+
+  <script>
+    const profileCard = document.getElementById('profileCard');
+    const optionsList = document.getElementById('optionsList');
+    const raceTypeSelect = document.getElementById('raceTypeSelect');
+    const runAiSimulationBtn = document.getElementById('runAiSimulationBtn');
+    const aiResultArea = document.getElementById('aiResultArea');
+
+    // ─── Firebase Helper ──────────────────────────────────────────────────────
+    function isFirebaseReady() {
+      try {
+        return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function getCurrentUserId() {
+      return sessionStorage.getItem('firebaseUid') || 'guest';
+    }
+
+    async function getAuthHeaders() {
+      if (isFirebaseReady()) {
+        try {
+          const user = firebase.auth().currentUser;
+          if (user) {
+            const token = await user.getIdToken();
+            sessionStorage.setItem('firebaseToken', token);
+            sessionStorage.setItem('firebaseUid', user.uid);
+            sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+            sessionStorage.setItem('firebaseEmail', user.email);
+            return { 'Authorization': `Bearer ${token}` };
+          }
+        } catch (e) {}
+      }
+      const token = sessionStorage.getItem('firebaseToken');
+      if (!token) return {};
+      return { 'Authorization': `Bearer ${token}` };
+    }
+
+    // ─── Update Profile Sidebar ────────────────────────────────────────────────
+    function updateProfileSidebar() {
+      const uid = sessionStorage.getItem('firebaseUid');
+      const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+      const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
+
+      if (profileCard) {
+        profileCard.innerHTML = `
+          <button class="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
+            <img src="${avatar}" alt="${name}" />
+          </button>
+          <div>
+            <strong>${name}</strong>
+            <span>${uid ? '@' + uid.substring(0, 8) : 'Not logged in'}</span>
+          </div>
+        `;
+      }
+
+      if (optionsList) {
+        if (uid) {
+          optionsList.innerHTML = `
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+            <li style="cursor:pointer;color:var(--text);" onclick="logoutUser()">🚪 Logout</li>
+            <li>Settings</li>
+            <li>Help</li>
+          `;
+        } else {
+          optionsList.innerHTML = `
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='index.html'">🔑 Log In</li>
+            <li>Settings</li>
+            <li>Help</li>
+          `;
+        }
+      }
+    }
+
+    window.logoutUser = function logoutUser() {
+      if (isFirebaseReady()) {
+        firebase.auth().signOut().then(function() {
+          sessionStorage.clear();
+          window.location.href = 'index.html';
+        }).catch(function(e) {
+          alert('Logout failed: ' + e.message);
+        });
+      } else {
+        sessionStorage.clear();
+        window.location.href = 'index.html';
+      }
+    };
+
+    // ─── Run AI Simulation ────────────────────────────────────────────────────
+    runAiSimulationBtn.addEventListener('click', async () => {
+      const uid = getCurrentUserId();
+      if (uid === 'guest') {
+        alert('Please log in first to use the AI Simulator.');
+        return;
+      }
+
+      const raceType = raceTypeSelect.value;
+      aiResultArea.innerHTML = `
+        <div class="empty-state">
+          <p style="font-size: 1.2rem; font-weight: bold; margin-bottom: 8px;">⏳ AI Coach is analyzing your training history...</p>
+          <p style="color: var(--muted);">This might take a moment as our LLM reviews segments, pacing, and transition factors.</p>
+        </div>
+      `;
+
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch('/api/race/simulate-ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({
+            user_id: uid,
+            race_type: raceType
+          })
+        });
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.error || `Server responded with ${res.status}`);
+        }
+
+        const data = await res.json();
+        if (!data.success || !data.ai_prediction) {
+          throw new Error('Invalid response from AI simulator.');
+        }
+
+        const pred = data.ai_prediction;
+        const dist = data.distances;
+
+        aiResultArea.innerHTML = `
+          <article class="post-card" style="border-left: 5px solid var(--primary);">
+            <header>
+              <div style="font-size: 2.5rem; margin-right: 12px;">🏆</div>
+              <div class="post-author">
+                <strong>Simulation Success</strong>
+                <span>Target: ${data.race_type.toUpperCase()}</span>
+              </div>
+            </header>
+            
+            <h2 style="font-size: 2.2rem; color: var(--text); margin-bottom: 12px;">
+              Predicted Time: <span style="color: var(--primary);">${pred.formatted_time || (pred.total_time_minutes + ' mins')}</span>
+            </h2>
+
+            <p style="color: var(--muted); margin-bottom: 20px; font-size: 0.95rem;">
+              Distance Details: Swim ${dist.swim}km · Bike ${dist.bike}km · Run ${dist.run}km
+            </p>
+
+            <div style="background: var(--surface-strong); border-radius: 16px; padding: 18px; line-height: 1.8;">
+              <strong style="color: var(--primary); display: block; margin-bottom: 8px;">📋 AI Coach Analysis:</strong>
+              <p style="margin: 0; font-size: 1.05rem;">${pred.ai_analysis}</p>
+            </div>
+          </article>
+        `;
+      } catch (err) {
+        aiResultArea.innerHTML = `
+          <div class="error-state">
+            <p>AI Simulation Failed</p>
+            <span style="font-size: 0.9rem;">${err.message}</span>
+          </div>
+        `;
+      }
+    });
+
+    // ─── Bootstrap ────────────────────────────────────────────────────────────
+    if (isFirebaseReady()) {
+      firebase.auth().onAuthStateChanged(function(user) {
+        if (user) {
+          sessionStorage.setItem('firebaseUid', user.uid);
+          sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+          sessionStorage.setItem('firebaseEmail', user.email);
+        }
+        updateProfileSidebar();
+      });
+    } else {
+      updateProfileSidebar();
+    }
+  </script>
+</body>
+</html>

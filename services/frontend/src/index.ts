@@ -83,6 +83,22 @@ app.get('/profile.html', (_req: Request, res: Response) => {
   serveWithFirebaseConfig('profile.html', res);
 });
 
+app.get('/workouts', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('workouts.html', res);
+});
+
+app.get('/workouts.html', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('workouts.html', res);
+});
+
+app.get('/ai-analysis', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('ai-analysis.html', res);
+});
+
+app.get('/ai-analysis.html', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('ai-analysis.html', res);
+});
+
 app.get('/console', (req: Request, res: Response) => {
   serveWithFirebaseConfig('console.html', res);
 });

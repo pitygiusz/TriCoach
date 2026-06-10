@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TriCoach — My Workouts</title>
+  <link rel="stylesheet" href="styles.css" />
+  
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script>
+    try {
+      if (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.apiKey) {
+        firebase.initializeApp(window.__FIREBASE_CONFIG__);
+      } else {
+        console.warn('🔥 Firebase config missing or incomplete');
+      }
+    } catch (e) {
+      console.warn('🔥 Firebase init error:', e.message);
+    }
+  </script>
+</head>
+
+<body>
+  <div class="app-shell">
+
+    <!-- ── Main content ─────────────────────────────────────────────────── -->
+    <div class="main-area">
+
+      <header class="topbar">
+        <button onclick="window.location.href='index.html'" class="hamburger" aria-label="Go back">←</button>
+
+        <div class="title-group">
+          <span class="app-label">TriCoach</span>
+          <h1>My Workouts</h1>
+        </div>
+
+        <button id="openCreateTrainingBtn" type="button" class="simulate_train">
+          <div>
+            <strong>🏃 Log a training</strong>
+            <span>Record today's workout</span>
+          </div>
+        </button>
+      </header>
+
+      <!-- Filter pills -->
+      <div class="action-bar" id="filterBar">
+        <button class="action-pill active" data-type="">All Disciplines</button>
+        <button class="action-pill" data-type="swim">🏊 Swim</button>
+        <button class="action-pill" data-type="ride">🚴 Ride</button>
+        <button class="action-pill" data-type="run">🏃 Run</button>
+        <button class="action-pill" data-type="other">🏋️ Other</button>
+      </div>
+
+      <!-- Workouts List -->
+      <main class="feed">
+        <div id="workoutsContainer" class="posts-container">
+          <div class="empty-state">Loading your workouts…</div>
+        </div>
+      </main>
+
+    </div>
+
+    <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
+    <aside class="sidebar" id="sidebarHid">
+      <div class="sidebar-card">
+        <h2>Profile</h2>
+        <div class="profile-card" id="profileCard">
+          <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
+          <div>
+            <strong>Jane Doe</strong>
+            <span>@janedoe</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-card">
+        <h2>Options</h2>
+        <ul id="optionsList">
+          <li>Settings</li>
+          <li>Help</li>
+        </ul>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ── Log Training modal ────────────────────────────────────────────────── -->
+  <div id="createTrainingModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2>Log Training</h2>
+        <button id="closeTrainingModalBtn" class="menu-close" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body">
+        <div class="workout-selector">
+          <label for="trainingType">Type</label>
+          <select id="trainingType">
+            <option value="">Select a type</option>
+            <option value="run">Run</option>
+            <option value="ride">Ride</option>
+            <option value="swim">Swim</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="workout-selector">
+          <label for="trainingDuration">Duration (minutes)</label>
+          <input id="trainingDuration" type="number" min="1" placeholder="e.g. 45" />
+        </div>
+        <div class="workout-selector">
+          <label for="trainingDistance">Distance (km)</label>
+          <input id="trainingDistance" type="number" min="0" step="0.01" placeholder="e.g. 5.00" />
+        </div>
+      </div>
+      <footer class="modal-actions">
+        <button id="submitTrainingBtn" class="action-pill active">Save Training</button>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    // ─── DOM refs ─────────────────────────────────────────────────────────────
+    const workoutsContainer = document.getElementById('workoutsContainer');
+    const profileCard = document.getElementById('profileCard');
+    const optionsList = document.getElementById('optionsList');
+    
+    // Create-training modal
+    const createTrainingModal = document.getElementById('createTrainingModal');
+    const openCreateTrainingBtn = document.getElementById('openCreateTrainingBtn');
+    const closeTrainingModalBtn = document.getElementById('closeTrainingModalBtn');
+    const trainingType = document.getElementById('trainingType');
+    const trainingDuration = document.getElementById('trainingDuration');
+    const trainingDistance = document.getElementById('trainingDistance');
+    const submitTrainingBtn = document.getElementById('submitTrainingBtn');
+
+    let currentFilterType = "";
+
+    // ─── Firebase Helper ──────────────────────────────────────────────────────
+    function isFirebaseReady() {
+      try {
+        return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function getCurrentUserId() {
+      return sessionStorage.getItem('firebaseUid') || 'guest';
+    }
+
+    function getCurrentDisplayName() {
+      return sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+    }
+
+    async function getAuthHeaders() {
+      if (isFirebaseReady()) {
+        try {
+          const user = firebase.auth().currentUser;
+          if (user) {
+            const token = await user.getIdToken();
+            sessionStorage.setItem('firebaseToken', token);
+            sessionStorage.setItem('firebaseUid', user.uid);
+            sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+            sessionStorage.setItem('firebaseEmail', user.email);
+            return { 'Authorization': `Bearer ${token}` };
+          }
+        } catch (e) {}
+      }
+      const token = sessionStorage.getItem('firebaseToken');
+      if (!token) return {};
+      return { 'Authorization': `Bearer ${token}` };
+    }
+
+    // ─── Update Profile Sidebar ────────────────────────────────────────────────
+    function updateProfileSidebar() {
+      const uid = sessionStorage.getItem('firebaseUid');
+      const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+      const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
+
+      if (profileCard) {
+        profileCard.innerHTML = `
+          <button class="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
+            <img src="${avatar}" alt="${name}" />
+          </button>
+          <div>
+            <strong>${name}</strong>
+            <span>${uid ? '@' + uid.substring(0, 8) : 'Not logged in'}</span>
+          </div>
+        `;
+      }
+
+      if (optionsList) {
+        if (uid) {
+          optionsList.innerHTML = `
+            <li style="cursor:pointer;color:var(--text);" onclick="logoutUser()">🚪 Logout</li>
+            <li>Settings</li>
+            <li>Help</li>
+          `;
+        } else {
+          optionsList.innerHTML = `
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='index.html'">🔑 Log In</li>
+            <li>Settings</li>
+            <li>Help</li>
+          `;
+        }
+      }
+    }
+
+    window.logoutUser = function logoutUser() {
+      if (isFirebaseReady()) {
+        firebase.auth().signOut().then(function() {
+          sessionStorage.clear();
+          window.location.href = 'index.html';
+        }).catch(function(e) {
+          alert('Logout failed: ' + e.message);
+        });
+      } else {
+        sessionStorage.clear();
+        window.location.href = 'index.html';
+      }
+    };
+
+    // ─── Fetch and Render Workouts ──────────────────────────────────────────
+    function getDisciplineEmoji(type) {
+      const t = type.toLowerCase();
+      if (t === 'swim' || t === 'swimming') return '🏊';
+      if (t === 'ride' || t === 'bike' || t === 'cycling') return '🚴';
+      if (t === 'run' || t === 'running') return '🏃';
+      return '🏋️';
+    }
+
+    async function loadWorkouts() {
+      const uid = getCurrentUserId();
+      if (uid === 'guest') {
+        workoutsContainer.innerHTML = `
+          <div class="empty-state">
+            <p>Please log in to see your workouts.</p>
+            <button class="action-pill active" onclick="window.location.href='index.html'" style="margin-top:12px;">Go to Login</button>
+          </div>
+        `;
+        return;
+      }
+
+      workoutsContainer.innerHTML = '<div class="empty-state">Loading workouts…</div>';
+
+      try {
+        const authHeaders = await getAuthHeaders();
+        let url = `/api/workouts/${uid}`;
+        if (currentFilterType) {
+          url += `?type=${currentFilterType}`;
+        }
+
+        const res = await fetch(url, {
+          headers: { 'Content-Type': 'application/json', ...authHeaders }
+        });
+        if (!res.ok) throw new Error(`Status: ${res.status}`);
+        
+        const data = await res.json();
+        const workouts = data.workouts || [];
+        
+        if (workouts.length === 0) {
+          workoutsContainer.innerHTML = `<div class="empty-state">No workouts logged under this filter discipline yet.</div>`;
+          return;
+        }
+
+        workoutsContainer.innerHTML = '';
+        workouts.forEach(w => {
+          const card = document.createElement('article');
+          card.className = 'post-card';
+          const emoji = getDisciplineEmoji(w.type);
+          const date = w.timestamp ? new Date(w.timestamp).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Logged';
+          const distanceText = w.distance_km ? ` · ${parseFloat(w.distance_km).toFixed(2)} km` : '';
+          
+          card.innerHTML = `
+            <header>
+              <div style="font-size: 2.2rem; margin-right: 8px;">${emoji}</div>
+              <div class="post-author">
+                <strong>${w.type.toUpperCase()} workout</strong>
+                <span>${date}</span>
+              </div>
+            </header>
+            <p style="font-size: 1.15rem; margin-bottom: 8px;">
+              Logged <strong>${w.duration_minutes}</strong> minutes of activity${distanceText}.
+            </p>
+          `;
+          workoutsContainer.appendChild(card);
+        });
+      } catch (err) {
+        workoutsContainer.innerHTML = `<div class="error-state">Could not load workouts: ${err.message}</div>`;
+      }
+    }
+
+    // ─── Modal interactions ──────────────────────────────────────────────────
+    openCreateTrainingBtn.addEventListener('click', () => {
+      const uid = getCurrentUserId();
+      if (uid === 'guest') {
+        alert('Please log in first to log a training.');
+        return;
+      }
+      createTrainingModal.classList.remove('hidden');
+    });
+
+    closeTrainingModalBtn.addEventListener('click', () => {
+      createTrainingModal.classList.add('hidden');
+    });
+
+    submitTrainingBtn.addEventListener('click', async () => {
+      const type = trainingType.value.trim();
+      const duration = trainingDuration.value.trim();
+      const distance = trainingDistance.value.trim();
+
+      if (!type) { alert('Select a training type.'); return; }
+      if (!duration || +duration <= 0) { alert('Enter a valid duration.'); return; }
+
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch('/api/workouts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({
+            user_id: getCurrentUserId(),
+            type,
+            duration_minutes: parseInt(duration, 10),
+            distance_km: distance ? parseFloat(distance) : null,
+          })
+        });
+
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(`${res.status}: ${body}`);
+        }
+
+        trainingType.value = '';
+        trainingDuration.value = '';
+        trainingDistance.value = '';
+        createTrainingModal.classList.add('hidden');
+
+        alert('Training logged successfully!');
+        loadWorkouts();
+      } catch (err) {
+        alert(`Could not save training: ${err.message}`);
+      }
+    });
+
+    // ─── Filter Pill Handling ─────────────────────────────────────────────────
+    document.querySelectorAll('#filterBar .action-pill').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('#filterBar .action-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentFilterType = btn.getAttribute('data-type');
+        loadWorkouts();
+      });
+    });
+
+    // ─── Bootstrap ────────────────────────────────────────────────────────────
+    if (isFirebaseReady()) {
+      firebase.auth().onAuthStateChanged(function(user) {
+        if (user) {
+          sessionStorage.setItem('firebaseUid', user.uid);
+          sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+          sessionStorage.setItem('firebaseEmail', user.email);
+        }
+        updateProfileSidebar();
+        loadWorkouts();
+      });
+    } else {
+      updateProfileSidebar();
+      loadWorkouts();
+    }
+  </script>
+</body>
+</html>
