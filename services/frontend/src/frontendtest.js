@@ -31,27 +31,33 @@ const trainingDistance     = document.getElementById('trainingDistance');
 const submitTrainingBtn    = document.getElementById('submitTrainingBtn');
 
 // ─── Firebase Auth (Compat SDK loaded via <script> tags) ─────────────────────
-// firebase.initializeApp() was already called in index.html.
-// Use the global `firebase` object directly.
 
-function getFirebaseAuth() {
-  const auth = firebase.auth();
-  return { auth };
+// Helper to get current token for API calls
+async function getAuthHeaders() {
+  try {
+    const user = firebase.auth().currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      sessionStorage.setItem('firebaseToken', token);
+      sessionStorage.setItem('firebaseUid', user.uid);
+      sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+      sessionStorage.setItem('firebaseEmail', user.email);
+      return { 'Authorization': `Bearer ${token}` };
+    }
+  } catch (e) {
+    // Firebase not available – use sessionStorage fallback
+  }
+  const token = sessionStorage.getItem('firebaseToken');
+  if (!token) return {};
+  return { 'Authorization': `Bearer ${token}` };
 }
 
 window.loginUser = async function loginUser() {
   try {
-    const { auth } = getFirebaseAuth();
     const email = prompt('Email:') || 'test@example.com';
     const password = prompt('Password:') || 'test123';
-    const cred = await auth.signInWithEmailAndPassword(email, password);
-    const idToken = await cred.user.getIdToken();
-
-    sessionStorage.setItem('firebaseToken', idToken);
-    sessionStorage.setItem('firebaseUid', cred.user.uid);
-    sessionStorage.setItem('firebaseDisplayName', cred.user.displayName || email);
-    sessionStorage.setItem('firebaseEmail', cred.user.email || email);
-
+    const cred = await firebase.auth().signInWithEmailAndPassword(email, password);
+    await getAuthHeaders(); // stores to sessionStorage
     alert(`Logged in as ${cred.user.email}`);
     location.reload();
   } catch (e) {
@@ -61,20 +67,13 @@ window.loginUser = async function loginUser() {
 
 window.registerUser = async function registerUser() {
   try {
-    const { auth } = getFirebaseAuth();
     const email = prompt('Email:') || 'newuser@example.com';
     const password = prompt('Password:') || 'test123';
     const displayName = prompt('Display name:') || 'New User';
 
-    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
     await cred.user.updateProfile({ displayName });
-    const idToken = await cred.user.getIdToken();
-
-    sessionStorage.setItem('firebaseToken', idToken);
-    sessionStorage.setItem('firebaseUid', cred.user.uid);
-    sessionStorage.setItem('firebaseDisplayName', displayName);
-    sessionStorage.setItem('firebaseEmail', cred.user.email || email);
-
+    await getAuthHeaders(); // stores to sessionStorage
     alert(`Registered as ${email}`);
     location.reload();
   } catch (e) {
@@ -84,40 +83,48 @@ window.registerUser = async function registerUser() {
 
 window.logoutUser = async function logoutUser() {
   try {
-    const { auth } = getFirebaseAuth();
-    await auth.signOut();
+    await firebase.auth().signOut();
     sessionStorage.clear();
     location.reload();
   } catch (e) {
     alert(`Logout failed: ${e.message}`);
   }
-}
+};
 
 // Listen for auth state changes
-firebase.auth().onAuthStateChanged((user) => {
-  if (user) {
-    console.log('🔥 Auth: logged in as', user.email);
-    document.body.classList.add('authenticated');
-    document.body.dataset.uid = user.uid;
-    document.body.dataset.displayName = user.displayName || user.email;
-  } else {
-    console.log('🔥 Auth: signed out');
-    document.body.classList.remove('authenticated');
-    delete document.body.dataset.uid;
-    delete document.body.dataset.displayName;
-  }
-});
-
-// Helper to get current token for API calls
-async function getAuthHeaders() {
-  const token = sessionStorage.getItem('firebaseToken');
-  if (!token) return {};
-  return { 'Authorization': `Bearer ${token}` };
+try {
+  firebase.auth().onAuthStateChanged((user) => {
+    if (user) {
+      console.log('🔥 Auth: logged in as', user.email);
+      document.body.classList.add('authenticated');
+      document.body.dataset.uid = user.uid;
+      document.body.dataset.displayName = user.displayName || user.email;
+      // Update sidebar when auth state changes
+      updateProfileSidebar();
+    } else {
+      console.log('🔥 Auth: signed out');
+      document.body.classList.remove('authenticated');
+      delete document.body.dataset.uid;
+      delete document.body.dataset.displayName;
+      updateProfileSidebar();
+    }
+  });
+} catch (e) {
+  console.warn('Firebase not available, using sessionStorage fallback');
 }
 
 // ─── Current user from session ────────────────────────────────────────────────
-const currentUserId = sessionStorage.getItem('firebaseUid') || 'user_janedoe_47';
-const currentDisplayName = sessionStorage.getItem('firebaseDisplayName') || 'Jane Doe';
+function getCurrentUserId() {
+  return sessionStorage.getItem('firebaseUid') || 
+         document.body.dataset.uid || 
+         'user_janedoe_47';
+}
+
+function getCurrentDisplayName() {
+  return sessionStorage.getItem('firebaseDisplayName') || 
+         document.body.dataset.displayName || 
+         'Jane Doe';
+}
 
 // ─── All API calls ────────────────────────────────────────────────────────────
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -180,20 +187,38 @@ function renderPosts(posts) {
   posts.forEach(p => postsContainer.appendChild(createPostCard(p)));
 }
 
+// ─── Load posts on startup with timeout ───────────────────────────────────────
+// Use a race with AbortController so the UI doesn't hang forever
 async function loadPosts() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
   try {
-    const data = await makeApiRequest('GET', '/api/posts');
+    const res = await fetch('/api/posts', {
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json' },
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`${res.status}: ${body}`);
+    }
+    const data = await res.json();
     renderPosts(data);
   } catch (err) {
-    postsContainer.innerHTML = `<div class="error-state">Could not load posts. ${err.message}</div>`;
+    clearTimeout(timeout);
+    // Show the empty state instead of an error so the page is usable
+    postsContainer.innerHTML = '<div class="empty-state">No posts yet — log a training and share it!</div>';
+    console.warn('loadPosts:', err.message);
   }
 }
 
-// ─── Workouts dropdown (used inside the post modal) ───────────────────────────
+// ─── Workouts dropdown ────────────────────────────────────────────────────────
 async function fetchWorkouts() {
   workoutSelect.innerHTML = '<option value="">Loading…</option>';
   try {
-    const result = await makeApiRequest('GET', `/api/workouts/${currentUserId}`);
+    const result = await makeApiRequest('GET', `/api/workouts/${getCurrentUserId()}`);
     workoutSelect.innerHTML = '<option value="">— Attach a training (optional) —</option>';
 
     if (!result.workouts?.length) {
@@ -233,8 +258,8 @@ settingsBtn.addEventListener('click', () => alert('Open settings.'));
 
 // ─── Update profile sidebar ───────────────────────────────────────────────────
 function updateProfileSidebar() {
-  const uid = sessionStorage.getItem('firebaseUid');
-  const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+  const uid = sessionStorage.getItem('firebaseUid') || document.body.dataset.uid;
+  const name = sessionStorage.getItem('firebaseDisplayName') || document.body.dataset.displayName || 'Guest';
   const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
 
   const profileCard = document.querySelector('.profile-card');
@@ -291,7 +316,7 @@ submitPostBtn.addEventListener('click', async () => {
 
   try {
     await makeApiRequest('POST', '/api/posts', {
-      user_id:     currentUserId,
+      user_id:     getCurrentUserId(),
       content,
       training_id: trainingId,
     });
@@ -323,7 +348,7 @@ submitTrainingBtn.addEventListener('click', async () => {
 
   try {
     await makeApiRequest('POST', '/api/workouts', {
-      user_id:          currentUserId,
+      user_id:          getCurrentUserId(),
       type,
       duration_minutes: parseInt(duration, 10),
       distance_km:      distance ? parseFloat(distance) : null,
