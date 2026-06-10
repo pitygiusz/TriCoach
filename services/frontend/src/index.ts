@@ -4,7 +4,7 @@ import fs from 'fs';
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname), { index: false }));
 
 const port = process.env.PORT || '8080';
 const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
@@ -71,7 +71,15 @@ app.get('/', (_req: Request, res: Response) => {
   serveWithFirebaseConfig('index.html', res);
 });
 
+app.get('/index.html', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('index.html', res);
+});
+
 app.get('/profile', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('profile.html', res);
+});
+
+app.get('/profile.html', (_req: Request, res: Response) => {
   serveWithFirebaseConfig('profile.html', res);
 });
 
