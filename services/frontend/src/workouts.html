@@ -272,14 +272,17 @@
           const distanceText = w.distance_km ? ` · ${parseFloat(w.distance_km).toFixed(2)} km` : '';
           
           card.innerHTML = `
-            <header>
-              <div style="font-size: 2.2rem; margin-right: 8px;">${emoji}</div>
-              <div class="post-author">
-                <strong>${w.type.toUpperCase()} workout</strong>
-                <span>${date}</span>
+            <header style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+              <div style="display: flex; align-items: center;">
+                <div style="font-size: 2.2rem; margin-right: 12px;">${emoji}</div>
+                <div class="post-author">
+                  <strong>${w.type.toUpperCase()} workout</strong>
+                  <span>${date}</span>
+                </div>
               </div>
+              <button onclick="deleteWorkout('${w.id}')" style="background: transparent; border: none; font-size: 1.25rem; padding: 4px 8px; color: var(--muted); cursor: pointer;" aria-label="Delete workout">🗑️</button>
             </header>
-            <p style="font-size: 1.15rem; margin-bottom: 8px;">
+            <p style="font-size: 1.15rem; margin-bottom: 8px; margin-top: 12px;">
               Logged <strong>${w.duration_minutes}</strong> minutes of activity${distanceText}.
             </p>
           `;
@@ -289,6 +292,22 @@
         workoutsContainer.innerHTML = `<div class="error-state">Could not load workouts: ${err.message}</div>`;
       }
     }
+
+    window.deleteWorkout = async function deleteWorkout(workoutId) {
+      if (!confirm('Are you sure you want to delete this workout?')) return;
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(`/api/workouts/${workoutId}`, {
+          method: 'DELETE',
+          headers: authHeaders
+        });
+        if (!res.ok) throw new Error(`Status: ${res.status}`);
+        alert('Workout deleted successfully!');
+        loadWorkouts();
+      } catch (err) {
+        alert(`Could not delete workout: ${err.message}`);
+      }
+    };
 
     // ─── Modal interactions ──────────────────────────────────────────────────
     openCreateTrainingBtn.addEventListener('click', () => {

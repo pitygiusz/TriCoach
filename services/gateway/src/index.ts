@@ -84,6 +84,13 @@ app.get('/api/workouts/:userId', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
+app.delete('/api/workouts/:workoutId', async (req: Request, res: Response) => {
+  try {
+    const r = await axios.delete(`${SERVICES.training}/workouts/${req.params.workoutId}`);
+    res.status(r.status).json(r.data);
+  } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
+});
+
 app.post('/api/plans', async (req: Request, res: Response) => {
   try {
     const r = await axios.post(`${SERVICES.training}/plans`, req.body);

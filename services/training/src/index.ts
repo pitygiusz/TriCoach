@@ -197,6 +197,29 @@ app.put('/plans/:planId', async (req: Request, res: Response) => {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
+// Delete a workout
+app.delete('/workouts/:workoutId', async (req: Request, res: Response) => {
+  try {
+    const { workoutId } = req.params;
+
+    const result = await db.query(
+      `DELETE FROM "TrainingHistory" WHERE id = $1 RETURNING id`,
+      [workoutId]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json({ error: 'Workout not found' });
+      return;
+    }
+
+    res.status(200).json({
+      message: 'Workout deleted successfully',
+      id: workoutId,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 app.listen(Number(port), () => {
