@@ -44,7 +44,7 @@ app.get('/stats/:userId', async (req: Request, res: Response) => {
       `SELECT 
          COUNT(*) as total_workouts,
          SUM(CASE WHEN type = 'swim' THEN 1 ELSE 0 END) as swim_count,
-         SUM(CASE WHEN type = 'bike' THEN 1 ELSE 0 END) as bike_count,
+         SUM(CASE WHEN type IN ('bike', 'ride') THEN 1 ELSE 0 END) as bike_count,
          SUM(CASE WHEN type = 'run' THEN 1 ELSE 0 END) as run_count,
          SUM(duration_minutes) as total_duration_minutes,
          SUM(distance_km) as total_distance_km,

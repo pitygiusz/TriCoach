@@ -100,7 +100,7 @@ app.post('/simulate', async (req: Request, res: Response) => {
     const statsResult = await db.query(
       `SELECT 
          AVG(CASE WHEN type = 'swim' THEN duration_minutes / NULLIF(distance_km, 0) END) as swim_pace,
-         AVG(CASE WHEN type = 'bike' THEN duration_minutes / NULLIF(distance_km, 0) END) as bike_pace,
+         AVG(CASE WHEN type IN ('bike', 'ride') THEN duration_minutes / NULLIF(distance_km, 0) END) as bike_pace,
          AVG(CASE WHEN type = 'run' THEN duration_minutes / NULLIF(distance_km, 0) END) as run_pace,
          COUNT(*) as total_workouts
        FROM "TrainingHistory"
@@ -147,7 +147,7 @@ app.post('/simulate-ai', async (req: Request, res: Response) => {
     const statsResult = await db.query(
       `SELECT 
          AVG(CASE WHEN type = 'swim' THEN duration_minutes / NULLIF(distance_km, 0) END) as swim_pace,
-         AVG(CASE WHEN type = 'bike' THEN duration_minutes / NULLIF(distance_km, 0) END) as bike_pace,
+         AVG(CASE WHEN type IN ('bike', 'ride') THEN duration_minutes / NULLIF(distance_km, 0) END) as bike_pace,
          AVG(CASE WHEN type = 'run' THEN duration_minutes / NULLIF(distance_km, 0) END) as run_pace,
          COUNT(*) as total_workouts
        FROM "TrainingHistory"

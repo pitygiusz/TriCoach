@@ -260,6 +260,8 @@
           sessionStorage.setItem('firebaseUid', user.uid);
           sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
           sessionStorage.setItem('firebaseEmail', user.email);
+        } else {
+          sessionStorage.clear();
         }
         updateProfileSidebar();
       });

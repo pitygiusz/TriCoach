@@ -170,6 +170,7 @@
                 document.getElementById('userPosts').innerHTML = '<div class="empty-state">Could not load posts</div>';
               });
           } else {
+            sessionStorage.clear();
             loadProfileFallback();
           }
         });

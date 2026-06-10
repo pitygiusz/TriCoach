@@ -179,11 +179,15 @@ if (isFirebaseReady()) {
         document.body.classList.add('authenticated');
         document.body.dataset.uid = user.uid;
         document.body.dataset.displayName = user.displayName || user.email;
+        sessionStorage.setItem('firebaseUid', user.uid);
+        sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+        sessionStorage.setItem('firebaseEmail', user.email);
       } else {
         console.log('🔥 Auth: signed out');
         document.body.classList.remove('authenticated');
         delete document.body.dataset.uid;
         delete document.body.dataset.displayName;
+        sessionStorage.clear();
       }
       updateProfileSidebar();
     });
