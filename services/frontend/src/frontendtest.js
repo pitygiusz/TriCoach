@@ -31,21 +31,46 @@ const trainingDistance     = document.getElementById('trainingDistance');
 const submitTrainingBtn    = document.getElementById('submitTrainingBtn');
 
 // ─── Firebase Auth (Compat SDK loaded via <script> tags) ─────────────────────
+// Initialize Firebase with config injected by the server
+(function initFirebase() {
+  try {
+    if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+      const config = window.__FIREBASE_CONFIG__;
+      if (config && config.apiKey) {
+        firebase.initializeApp(config);
+        console.log('🔥 Firebase initialized');
+      } else {
+        console.warn('🔥 Firebase config missing or incomplete', config);
+      }
+    } else if (typeof firebase === 'undefined') {
+      console.warn('🔥 Firebase SDK not loaded');
+    }
+  } catch (e) {
+    console.warn('🔥 Firebase init error:', e.message);
+  }
+})();
+
+// ─── Firebase Auth (Compat SDK loaded via <script> tags) ─────────────────────
+function isFirebaseReady() {
+  return typeof firebase !== 'undefined' && firebase.app && firebase.app();
+}
 
 // Helper to get current token for API calls
 async function getAuthHeaders() {
-  try {
-    const user = firebase.auth().currentUser;
-    if (user) {
-      const token = await user.getIdToken();
-      sessionStorage.setItem('firebaseToken', token);
-      sessionStorage.setItem('firebaseUid', user.uid);
-      sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
-      sessionStorage.setItem('firebaseEmail', user.email);
-      return { 'Authorization': `Bearer ${token}` };
+  if (isFirebaseReady()) {
+    try {
+      const user = firebase.auth().currentUser;
+      if (user) {
+        const token = await user.getIdToken();
+        sessionStorage.setItem('firebaseToken', token);
+        sessionStorage.setItem('firebaseUid', user.uid);
+        sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+        sessionStorage.setItem('firebaseEmail', user.email);
+        return { 'Authorization': `Bearer ${token}` };
+      }
+    } catch (e) {
+      // Firebase call failed – fallback to sessionStorage
     }
-  } catch (e) {
-    // Firebase not available – use sessionStorage fallback
   }
   const token = sessionStorage.getItem('firebaseToken');
   if (!token) return {};
@@ -53,11 +78,15 @@ async function getAuthHeaders() {
 }
 
 window.loginUser = async function loginUser() {
+  if (!isFirebaseReady()) {
+    alert('Firebase SDK not loaded. Check your internet connection and try again.');
+    return;
+  }
   try {
     const email = prompt('Email:') || 'test@example.com';
     const password = prompt('Password:') || 'test123';
     const cred = await firebase.auth().signInWithEmailAndPassword(email, password);
-    await getAuthHeaders(); // stores to sessionStorage
+    await getAuthHeaders();
     alert(`Logged in as ${cred.user.email}`);
     location.reload();
   } catch (e) {
@@ -66,6 +95,10 @@ window.loginUser = async function loginUser() {
 };
 
 window.registerUser = async function registerUser() {
+  if (!isFirebaseReady()) {
+    alert('Firebase SDK not loaded. Check your internet connection and try again.');
+    return;
+  }
   try {
     const email = prompt('Email:') || 'newuser@example.com';
     const password = prompt('Password:') || 'test123';
@@ -73,7 +106,7 @@ window.registerUser = async function registerUser() {
 
     const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
     await cred.user.updateProfile({ displayName });
-    await getAuthHeaders(); // stores to sessionStorage
+    await getAuthHeaders();
     alert(`Registered as ${email}`);
     location.reload();
   } catch (e) {
@@ -82,6 +115,11 @@ window.registerUser = async function registerUser() {
 };
 
 window.logoutUser = async function logoutUser() {
+  if (!isFirebaseReady()) {
+    sessionStorage.clear();
+    location.reload();
+    return;
+  }
   try {
     await firebase.auth().signOut();
     sessionStorage.clear();
@@ -91,26 +129,28 @@ window.logoutUser = async function logoutUser() {
   }
 };
 
-// Listen for auth state changes
-try {
-  firebase.auth().onAuthStateChanged((user) => {
-    if (user) {
-      console.log('🔥 Auth: logged in as', user.email);
-      document.body.classList.add('authenticated');
-      document.body.dataset.uid = user.uid;
-      document.body.dataset.displayName = user.displayName || user.email;
-      // Update sidebar when auth state changes
+// Listen for auth state changes (only if Firebase loaded)
+if (isFirebaseReady()) {
+  try {
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        console.log('🔥 Auth: logged in as', user.email);
+        document.body.classList.add('authenticated');
+        document.body.dataset.uid = user.uid;
+        document.body.dataset.displayName = user.displayName || user.email;
+      } else {
+        console.log('🔥 Auth: signed out');
+        document.body.classList.remove('authenticated');
+        delete document.body.dataset.uid;
+        delete document.body.dataset.displayName;
+      }
       updateProfileSidebar();
-    } else {
-      console.log('🔥 Auth: signed out');
-      document.body.classList.remove('authenticated');
-      delete document.body.dataset.uid;
-      delete document.body.dataset.displayName;
-      updateProfileSidebar();
-    }
-  });
-} catch (e) {
-  console.warn('Firebase not available, using sessionStorage fallback');
+    });
+  } catch (e) {
+    console.warn('Firebase onAuthStateChanged failed');
+  }
+} else {
+  console.warn('Firebase not available – running with sessionStorage only');
 }
 
 // ─── Current user from session ────────────────────────────────────────────────
