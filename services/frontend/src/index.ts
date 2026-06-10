@@ -83,6 +83,10 @@ app.get('/profile.html', (_req: Request, res: Response) => {
   serveWithFirebaseConfig('profile.html', res);
 });
 
+app.get('/console', (req: Request, res: Response) => {
+  serveWithFirebaseConfig('console.html', res);
+});
+
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(Number(port), () => {
   console.log(`🎯 TriCoach frontend  →  http://localhost:${port}`);
