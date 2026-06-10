@@ -8,7 +8,15 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script>
-    firebase.initializeApp(window.__FIREBASE_CONFIG__);
+    try {
+      if (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.apiKey) {
+        firebase.initializeApp(window.__FIREBASE_CONFIG__);
+      } else {
+        console.warn('🔥 Firebase config missing or incomplete');
+      }
+    } catch (e) {
+      console.warn('🔥 Firebase init error:', e.message);
+    }
   </script>
 </head>
 <body>
@@ -58,40 +66,32 @@
     </div>
 
     <script>
-      // Firebase already initialized via script tags above
-      // Try to get fresh user data from Firebase Auth
-      firebase.auth().onAuthStateChanged(function(user) {
+      function isFirebaseReady() {
+        try {
+          return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function loadProfileFallback() {
         const profileName = document.getElementById('profileName');
         const profileEmail = document.getElementById('profileEmail');
         const profileAvatar = document.getElementById('profileAvatar');
         const postCount = document.getElementById('postCount');
 
-        if (user) {
-          // Save to sessionStorage for other pages
-          sessionStorage.setItem('firebaseUid', user.uid);
-          sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
-          sessionStorage.setItem('firebaseEmail', user.email);
+        const uid = sessionStorage.getItem('firebaseUid');
+        const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+        const email = sessionStorage.getItem('firebaseEmail') || 'Not logged in';
 
-          profileName.textContent = user.displayName || 'Athlete';
-          profileEmail.textContent = '@' + user.email;
-          profileAvatar.src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(user.uid);
-        } else {
-          // Fallback to sessionStorage
-          const uid = sessionStorage.getItem('firebaseUid');
-          const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
-          const email = sessionStorage.getItem('firebaseEmail') || 'Not logged in';
+        profileName.textContent = name;
+        profileEmail.textContent = email;
+        profileAvatar.src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(uid || 'guest');
 
-          profileName.textContent = name;
-          profileEmail.textContent = email;
-          profileAvatar.src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(uid || 'guest');
-
-          if (!uid) {
-            document.getElementById('profileJoined').textContent = 'Please log in';
-          }
+        if (!uid) {
+          document.getElementById('profileJoined').textContent = 'Please log in';
         }
 
-        // Count posts
-        const uid = user ? user.uid : sessionStorage.getItem('firebaseUid');
         if (uid) {
           fetch('/api/posts')
             .then(r => r.json())
@@ -115,7 +115,67 @@
               document.getElementById('userPosts').innerHTML = '<div class="empty-state">Could not load posts</div>';
             });
         }
-      });
+      }
+
+      window.logoutUser = function logoutUser() {
+        if (isFirebaseReady()) {
+          firebase.auth().signOut().then(function() {
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+          }).catch(function(e) {
+            alert('Logout failed: ' + e.message);
+          });
+        } else {
+          sessionStorage.clear();
+          window.location.href = 'index.html';
+        }
+      };
+
+      if (isFirebaseReady()) {
+        firebase.auth().onAuthStateChanged(function(user) {
+          const profileName = document.getElementById('profileName');
+          const profileEmail = document.getElementById('profileEmail');
+          const profileAvatar = document.getElementById('profileAvatar');
+          const postCount = document.getElementById('postCount');
+
+          if (user) {
+            sessionStorage.setItem('firebaseUid', user.uid);
+            sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+            sessionStorage.setItem('firebaseEmail', user.email);
+
+            profileName.textContent = user.displayName || 'Athlete';
+            profileEmail.textContent = '@' + user.email;
+            profileAvatar.src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(user.uid);
+
+            const uid = user.uid;
+            fetch('/api/posts')
+              .then(r => r.json())
+              .then(posts => {
+                const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === uid) : [];
+                postCount.textContent = userPosts.length;
+                const container = document.getElementById('userPosts');
+                if (userPosts.length === 0) {
+                  container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
+                } else {
+                  container.innerHTML = '';
+                  userPosts.forEach(post => {
+                    const card = document.createElement('article');
+                    card.className = 'post-card';
+                    card.innerHTML = '<p>' + (post.content || '') + '</p><div class="post-meta"><span>' + (post.likes || 0) + ' likes</span></div>';
+                    container.appendChild(card);
+                  });
+                }
+              })
+              .catch(() => {
+                document.getElementById('userPosts').innerHTML = '<div class="empty-state">Could not load posts</div>';
+              });
+          } else {
+            loadProfileFallback();
+          }
+        });
+      } else {
+        loadProfileFallback();
+      }
     </script>
 </body>
 </html>

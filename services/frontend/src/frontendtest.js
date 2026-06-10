@@ -52,7 +52,11 @@ const submitTrainingBtn    = document.getElementById('submitTrainingBtn');
 
 // ─── Firebase Auth (Compat SDK loaded via <script> tags) ─────────────────────
 function isFirebaseReady() {
-  return typeof firebase !== 'undefined' && firebase.app && firebase.app();
+  try {
+    return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
+  } catch (e) {
+    return false;
+  }
 }
 
 // Helper to get current token for API calls
