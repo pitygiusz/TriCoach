@@ -1,7 +1,6 @@
 // All API calls go to the same origin (port 8080).
 // The frontend server proxies /api/* to the gateway (port 3000) server-side,
 // so the browser never makes a cross-origin request.
-const currentUserId = 'user_janedoe_47';
 
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 const postsContainer      = document.getElementById('postsContainer');
@@ -31,6 +30,108 @@ const trainingDuration     = document.getElementById('trainingDuration');
 const trainingDistance     = document.getElementById('trainingDistance');
 const submitTrainingBtn    = document.getElementById('submitTrainingBtn');
 
+// ─── Firebase Auth ────────────────────────────────────────────────────────────
+// The server injects `window.__FIREBASE_CONFIG__` before </head> so it's
+// available here.  We lazy-import the Firebase modular SDK from CDN only when
+// the user tries to register / log in (see loginUser / registerUser below).
+let authInstance = null;
+
+async function getFirebaseAuth() {
+  if (authInstance) return authInstance;
+  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
+  const { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged } =
+    await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
+
+  const app = initializeApp(window.__FIREBASE_CONFIG__ || { projectId: 'tricoach-496512' });
+  const auth = getAuth(app);
+
+  // Listen for auth state changes
+  onAuthStateChanged(auth, (user) => {
+    window.__FIRESTORE_USER__ = user;
+    if (user) {
+      console.log('🔥 Auth state: logged in as', user.email);
+      document.body.classList.add('authenticated');
+      document.body.dataset.uid = user.uid;
+      document.body.dataset.displayName = user.displayName || user.email;
+    } else {
+      console.log('🔥 Auth state: signed out');
+      document.body.classList.remove('authenticated');
+      delete document.body.dataset.uid;
+      delete document.body.dataset.displayName;
+    }
+  });
+
+  authInstance = { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile };
+  return authInstance;
+}
+
+// Expose a global so inline onclick handlers can use them
+window.loginUser = async function loginUser() {
+  try {
+    const { auth, signInWithEmailAndPassword } = await getFirebaseAuth();
+    const email = prompt('Email:') || 'test@example.com';
+    const password = prompt('Password:') || 'test123';
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    const idToken = await cred.user.getIdToken();
+
+    // Store in sessionStorage so the JS can use it later
+    sessionStorage.setItem('firebaseToken', idToken);
+    sessionStorage.setItem('firebaseUid', cred.user.uid);
+    sessionStorage.setItem('firebaseDisplayName', cred.user.displayName || email);
+    sessionStorage.setItem('firebaseEmail', cred.user.email || email);
+
+    alert(`Logged in as ${cred.user.email}`);
+    location.reload();
+  } catch (e) {
+    alert(`Login failed: ${e.message}`);
+  }
+};
+
+window.registerUser = async function registerUser() {
+  try {
+    const { auth, createUserWithEmailAndPassword, updateProfile } = await getFirebaseAuth();
+    const email = prompt('Email:') || 'newuser@example.com';
+    const password = prompt('Password:') || 'test123';
+    const displayName = prompt('Display name:') || 'New User';
+
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(cred.user, { displayName });
+    const idToken = await cred.user.getIdToken();
+
+    sessionStorage.setItem('firebaseToken', idToken);
+    sessionStorage.setItem('firebaseUid', cred.user.uid);
+    sessionStorage.setItem('firebaseDisplayName', displayName);
+    sessionStorage.setItem('firebaseEmail', cred.user.email || email);
+
+    alert(`Registered as ${email}`);
+    location.reload();
+  } catch (e) {
+    alert(`Registration failed: ${e.message}`);
+  }
+};
+
+window.logoutUser = async function logoutUser() {
+  try {
+    const { auth } = await getFirebaseAuth();
+    await auth.signOut();
+    sessionStorage.clear();
+    location.reload();
+  } catch (e) {
+    alert(`Logout failed: ${e.message}`);
+  }
+};
+
+// Helper to get current token for API calls
+async function getAuthHeaders() {
+  const token = sessionStorage.getItem('firebaseToken');
+  if (!token) return {};
+  return { 'Authorization': `Bearer ${token}` };
+}
+
+// ─── All API calls ────────────────────────────────────────────────────────────
+const currentUserId = sessionStorage.getItem('firebaseUid') || 'user_janedoe_47';
+const currentDisplayName = sessionStorage.getItem('firebaseDisplayName') || 'Jane Doe';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTimeAgo(timestamp) {
   if (!timestamp) return 'just now';
@@ -44,9 +145,10 @@ function formatTimeAgo(timestamp) {
 }
 
 async function makeApiRequest(method, endpoint, data = null) {
+  const authHeaders = await getAuthHeaders();
   const opts = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
   };
   if (data) opts.body = JSON.stringify(data);
 
@@ -137,9 +239,51 @@ overlay?.addEventListener('click', toggleSidebar);
 hamburgerBtn.addEventListener('click', openMenu);
 profileBtn.addEventListener('click', () => { window.location.href = 'profile.html'; });
 
-newPostBtn.addEventListener('click',  () => alert('Open create post screen.'));
+newPostBtn.addEventListener('click',  () => { createPostModal.classList.remove('hidden'); fetchWorkouts(); });
 draftsBtn.addEventListener('click',   () => alert('Show draft posts.'));
 settingsBtn.addEventListener('click', () => alert('Open settings.'));
+
+// ─── Update profile sidebar ───────────────────────────────────────────────────
+function updateProfileSidebar() {
+  const uid = sessionStorage.getItem('firebaseUid');
+  const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+  const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
+
+  const profileCard = document.querySelector('.profile-card');
+  if (profileCard) {
+    profileCard.innerHTML = `
+      <button class="profileBtn" id="profileBtn" aria-label="View profile">
+        <img src="${avatar}" alt="${name}" />
+      </button>
+      <div>
+        <strong>${name}</strong>
+        <span>${uid ? '@' + uid.substring(0, 8) : 'Not logged in'}</span>
+      </div>
+    `;
+  }
+
+  // Add login/logout buttons to sidebar Options
+  const optionsList = document.querySelector('.sidebar-card:last-child ul');
+  if (optionsList) {
+    if (uid) {
+      optionsList.innerHTML = `
+        <li style="cursor:pointer;color:var(--text);" onclick="logoutUser()">🚪 Logout</li>
+        <li>Settings</li>
+        <li>Notifications</li>
+        <li>Help</li>
+      `;
+    } else {
+      optionsList.innerHTML = `
+        <li style="cursor:pointer;color:var(--gold);" onclick="loginUser()">🔑 Login</li>
+        <li style="cursor:pointer;color:var(--gold);" onclick="registerUser()">📝 Register</li>
+        <li>Settings</li>
+        <li>Help</li>
+      `;
+    }
+  }
+}
+
+updateProfileSidebar();
 
 // ─── Post modal ───────────────────────────────────────────────────────────────
 openCreatePostBtn.addEventListener('click', async () => {

@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
 
 const app = express();
 app.use(express.json());
@@ -7,6 +8,31 @@ app.use(express.static(path.join(__dirname)));
 
 const port = process.env.PORT || '8080';
 const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
+
+// ─── Firebase config (injected into HTML) ─────────────────────────────────────
+const firebaseConfig = {
+  apiKey:                process.env.FIREBASE_API_KEY || '',
+  authDomain:            process.env.FIREBASE_AUTH_DOMAIN || '',
+  projectId:             process.env.FIREBASE_PROJECT_ID || '',
+  storageBucket:         process.env.FIREBASE_STORAGE_BUCKET || '',
+  messagingSenderId:     process.env.FIREBASE_MESSAGING_SENDER_ID || '',
+  appId:                 process.env.FIREBASE_APP_ID || '',
+  measurementId:         process.env.FIREBASE_MEASUREMENT_ID || '',
+};
+
+function serveWithFirebaseConfig(fileName: string, res: Response) {
+  const filePath = path.join(__dirname, fileName);
+  try {
+    let html = fs.readFileSync(filePath, 'utf-8');
+    html = html.replace(
+      '</head>',
+      `<script>window.__FIREBASE_CONFIG__ = ${JSON.stringify(firebaseConfig)};</script>\n</head>`
+    );
+    res.send(html);
+  } catch {
+    res.status(404).send('Not found');
+  }
+}
 
 // ─── API Proxy ────────────────────────────────────────────────────────────────
 // The browser JS calls /api/* relative to whatever port the page is served from
@@ -42,11 +68,11 @@ app.all('/api/*', async (req: Request, res: Response) => {
 
 // ─── Pages ────────────────────────────────────────────────────────────────────
 app.get('/', (_req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  serveWithFirebaseConfig('index.html', res);
 });
 
 app.get('/profile', (_req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, 'profile.html'));
+  serveWithFirebaseConfig('profile.html', res);
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
