@@ -53,9 +53,9 @@ app.post('/posts', async (req: Request, res: Response) => {
         ...postData,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
 
@@ -84,9 +84,9 @@ app.get('/posts', async (req: Request, res: Response) => {
     });
 
     res.status(200).json(sortedPosts);
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
 
