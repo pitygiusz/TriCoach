@@ -82,13 +82,34 @@ async function getAuthHeaders() {
 }
 
 window.loginUser = async function loginUser() {
+  const email = prompt('Email:') || 'test@example.com';
+  const password = prompt('Password:') || 'test123';
+
   if (!isFirebaseReady()) {
-    alert('Firebase SDK not loaded. Check your internet connection and try again.');
+    try {
+      const response = await fetch('/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`${response.status}: ${body}`);
+      }
+      const result = await response.json();
+      sessionStorage.setItem('firebaseToken', result.token);
+      sessionStorage.setItem('firebaseUid', result.user.uid);
+      sessionStorage.setItem('firebaseDisplayName', result.user.username || result.user.email);
+      sessionStorage.setItem('firebaseEmail', result.user.email);
+      alert(`Logged in as ${result.user.email} (Backend Fallback)`);
+      location.reload();
+    } catch (e) {
+      alert(`Login failed (Backend Fallback): ${e.message}`);
+    }
     return;
   }
+
   try {
-    const email = prompt('Email:') || 'test@example.com';
-    const password = prompt('Password:') || 'test123';
     const cred = await firebase.auth().signInWithEmailAndPassword(email, password);
     await getAuthHeaders();
     alert(`Logged in as ${cred.user.email}`);
@@ -99,15 +120,31 @@ window.loginUser = async function loginUser() {
 };
 
 window.registerUser = async function registerUser() {
+  const email = prompt('Email:') || 'newuser@example.com';
+  const password = prompt('Password:') || 'test123';
+  const displayName = prompt('Display name:') || 'New User';
+
   if (!isFirebaseReady()) {
-    alert('Firebase SDK not loaded. Check your internet connection and try again.');
+    try {
+      const response = await fetch('/api/users/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: displayName, email, password }),
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        throw new Error(`${response.status}: ${body}`);
+      }
+      const result = await response.json();
+      alert(`Registered as ${result.user.email} successfully! Please log in.`);
+      location.reload();
+    } catch (e) {
+      alert(`Registration failed (Backend Fallback): ${e.message}`);
+    }
     return;
   }
-  try {
-    const email = prompt('Email:') || 'newuser@example.com';
-    const password = prompt('Password:') || 'test123';
-    const displayName = prompt('Display name:') || 'New User';
 
+  try {
     const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
     await cred.user.updateProfile({ displayName });
     await getAuthHeaders();
