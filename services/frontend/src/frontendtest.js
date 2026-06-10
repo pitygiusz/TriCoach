@@ -30,51 +30,23 @@ const trainingDuration     = document.getElementById('trainingDuration');
 const trainingDistance     = document.getElementById('trainingDistance');
 const submitTrainingBtn    = document.getElementById('submitTrainingBtn');
 
-// ─── Firebase Auth ────────────────────────────────────────────────────────────
-// The server injects `window.__FIREBASE_CONFIG__` before </head> so it's
-// available here.  We lazy-import the Firebase modular SDK from CDN only when
-// the user tries to register / log in (see loginUser / registerUser below).
-let authInstance = null;
+// ─── Firebase Auth (Compat SDK loaded via <script> tags) ─────────────────────
+// firebase.initializeApp() was already called in index.html.
+// Use the global `firebase` object directly.
 
-async function getFirebaseAuth() {
-  if (authInstance) return authInstance;
-  const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
-  const { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, onAuthStateChanged } =
-    await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
-
-  const app = initializeApp(window.__FIREBASE_CONFIG__ || { projectId: 'tricoach-496512' });
-  const auth = getAuth(app);
-
-  // Listen for auth state changes
-  onAuthStateChanged(auth, (user) => {
-    window.__FIRESTORE_USER__ = user;
-    if (user) {
-      console.log('🔥 Auth state: logged in as', user.email);
-      document.body.classList.add('authenticated');
-      document.body.dataset.uid = user.uid;
-      document.body.dataset.displayName = user.displayName || user.email;
-    } else {
-      console.log('🔥 Auth state: signed out');
-      document.body.classList.remove('authenticated');
-      delete document.body.dataset.uid;
-      delete document.body.dataset.displayName;
-    }
-  });
-
-  authInstance = { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile };
-  return authInstance;
+function getFirebaseAuth() {
+  const auth = firebase.auth();
+  return { auth };
 }
 
-// Expose a global so inline onclick handlers can use them
 window.loginUser = async function loginUser() {
   try {
-    const { auth, signInWithEmailAndPassword } = await getFirebaseAuth();
+    const { auth } = getFirebaseAuth();
     const email = prompt('Email:') || 'test@example.com';
     const password = prompt('Password:') || 'test123';
-    const cred = await signInWithEmailAndPassword(auth, email, password);
+    const cred = await auth.signInWithEmailAndPassword(email, password);
     const idToken = await cred.user.getIdToken();
 
-    // Store in sessionStorage so the JS can use it later
     sessionStorage.setItem('firebaseToken', idToken);
     sessionStorage.setItem('firebaseUid', cred.user.uid);
     sessionStorage.setItem('firebaseDisplayName', cred.user.displayName || email);
@@ -89,13 +61,13 @@ window.loginUser = async function loginUser() {
 
 window.registerUser = async function registerUser() {
   try {
-    const { auth, createUserWithEmailAndPassword, updateProfile } = await getFirebaseAuth();
+    const { auth } = getFirebaseAuth();
     const email = prompt('Email:') || 'newuser@example.com';
     const password = prompt('Password:') || 'test123';
     const displayName = prompt('Display name:') || 'New User';
 
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName });
+    const cred = await auth.createUserWithEmailAndPassword(email, password);
+    await cred.user.updateProfile({ displayName });
     const idToken = await cred.user.getIdToken();
 
     sessionStorage.setItem('firebaseToken', idToken);
@@ -112,14 +84,29 @@ window.registerUser = async function registerUser() {
 
 window.logoutUser = async function logoutUser() {
   try {
-    const { auth } = await getFirebaseAuth();
+    const { auth } = getFirebaseAuth();
     await auth.signOut();
     sessionStorage.clear();
     location.reload();
   } catch (e) {
     alert(`Logout failed: ${e.message}`);
   }
-};
+}
+
+// Listen for auth state changes
+firebase.auth().onAuthStateChanged((user) => {
+  if (user) {
+    console.log('🔥 Auth: logged in as', user.email);
+    document.body.classList.add('authenticated');
+    document.body.dataset.uid = user.uid;
+    document.body.dataset.displayName = user.displayName || user.email;
+  } else {
+    console.log('🔥 Auth: signed out');
+    document.body.classList.remove('authenticated');
+    delete document.body.dataset.uid;
+    delete document.body.dataset.displayName;
+  }
+});
 
 // Helper to get current token for API calls
 async function getAuthHeaders() {
@@ -128,10 +115,11 @@ async function getAuthHeaders() {
   return { 'Authorization': `Bearer ${token}` };
 }
 
-// ─── All API calls ────────────────────────────────────────────────────────────
+// ─── Current user from session ────────────────────────────────────────────────
 const currentUserId = sessionStorage.getItem('firebaseUid') || 'user_janedoe_47';
 const currentDisplayName = sessionStorage.getItem('firebaseDisplayName') || 'Jane Doe';
 
+// ─── All API calls ────────────────────────────────────────────────────────────
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatTimeAgo(timestamp) {
   if (!timestamp) return 'just now';

@@ -4,7 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TriCoach - Profile</title>
-  <link rel="stylesheet" href="styles.css" /> 
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script>
+    firebase.initializeApp(window.__FIREBASE_CONFIG__);
+  </script>
 </head>
 <body>
     <div class="app-shell">
@@ -53,43 +58,64 @@
     </div>
 
     <script>
-      // Load profile from session storage
-      const uid = sessionStorage.getItem('firebaseUid');
-      const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
-      const email = sessionStorage.getItem('firebaseEmail') || 'Not logged in';
+      // Firebase already initialized via script tags above
+      // Try to get fresh user data from Firebase Auth
+      firebase.auth().onAuthStateChanged(function(user) {
+        const profileName = document.getElementById('profileName');
+        const profileEmail = document.getElementById('profileEmail');
+        const profileAvatar = document.getElementById('profileAvatar');
+        const postCount = document.getElementById('postCount');
 
-      if (!uid) {
-        document.getElementById('profileName').textContent = 'Not logged in';
-        document.getElementById('profileEmail').textContent = 'Please log in first';
-        document.getElementById('profileAvatar').src = 'https://i.pravatar.cc/150?img=1';
-      } else {
-        document.getElementById('profileName').textContent = name;
-        document.getElementById('profileEmail').textContent = '@' + uid.substring(0, 8);
-        document.getElementById('profileAvatar').src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(uid);
-        
+        if (user) {
+          // Save to sessionStorage for other pages
+          sessionStorage.setItem('firebaseUid', user.uid);
+          sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+          sessionStorage.setItem('firebaseEmail', user.email);
+
+          profileName.textContent = user.displayName || 'Athlete';
+          profileEmail.textContent = '@' + user.email;
+          profileAvatar.src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(user.uid);
+        } else {
+          // Fallback to sessionStorage
+          const uid = sessionStorage.getItem('firebaseUid');
+          const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+          const email = sessionStorage.getItem('firebaseEmail') || 'Not logged in';
+
+          profileName.textContent = name;
+          profileEmail.textContent = email;
+          profileAvatar.src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(uid || 'guest');
+
+          if (!uid) {
+            document.getElementById('profileJoined').textContent = 'Please log in';
+          }
+        }
+
         // Count posts
-        fetch('/api/posts')
-          .then(r => r.json())
-          .then(posts => {
-            const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === uid) : [];
-            document.getElementById('postCount').textContent = userPosts.length;
-            const container = document.getElementById('userPosts');
-            if (userPosts.length === 0) {
-              container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
-            } else {
-              container.innerHTML = '';
-              userPosts.forEach(post => {
-                const card = document.createElement('article');
-                card.className = 'post-card';
-                card.innerHTML = '<p>' + (post.content || '') + '</p><div class="post-meta"><span>' + (post.likes || 0) + ' likes</span></div>';
-                container.appendChild(card);
-              });
-            }
-          })
-          .catch(() => {
-            document.getElementById('userPosts').innerHTML = '<div class="empty-state">Could not load posts</div>';
-          });
-      }
+        const uid = user ? user.uid : sessionStorage.getItem('firebaseUid');
+        if (uid) {
+          fetch('/api/posts')
+            .then(r => r.json())
+            .then(posts => {
+              const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === uid) : [];
+              postCount.textContent = userPosts.length;
+              const container = document.getElementById('userPosts');
+              if (userPosts.length === 0) {
+                container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
+              } else {
+                container.innerHTML = '';
+                userPosts.forEach(post => {
+                  const card = document.createElement('article');
+                  card.className = 'post-card';
+                  card.innerHTML = '<p>' + (post.content || '') + '</p><div class="post-meta"><span>' + (post.likes || 0) + ' likes</span></div>';
+                  container.appendChild(card);
+                });
+              }
+            })
+            .catch(() => {
+              document.getElementById('userPosts').innerHTML = '<div class="empty-state">Could not load posts</div>';
+            });
+        }
+      });
     </script>
 </body>
 </html>
