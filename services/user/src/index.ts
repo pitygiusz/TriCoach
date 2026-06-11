@@ -1,12 +1,36 @@
 import express, { Request, Response } from 'express';
 import admin from 'firebase-admin';
 import https from 'https';
-import { PrismaClient } from '@prisma/client';
+import { Client } from 'pg';
 
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || '3001';
-const prisma = new PrismaClient();
+
+// Cloud SQL / Postgres connection setup (Matches Race Service pattern)
+const dbHost = process.env.DB_HOST || 'localhost';
+const dbUser = process.env.DB_USER || 'postgres';
+const dbPassword = process.env.DB_PASSWORD || 'password';
+const dbName = process.env.DB_NAME || 'tricoach-db';
+const cloudSqlConnectionName = process.env.CLOUD_SQL_CONNECTION_NAME;
+
+const db = new Client(
+  cloudSqlConnectionName
+    ? {
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+        host: `/cloudsql/${cloudSqlConnectionName}`,
+      }
+    : {
+        host: dbHost,
+        user: dbUser,
+        password: dbPassword,
+        database: dbName,
+      }
+);
+
+db.connect().catch(err => console.error('Database connection failed:', err));
 
 // Initialize Firebase Admin SDK
 const firebaseAdmin = admin.initializeApp({
@@ -20,10 +44,10 @@ const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWith
 
 // Health check
 app.get('/', (req: Request, res: Response) => {
-  res.status(200).json({ service: 'User Service (Firebase Auth)', status: 'ok' });
+  res.status(200).json({ service: 'User Service (Direct Postgres)', status: 'ok' });
 });
 
-// Resolve username to email (Needed for front-end username login)
+// Resolve username to email (Needed for frontend username login flow)
 app.get('/users/resolve-email', async (req: Request, res: Response) => {
   try {
     const { username } = req.query;
@@ -32,16 +56,17 @@ app.get('/users/resolve-email', async (req: Request, res: Response) => {
       return;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { username: username.toLowerCase() },
-    });
+    const result = await db.query(
+      'SELECT email FROM "User" WHERE username = $1',
+      [username.toLowerCase()]
+    );
 
-    if (!user) {
+    if (result.rows.length === 0) {
       res.status(404).json({ error: 'No user found with that username' });
       return;
     }
 
-    res.status(200).json({ email: user.email });
+    res.status(200).json({ email: result.rows[0].email });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
@@ -57,7 +82,7 @@ app.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    // Username formatting and validation: no spaces or special characters
+    // Username regex: alphanumeric with no spaces or special characters
     const usernameRegex = /^[a-zA-Z0-9]+$/;
     if (!usernameRegex.test(username)) {
       res.status(400).json({ error: 'Username must be alphanumeric with no spaces or special characters' });
@@ -66,19 +91,18 @@ app.post('/register', async (req: Request, res: Response) => {
 
     const normalizedUsername = username.toLowerCase();
 
-    // Check uniqueness in Prisma
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ username: normalizedUsername }, { email: email.toLowerCase() }]
-      }
-    });
+    // Check uniqueness using raw SQL queries
+    const duplicateCheck = await db.query(
+      'SELECT id FROM "User" WHERE username = $1 OR email = $2',
+      [normalizedUsername, email.toLowerCase()]
+    );
 
-    if (existingUser) {
+    if (duplicateCheck.rows.length > 0) {
       res.status(400).json({ error: 'Username or Email is already taken' });
       return;
     }
 
-    // Pass chosen username explicitly as the firebase uid
+    // Pass chosen username explicitly as the firebase uid string
     let firebaseUser;
     try {
       firebaseUser = await auth.createUser({
@@ -95,28 +119,30 @@ app.post('/register', async (req: Request, res: Response) => {
       throw createError;
     }
 
-    // Save profile record in Prisma Database
-    const dbUser = await prisma.user.create({
-      data: {
-        id: firebaseUser.uid, // Username serves as primary key ID
-        username: normalizedUsername,
-        email: email.toLowerCase(),
+    // Save profile record into the Postgres database directly
+    await db.query(
+      `INSERT INTO "User" (id, username, email, "firstName", "lastName", age, weight, "experienceLevel", "createdAt", "updatedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
+      [
+        firebaseUser.uid, // Username serves as primary key ID
+        normalizedUsername,
+        email.toLowerCase(),
         firstName,
         lastName,
-        age: age ? parseInt(age, 10) : null,
-        weight: weight ? parseFloat(weight) : null,
-        experienceLevel: experience_level ? parseInt(experience_level, 10) : 1,
-      }
-    });
+        age ? parseInt(age, 10) : null,
+        weight ? parseFloat(weight) : null,
+        experience_level ? parseInt(experience_level, 10) : 1,
+      ]
+    );
 
     res.status(201).json({
       message: 'User registered successfully',
       user: {
-        uid: dbUser.id,
-        username: dbUser.username,
-        email: dbUser.email,
-        firstName: dbUser.firstName,
-        lastName: dbUser.lastName,
+        uid: firebaseUser.uid,
+        username: normalizedUsername,
+        email: email.toLowerCase(),
+        firstName,
+        lastName,
       },
     });
   } catch (error: any) {
@@ -129,20 +155,20 @@ app.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// Login user
+// Login user (Supports email OR username parsing automatically)
 app.post('/login', async (req: Request, res: Response) => {
   try {
     let { email, password, idToken } = req.body;
 
     if (idToken) {
       const decodedToken = await auth.verifyIdToken(idToken);
-      const dbUser = await prisma.user.findUnique({ where: { id: decodedToken.uid } });
+      const dbUserRes = await db.query('SELECT username FROM "User" WHERE id = $1', [decodedToken.uid]);
 
       res.status(200).json({
         message: 'Login successful',
         user: {
           uid: decodedToken.uid,
-          username: dbUser?.username || decodedToken.email,
+          username: dbUserRes.rows[0]?.username || decodedToken.email,
           email: decodedToken.email,
         },
         token: idToken,
@@ -155,14 +181,14 @@ app.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    // Fallback mode support: Check if login input is an alphanumeric username rather than email
+    // If the string doesn't include an '@', handle it as a chosen username lookup
     if (!email.includes('@')) {
-      const resolvedUser = await prisma.user.findUnique({ where: { username: email.toLowerCase() } });
-      if (!resolvedUser) {
+      const resolvedUser = await db.query('SELECT email FROM "User" WHERE username = $1', [email.toLowerCase()]);
+      if (resolvedUser.rows.length === 0) {
         res.status(401).json({ error: 'Invalid credentials' });
         return;
       }
-      email = resolvedUser.email;
+      email = resolvedUser.rows[0].email;
     }
 
     const response = await new Promise<any>((resolve, reject) => {
@@ -197,14 +223,14 @@ app.post('/login', async (req: Request, res: Response) => {
       reqHttps.end();
     });
 
-    const dbUser = await prisma.user.findUnique({ where: { id: response.localId } });
+    const dbUserRes = await db.query('SELECT username, email FROM "User" WHERE id = $1', [response.localId]);
 
     res.status(200).json({
       message: 'Login successful',
       user: {
         uid: response.localId,
-        username: dbUser?.username || dbUser?.email,
-        email: dbUser?.email,
+        username: dbUserRes.rows[0]?.username || dbUserRes.rows[0]?.email,
+        email: dbUserRes.rows[0]?.email,
       },
       token: response.idToken,
       refreshToken: response.refreshToken,
@@ -219,19 +245,21 @@ app.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-// Fetch user profile from Prisma
+// Fetch profile data from Postgres
 app.get('/users/:userId/profile', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const dbUser = await prisma.user.findUnique({
-      where: { id: userId.toLowerCase() }
-    });
+    const result = await db.query(
+      'SELECT id, username, email, "firstName", "lastName" FROM "User" WHERE id = $1',
+      [userId.toLowerCase()]
+    );
 
-    if (!dbUser) {
+    if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
 
+    const dbUser = result.rows[0];
     res.status(200).json({
       uid: dbUser.id,
       username: dbUser.username,
@@ -244,25 +272,40 @@ app.get('/users/:userId/profile', async (req: Request, res: Response) => {
   }
 });
 
-// Update user profile names
+// Update profile name params (Allows updating firstName OR lastName cleanly)
 app.put('/users/:userId/profile', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const { firstName, lastName } = req.body;
 
-    const updatedUser = await prisma.user.update({
-      where: { id: userId.toLowerCase() },
-      data: {
-        firstName: firstName || undefined,
-        lastName: lastName || undefined,
-      }
-    });
+    const currentProfileRes = await db.query(
+      'SELECT "firstName", "lastName" FROM "User" WHERE id = $1',
+      [userId.toLowerCase()]
+    );
 
-    // Mirror to Firebase Auth profile display layer
+    if (currentProfileRes.rows.length === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const current = currentProfileRes.rows[0];
+    const finalFirstName = firstName || current.firstName;
+    const finalLastName = lastName || current.lastName;
+
+    const updateRes = await db.query(
+      `UPDATE "User" 
+       SET "firstName" = $1, "lastName" = $2, "updatedAt" = NOW() 
+       WHERE id = $3 
+       RETURNING id, username, "firstName", "lastName"`,
+      [finalFirstName, finalLastName, userId.toLowerCase()]
+    );
+
+    // Sync to Firebase Auth display profile meta-layer
     await auth.updateUser(userId, {
-      displayName: `${updatedUser.firstName} ${updatedUser.lastName}`,
+      displayName: `${finalFirstName} ${finalLastName}`,
     });
 
+    const updatedUser = updateRes.rows[0];
     res.status(200).json({
       message: 'Profile updated successfully',
       user: {
@@ -273,23 +316,49 @@ app.put('/users/:userId/profile', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error(error);
+    console.error('Update profile error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Lookup user by username
+// Verify token endpoint – used by gateway to validate requests
+app.post('/verify-token', async (req: Request, res: Response) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      res.status(400).json({ error: 'ID token required' });
+      return;
+    }
+
+    const decodedToken = await auth.verifyIdToken(idToken);
+
+    res.status(200).json({
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+      valid: true,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(401).json({ error: 'Invalid or expired token' });
+  }
+});
+
+// Lookup user by username (Direct SQL query match)
 app.get('/users/by-username/:username', async (req: Request, res: Response) => {
   try {
     const { username } = req.params;
-    const dbUser = await prisma.user.findUnique({
-      where: { username: username.toLowerCase() }
-    });
+    const result = await db.query(
+      'SELECT id, username, email FROM "User" WHERE username = $1',
+      [username.toLowerCase()]
+    );
 
-    if (!dbUser) {
+    if (result.rows.length === 0) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
+
+    const dbUser = result.rows[0];
     res.status(200).json({ uid: dbUser.id, username: dbUser.username, email: dbUser.email });
   } catch (error: any) {
     res.status(500).json({ error: 'Internal server error' });
