@@ -89,8 +89,8 @@ async function populatePostsMetadata(posts: any[]) {
       }
 
       let trainingDetails = post.trainingDetails;
-      // If we have a trainingId but no details, or we want to guarantee fresh SQL data:
-      if (post.trainingId && !trainingDetails) {
+      // Always fetch fresh details from the Training Service if trainingId is present
+      if (post.trainingId) {
         try {
           // Fetch training from training service using the user's workouts API
           const workoutRes = await fetch(`${trainingServiceUrl}/workouts/${post.userId}`);
