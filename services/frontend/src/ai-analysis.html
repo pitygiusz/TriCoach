@@ -12,17 +12,7 @@
   
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-  <script>
-    try {
-      if (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.apiKey) {
-        firebase.initializeApp(window.__FIREBASE_CONFIG__);
-      } else {
-        console.warn('🔥 Firebase config missing or incomplete');
-      }
-    } catch (e) {
-      console.warn('🔥 Firebase init error:', e.message);
-    }
-  </script>
+
 </head>
 
 <body>
@@ -104,6 +94,19 @@
   </div>
 
   <script>
+    try {
+      if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+        const config = window.__FIREBASE_CONFIG__;
+        if (config && config.apiKey) {
+          firebase.initializeApp(config);
+        } else {
+          console.warn('🔥 Firebase config missing or incomplete');
+        }
+      }
+    } catch (e) {
+      console.warn('🔥 Firebase init error:', e.message);
+    }
+
     const profileCard = document.getElementById('profileCard');
     const profileAuthButtons = document.getElementById('profileAuthButtons');
     const progressOptionsList = document.getElementById('progressOptionsList');
