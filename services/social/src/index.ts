@@ -1,27 +1,21 @@
 import express, { Request, Response } from 'express';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc, getDocs, query, where, updateDoc, doc, serverTimestamp, increment } from 'firebase/firestore';
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type FirestoreDoc = Record<string, any>;
+import admin from 'firebase-admin';
 
 const app = express();
 app.use(express.json());
 const port = process.env.PORT || '3004';
 
-// Initialize Firebase
-const firebaseConfig = {
-  apiKey: process.env.FIREBASE_API_KEY || 'demo-key',
-  projectId: process.env.FIREBASE_PROJECT_ID || 'tricoach-demo',
-  storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'tricoach-demo.appspot.com',
-};
+// Initialize Firebase Admin
+admin.initializeApp({
+  credential: admin.credential.applicationDefault(),
+  projectId: process.env.FIREBASE_PROJECT_ID || 'tricoach-496512',
+});
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp);
+const db = admin.firestore();
 
 // Health check
 app.get('/', (req: Request, res: Response) => {
-  res.status(200).json({ service: 'Social Service', status: 'ok' });
+  res.status(200).json({ service: 'Social Service (Admin SDK)', status: 'ok' });
 });
 
 // Create a post
@@ -39,12 +33,12 @@ app.post('/posts', async (req: Request, res: Response) => {
       trainingId: training_id || null,
       content,
       likes: 0,
-      likedBy: [],
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+      likedBy: [] as string[],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    const docRef = await addDoc(collection(db, 'posts'), postData);
+    const docRef = await db.collection('posts').add(postData);
 
     res.status(201).json({
       message: 'Post created successfully',
@@ -54,7 +48,7 @@ app.post('/posts', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error(error);
+    console.error('Create post error:', error);
     res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
@@ -62,8 +56,8 @@ app.post('/posts', async (req: Request, res: Response) => {
 // Get all posts
 app.get('/posts', async (req: Request, res: Response) => {
   try {
-    const postsSnapshot = await getDocs(collection(db, 'posts'));
-    const posts = postsSnapshot.docs.map((doc: any) => {
+    const postsSnapshot = await db.collection('posts').get();
+    const posts = postsSnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -72,8 +66,8 @@ app.get('/posts', async (req: Request, res: Response) => {
         content: data.content,
         likes: data.likes || 0,
         likedBy: data.likedBy || [],
-        createdAt: data.createdAt?.toMillis ? new Date(data.createdAt.toMillis()).toISOString() : null,
-        updatedAt: data.updatedAt?.toMillis ? new Date(data.updatedAt.toMillis()).toISOString() : null,
+        createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
+        updatedAt: data.updatedAt ? (data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt) : null,
       };
     });
 
@@ -85,7 +79,7 @@ app.get('/posts', async (req: Request, res: Response) => {
 
     res.status(200).json(sortedPosts);
   } catch (error: any) {
-    console.error(error);
+    console.error('Get posts error:', error);
     res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
@@ -97,36 +91,36 @@ app.get('/feed/:userId', async (req: Request, res: Response) => {
     const { limit = 50, offset = 0 } = req.query;
 
     // Get followed users
-    const followingSnapshot = await getDocs(
-      query(collection(db, 'follows'), where('followerId', '==', userId))
-    );
+    const followingSnapshot = await db.collection('follows').where('followerId', '==', userId).get();
 
-    const followedUserIds = followingSnapshot.docs.map((doc: any) => doc.data().followingId);
+    const followedUserIds = followingSnapshot.docs.map((doc) => doc.data().followingId);
     followedUserIds.push(userId); // Include own posts
 
     // Get posts from followed users
-    const postsQuery = query(
-      collection(db, 'posts'),
-      where('userId', 'in', followedUserIds)
-    );
-
-    const postsSnapshot = await getDocs(postsQuery);
-    const posts: any[] = postsSnapshot.docs.map((doc: any) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const postsSnapshot = await db.collection('posts').where('userId', 'in', followedUserIds).get();
+    const posts = postsSnapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+      };
+    });
 
     // Sort by date and paginate
-    const sortedPosts = posts.sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+    const sortedPosts = posts.sort((a: any, b: any) => {
+      const aTime = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime()) : 0;
+      const bTime = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime()) : 0;
+      return bTime - aTime;
+    });
     const paginatedPosts = sortedPosts.slice(Number(offset), Number(offset) + Number(limit));
 
     res.status(200).json({
       total: sortedPosts.length,
       posts: paginatedPosts,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    console.error('Get feed error:', error);
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
 
@@ -141,16 +135,16 @@ app.post('/posts/:postId/like', async (req: Request, res: Response) => {
       return;
     }
 
-    const postRef = doc(db, 'posts', postId);
-    await updateDoc(postRef, {
-      likes: increment(1),
-      likedBy: [...new Array(1)].map(() => user_id), // Simplified tracking
+    const postRef = db.collection('posts').doc(postId);
+    await postRef.update({
+      likes: admin.firestore.FieldValue.increment(1),
+      likedBy: admin.firestore.FieldValue.arrayUnion(user_id),
     });
 
     res.status(200).json({ message: 'Post liked successfully' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    console.error('Like post error:', error);
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
 
@@ -167,10 +161,10 @@ app.post('/follow', async (req: Request, res: Response) => {
     const followData = {
       followerId: follower_id,
       followingId: following_id,
-      createdAt: serverTimestamp(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    const docRef = await addDoc(collection(db, 'follows'), followData);
+    const docRef = await db.collection('follows').add(followData);
 
     res.status(201).json({
       message: 'User followed successfully',
@@ -179,9 +173,9 @@ app.post('/follow', async (req: Request, res: Response) => {
         ...followData,
       },
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    console.error('Follow error:', error);
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
 
@@ -190,11 +184,9 @@ app.get('/followers/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
-    const followersSnapshot = await getDocs(
-      query(collection(db, 'follows'), where('followingId', '==', userId))
-    );
+    const followersSnapshot = await db.collection('follows').where('followingId', '==', userId).get();
 
-    const followers = followersSnapshot.docs.map((doc: any) => ({
+    const followers = followersSnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -203,9 +195,9 @@ app.get('/followers/:userId', async (req: Request, res: Response) => {
       total_followers: followers.length,
       followers,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    console.error('Get followers error:', error);
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
 
@@ -214,11 +206,9 @@ app.get('/following/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
-    const followingSnapshot = await getDocs(
-      query(collection(db, 'follows'), where('followerId', '==', userId))
-    );
+    const followingSnapshot = await db.collection('follows').where('followerId', '==', userId).get();
 
-    const following = followingSnapshot.docs.map((doc: any) => ({
+    const following = followingSnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -227,12 +217,12 @@ app.get('/following/:userId', async (req: Request, res: Response) => {
       total_following: following.length,
       following,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    console.error('Get following error:', error);
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
 
 app.listen(Number(port), () => {
-  console.log(`💬 Social Service running on port ${port}`);
+  console.log(` social service (admin sdk) running on port ${port}`);
 });
