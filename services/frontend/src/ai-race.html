@@ -117,12 +117,36 @@
           window.recentSimulations = simulations;
           recentSimulationsSection.style.display = 'block';
           recentSimulationsList.innerHTML = simulations.map((sim, index) => {
-            const dateStr = sim.createdAt ? new Date(sim.createdAt).toLocaleDateString(undefined, { dateStyle: 'short' }) : 'Saved';
+            if (!sim) return '';
+
+            let dateStr = 'Saved';
+            if (sim.createdAt) {
+              try {
+                let dateVal;
+                if (typeof sim.createdAt.toDate === 'function') {
+                  dateVal = sim.createdAt.toDate();
+                } else if (sim.createdAt.seconds !== undefined) {
+                  dateVal = new Date(sim.createdAt.seconds * 1000);
+                } else if (sim.createdAt._seconds !== undefined) {
+                  dateVal = new Date(sim.createdAt._seconds * 1000);
+                } else {
+                  dateVal = new Date(sim.createdAt);
+                }
+                
+                if (dateVal && !isNaN(dateVal.getTime())) {
+                  dateStr = dateVal.toLocaleDateString(undefined, { dateStyle: 'short' });
+                }
+              } catch (e) {
+                console.warn('Error parsing date:', e);
+              }
+            }
+
             const prediction = sim.prediction || {};
             const formattedTime = prediction.formatted_time || (prediction.total_time_minutes ? prediction.total_time_minutes + 'm' : 'N/A');
             const raceType = sim.race_type || 'olympic';
+            const simId = sim.id || `sim-${index}`;
             return `
-              <div class="simulation-item-card" data-sim-id="${sim.id}" onclick="selectSimulationByIndex(${index})" style="padding: 14px; background: var(--surface-strong); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s; min-height: 80px;">
+              <div class="simulation-item-card" data-sim-id="${simId}" onclick="selectSimulationByIndex(${index})" style="padding: 14px; background: var(--surface-strong); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s; min-height: 80px;">
                 <div>
                   <strong style="display: block; color: var(--text); font-size: 0.95rem; margin-bottom: 4px;">${raceType.toUpperCase()} Prediction</strong>
                   <span style="color: var(--muted); font-size: 0.85rem;">Time: ${formattedTime} (${dateStr})</span>
@@ -138,6 +162,17 @@
         }
       } catch (err) {
         console.error('Failed to load simulations:', err);
+        const recentSimulationsSection = document.getElementById('recentSimulationsSection');
+        const recentSimulationsList = document.getElementById('recentSimulationsList');
+        if (recentSimulationsSection && recentSimulationsList) {
+          recentSimulationsSection.style.display = 'block';
+          recentSimulationsList.innerHTML = `
+            <div class="error-state" style="grid-column: 1 / -1; margin: 0; padding: 16px;">
+              <p style="margin: 0; font-weight: bold;">Failed to load saved simulations</p>
+              <span style="font-size: 0.85rem; color: var(--muted);">${err.message}</span>
+            </div>
+          `;
+        }
       }
     }
 
