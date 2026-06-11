@@ -1,6 +1,7 @@
 :root {
   --bg: #090714;
   --surface: #1f2933;
+  --sidecard: #181f27;
   --surface-strong: #7c2d12;
   --text: #f8f8f8;
   --muted: #b8c0c8;
@@ -38,7 +39,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  background-color: var(--surface);
+  /* background-color: var(--surface); */
   border-radius: 22px;
   flex-shrink: 0;
   transition: transform 0.28s ease;
@@ -93,7 +94,7 @@ button {
 }
 
 .sidebar-card {
-  background: var(--surface-strong);
+  background: var(--sidecard);
   border: 1px solid var(--border);
   border-radius: inherit;
   padding: 20px;
