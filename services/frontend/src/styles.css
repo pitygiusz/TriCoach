@@ -38,7 +38,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  background-color: #090714;
+  background-color: var(--surface);
   border-radius: 22px;
   flex-shrink: 0;
   transition: transform 0.28s ease;
@@ -93,7 +93,7 @@ button {
 }
 
 .sidebar-card {
-  background: var(--surface);
+  background: var(--surface-strong);
   border: 1px solid var(--border);
   border-radius: inherit;
   padding: 20px;
@@ -285,8 +285,8 @@ button {
 
 #openCreateTrainingBtn {
   border-radius: 18px;
-  background: #b8c0c8;
-  color: #ffffff;
+  background: var(--muted);
+  color: var(--bg);
 }
 
 .feed {

@@ -27,7 +27,6 @@
 <body>
   <div class="app-shell">
 
-    <!-- ── Main content ─────────────────────────────────────────────────── -->
     <div class="main-area">
 
       <header class="topbar">
@@ -37,16 +36,8 @@
           <span class="app-label">TriCoach</span>
           <h1>My Workouts</h1>
         </div>
-
-        <button id="openCreateTrainingBtn" type="button" class="simulate_train">
-          <div>
-            <strong>🏃 Log a training</strong>
-            <span>Record today's workout</span>
-          </div>
-        </button>
       </header>
 
-      <!-- Filter pills -->
       <div class="action-bar" id="filterBar">
         <button class="action-pill active" data-type="">All Disciplines</button>
         <button class="action-pill" data-type="swim">🏊 Swim</button>
@@ -55,7 +46,6 @@
         <button class="action-pill" data-type="other">🏋️ Other</button>
       </div>
 
-      <!-- Workouts List -->
       <main class="feed">
         <div id="workoutsContainer" class="posts-container">
           <div class="empty-state">Loading your workouts…</div>
@@ -64,7 +54,6 @@
 
     </div>
 
-    <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
     <aside class="sidebar" id="sidebarHid">
       <div class="sidebar-card">
         <h2>Profile</h2>
@@ -84,41 +73,14 @@
           <li>Help</li>
         </ul>
       </div>
+
+      <div class="sidebar-card">
+        <h2>Friends</h2>
+        <ul>
+        </ul>
+      </div>
     </aside>
 
-  </div>
-
-  <!-- ── Log Training modal ────────────────────────────────────────────────── -->
-  <div id="createTrainingModal" class="modal-overlay hidden">
-    <div class="modal-content">
-      <header class="modal-header">
-        <h2>Log Training</h2>
-        <button id="closeTrainingModalBtn" class="menu-close" aria-label="Close">×</button>
-      </header>
-      <div class="modal-body">
-        <div class="workout-selector">
-          <label for="trainingType">Type</label>
-          <select id="trainingType">
-            <option value="">Select a type</option>
-            <option value="run">Run</option>
-            <option value="ride">Ride</option>
-            <option value="swim">Swim</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-        <div class="workout-selector">
-          <label for="trainingDuration">Duration (minutes)</label>
-          <input id="trainingDuration" type="number" min="1" placeholder="e.g. 45" />
-        </div>
-        <div class="workout-selector">
-          <label for="trainingDistance">Distance (km)</label>
-          <input id="trainingDistance" type="number" min="0" step="0.01" placeholder="e.g. 5.00" />
-        </div>
-      </div>
-      <footer class="modal-actions">
-        <button id="submitTrainingBtn" class="action-pill active">Save Training</button>
-      </footer>
-    </div>
   </div>
 
   <script>
@@ -126,15 +88,6 @@
     const workoutsContainer = document.getElementById('workoutsContainer');
     const profileCard = document.getElementById('profileCard');
     const optionsList = document.getElementById('optionsList');
-    
-    // Create-training modal
-    const createTrainingModal = document.getElementById('createTrainingModal');
-    const openCreateTrainingBtn = document.getElementById('openCreateTrainingBtn');
-    const closeTrainingModalBtn = document.getElementById('closeTrainingModalBtn');
-    const trainingType = document.getElementById('trainingType');
-    const trainingDuration = document.getElementById('trainingDuration');
-    const trainingDistance = document.getElementById('trainingDistance');
-    const submitTrainingBtn = document.getElementById('submitTrainingBtn');
 
     let currentFilterType = "";
 
@@ -195,6 +148,7 @@
       if (optionsList) {
         if (uid) {
           optionsList.innerHTML = `
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
             <li style="cursor:pointer;color:var(--text);" onclick="logoutUser()">🚪 Logout</li>
             <li>Settings</li>
             <li>Help</li>
@@ -311,58 +265,6 @@
         alert(`Could not delete workout: ${err.message}`);
       }
     };
-
-    // ─── Modal interactions ──────────────────────────────────────────────────
-    openCreateTrainingBtn.addEventListener('click', () => {
-      const uid = getCurrentUserId();
-      if (uid === 'guest') {
-        alert('Please log in first to log a training.');
-        return;
-      }
-      createTrainingModal.classList.remove('hidden');
-    });
-
-    closeTrainingModalBtn.addEventListener('click', () => {
-      createTrainingModal.classList.add('hidden');
-    });
-
-    submitTrainingBtn.addEventListener('click', async () => {
-      const type = trainingType.value.trim();
-      const duration = trainingDuration.value.trim();
-      const distance = trainingDistance.value.trim();
-
-      if (!type) { alert('Select a training type.'); return; }
-      if (!duration || +duration <= 0) { alert('Enter a valid duration.'); return; }
-
-      try {
-        const authHeaders = await getAuthHeaders();
-        const res = await fetch('/api/workouts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({
-            user_id: getCurrentUserId(),
-            type,
-            duration_minutes: parseInt(duration, 10),
-            distance_km: distance ? parseFloat(distance) : null,
-          })
-        });
-
-        if (!res.ok) {
-          const body = await res.text();
-          throw new Error(`${res.status}: ${body}`);
-        }
-
-        trainingType.value = '';
-        trainingDuration.value = '';
-        trainingDistance.value = '';
-        createTrainingModal.classList.add('hidden');
-
-        alert('Training logged successfully!');
-        loadWorkouts();
-      } catch (err) {
-        alert(`Could not save training: ${err.message}`);
-      }
-    });
 
     // ─── Filter Pill Handling ─────────────────────────────────────────────────
     document.querySelectorAll('#filterBar .action-pill').forEach(btn => {

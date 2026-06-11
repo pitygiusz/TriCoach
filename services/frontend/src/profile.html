@@ -60,20 +60,79 @@
         
         <aside class="sidebar" id="sidebarHid">
           <div class="sidebar-card">
-            <h2>About</h2>
+            <h2>Profile</h2>
+            <div class="profile-card" id="sidebarProfileCard">
+              <button class="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
+                <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
+              </button>
+              <div>
+                <strong>Loading...</strong>
+                <span>@loading</span>
+              </div>
+            </div>
+          </div>
+    
+          <div class="sidebar-card">
+            <h2>Options</h2>
+            <ul id="optionsList">
+              <li>Settings</li>
+              <li>Help</li>
+            </ul>
+          </div>
+          
+          <div class="sidebar-card">
+            <h2>Friends</h2>
             <ul>
-              <li id="profileJoined" style="color: var(--muted); font-size: 0.95rem; line-height: 1.5;">Firebase Auth</li>
             </ul>
           </div>
         </aside>
     </div>
 
     <script>
+      const optionsList = document.getElementById('optionsList');
+      const sidebarProfileCard = document.getElementById('sidebarProfileCard');
+
       function isFirebaseReady() {
         try {
           return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
         } catch (e) {
           return false;
+        }
+      }
+
+      function updateProfileSidebar() {
+        const uid = sessionStorage.getItem('firebaseUid');
+        const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+        const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
+
+        if (sidebarProfileCard) {
+          sidebarProfileCard.innerHTML = `
+            <button class="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
+              <img src="${avatar}" alt="${name}" />
+            </button>
+            <div>
+              <strong>${name}</strong>
+              <span>${uid ? '@' + uid.substring(0, 8) : 'Not logged in'}</span>
+            </div>
+          `;
+        }
+
+        if (optionsList) {
+          if (uid) {
+            optionsList.innerHTML = `
+              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
+              <li style="cursor:pointer;color:var(--text);" onclick="logoutUser()">🚪 Logout</li>
+              <li>Settings</li>
+              <li>Help</li>
+            `;
+          } else {
+            optionsList.innerHTML = `
+              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='index.html'">🔑 Log In</li>
+              <li>Settings</li>
+              <li>Help</li>
+            `;
+          }
         }
       }
 
@@ -91,9 +150,7 @@
         profileEmail.textContent = email;
         profileAvatar.src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(uid || 'guest');
 
-        if (!uid) {
-          document.getElementById('profileJoined').textContent = 'Please log in';
-        }
+        updateProfileSidebar();
 
         if (uid) {
           fetch('/api/posts')
@@ -176,6 +233,7 @@
             sessionStorage.clear();
             loadProfileFallback();
           }
+          updateProfileSidebar();
         });
       } else {
         loadProfileFallback();
