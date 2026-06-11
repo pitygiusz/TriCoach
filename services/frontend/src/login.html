@@ -122,14 +122,25 @@
         <form id="authForm" class="auth-fields hidden">
           <h2 id="formTitle" style="margin:0;">Log in to TriCoach</h2>
 
+          <div id="nameFieldsGroup" class="hidden" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label for="firstNameInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">First Name</label>
+              <input type="text" id="firstNameInput" placeholder="John" />
+            </div>
+            <div>
+              <label for="lastNameInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Last Name</label>
+              <input type="text" id="lastNameInput" placeholder="Doe" />
+            </div>
+          </div>
+
           <div id="usernameGroup" class="hidden">
             <label for="usernameInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Username</label>
-            <input type="text" id="usernameInput" placeholder="Choose a username" />
+            <input type="text" id="usernameInput" placeholder="alphanumericOnly" />
           </div>
 
           <div>
-            <label for="emailInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Email</label>
-            <input type="email" id="emailInput" placeholder="athlete@example.com" required />
+            <label id="emailLabel" for="emailInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Email or Username</label>
+            <input type="text" id="emailInput" placeholder="athlete@example.com or username" required />
           </div>
 
           <div>
@@ -182,22 +193,146 @@
 
     let authMode = null;
 
-    function setAuthMode(mode) {
-      authMode = mode;
-      loginModeBtn.classList.toggle('selected', mode === 'login');
-      signupModeBtn.classList.toggle('selected', mode === 'signup');
-      authForm.classList.remove('hidden');
-      usernameGroup.classList.toggle('hidden', mode !== 'signup');
-      formTitle.textContent = mode === 'signup' ? 'Create your account' : 'Log in to TriCoach';
-      submitBtn.textContent = mode === 'signup' ? 'Sign Up' : 'Log In';
-      switchPrompt.textContent = mode === 'signup'
-        ? 'Already registered? Click Log In to sign in.'
-        : 'New to TriCoach? Click Sign Up to create an account.';
-      clearMessage();
+    const nameFieldsGroup = document.getElementById('nameFieldsGroup');
+  const firstNameInput = document.getElementById('firstNameInput');
+  const lastNameInput = document.getElementById('lastNameInput');
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    loginModeBtn.classList.toggle('selected', mode === 'login');
+    signupModeBtn.classList.toggle('selected', mode === 'signup');
+    authForm.classList.remove('hidden');
+    usernameGroup.classList.toggle('hidden', mode !== 'signup');
+    nameFieldsGroup.classList.toggle('hidden', mode !== 'signup');
+    
+    const emailLabel = document.getElementById('emailLabel');
+    if (mode === 'signup') {
+      emailLabel.textContent = 'Email';
+      emailInput.type = 'email';
+      emailInput.placeholder = 'athlete@example.com';
+    } else {
+      emailLabel.textContent = 'Email or Username';
+      emailInput.type = 'text';
+      emailInput.placeholder = 'athlete@example.com or username';
     }
 
-    loginModeBtn.addEventListener('click', () => setAuthMode('login'));
-    signupModeBtn.addEventListener('click', () => setAuthMode('signup'));
+    formTitle.textContent = mode === 'signup' ? 'Create your account' : 'Log in to TriCoach';
+    submitBtn.textContent = mode === 'signup' ? 'Sign Up' : 'Log In';
+    switchPrompt.textContent = mode === 'signup'
+      ? 'Already registered? Click Log In to sign in.'
+      : 'New to TriCoach? Click Sign Up to create an account.';
+    clearMessage();
+  }
+
+  async function handleAuthSubmit(event) {
+    event.preventDefault();
+    clearMessage();
+
+    if (!authMode) {
+      showError('Please choose Log In or Sign Up first.');
+      return;
+    }
+
+    let emailOrUser = emailInput.value.trim();
+    const password = passwordInput.value;
+    const username = usernameInput.value.trim();
+    const firstName = firstNameInput.value.trim();
+    const lastName = lastNameInput.value.trim();
+
+    if (!emailOrUser || !password) {
+      showError('Please complete authentication fields.');
+      return;
+    }
+
+    if (authMode === 'signup') {
+      if (!username || !firstName || !lastName) {
+        showError('Please fill out all identity and profile fields.');
+        return;
+      }
+      const usernameRegex = /^[a-zA-Z0-9]+$/;
+      if (!usernameRegex.test(username)) {
+        showError('Username cannot have spaces or special characters.');
+        return;
+      }
+    }
+
+    try {
+      let targetedEmail = emailOrUser;
+
+      // Resolve username input into an email address if it doesn't match an email pattern
+      if (authMode === 'login' && !emailOrUser.includes('@')) {
+        const resolveRes = await fetch(`/api/users/resolve-email?username=${encodeURIComponent(emailOrUser)}`);
+        if (!resolveRes.ok) {
+          throw new Error('Invalid credentials or username does not exist.');
+        }
+        const data = await resolveRes.json();
+        targetedEmail = data.email;
+      }
+
+      if (!isFirebaseReady()) {
+        if (authMode === 'signup') {
+          const response = await fetch('/api/users/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: targetedEmail, username, password, firstName, lastName }),
+          });
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || 'Registration failed');
+          }
+          showError('Registered successfully! Switching to Login...');
+          setAuthMode('login');
+        } else {
+          const response = await fetch('/api/users/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: emailOrUser, password }),
+          });
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || 'Login failed');
+          }
+          const result = await response.json();
+          sessionStorage.setItem('firebaseToken', result.token);
+          sessionStorage.setItem('firebaseUid', result.user.uid);
+          sessionStorage.setItem('firebaseDisplayName', result.user.username);
+          sessionStorage.setItem('firebaseEmail', result.user.email);
+          window.location.replace('index.html');
+        }
+        return;
+      }
+
+      // Firebase Client SDK code handler
+      if (authMode === 'signup') {
+        const response = await fetch('/api/users/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: targetedEmail, username, password, firstName, lastName }),
+        });
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.error || 'Registration database setup failed');
+        }
+        // Log them in immediately via Firebase Client SDK
+        await firebase.auth().signInWithEmailAndPassword(targetedEmail, password);
+      } else {
+        await firebase.auth().signInWithEmailAndPassword(targetedEmail, password);
+      }
+
+      const user = firebase.auth().currentUser;
+      if (!user) throw new Error('Unable to establish authentication session.');
+
+      const token = await user.getIdToken(true);
+      sessionStorage.setItem('firebaseToken', token);
+      sessionStorage.setItem('firebaseUid', user.uid);
+      sessionStorage.setItem('firebaseEmail', user.email);
+
+      window.location.replace('index.html');
+    } catch (error) {
+      console.warn('Authentication error:', error);
+      showError(error.message || 'Authentication failed');
+    }
+  }
 
     async function callLoginApi(idToken) {
       const response = await fetch('/api/users/login', {

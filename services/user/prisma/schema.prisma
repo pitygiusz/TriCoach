@@ -1,0 +1,21 @@
+datasource db {
+  provider = "postgresql" // Adjust provider if using MySQL/SQLite
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id               String   @id // Username serves as the unique primary Key/userID
+  username         String   @unique
+  email            String   @unique
+  firstName        String
+  lastName         String
+  age              Int?
+  weight           Float?
+  experienceLevel  Int      @default(1)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
