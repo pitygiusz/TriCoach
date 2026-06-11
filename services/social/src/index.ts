@@ -93,15 +93,15 @@ async function populatePostsMetadata(posts: any[]) {
       if (post.trainingId) {
         try {
           // Fetch training from training service using the user's workouts API
-          const workoutRes = await fetch(`${trainingServiceUrl}/workouts/${post.userId}`);
+          const workoutRes = await fetch(`${trainingServiceUrl}/workouts/${post.userId}?limit=200`);
           if (workoutRes.ok) {
             const workoutData = await workoutRes.json();
             const matchingWorkout = workoutData.workouts?.find((w: any) => w.id === post.trainingId);
             if (matchingWorkout) {
               trainingDetails = {
                 type: matchingWorkout.type,
-                duration_minutes: matchingWorkout.duration_minutes,
-                distance_km: matchingWorkout.distance_km,
+                duration_minutes: matchingWorkout.duration_minutes !== undefined ? matchingWorkout.duration_minutes : matchingWorkout.durationMinutes,
+                distance_km: matchingWorkout.distance_km !== undefined ? matchingWorkout.distance_km : matchingWorkout.distanceKm,
               };
             }
           }

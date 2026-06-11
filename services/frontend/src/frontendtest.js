@@ -476,12 +476,25 @@ submitPostBtn.addEventListener('click', async () => {
 
   if (!content) { alert('Write something first!'); return; }
 
+  let trainingDetails = null;
+  if (trainingId) {
+    const workoutObj = loadedWorkoutsList.find(w => w.id === trainingId);
+    if (workoutObj) {
+      trainingDetails = {
+        type: workoutObj.type,
+        duration_minutes: workoutObj.duration_minutes !== undefined ? workoutObj.duration_minutes : workoutObj.durationMinutes,
+        distance_km: workoutObj.distance_km !== undefined ? workoutObj.distance_km : workoutObj.distanceKm,
+      };
+    }
+  }
+
   try {
     await makeApiRequest('POST', '/api/posts', {
-      user_id:     getCurrentUserId(),
-      username:    getCurrentDisplayName(),
+      user_id:          getCurrentUserId(),
+      username:         getCurrentDisplayName(),
       content,
-      training_id: trainingId,
+      training_id:      trainingId,
+      training_details: trainingDetails,
     });
     postContentInput.value = '';
     workoutSelect.value    = '';
