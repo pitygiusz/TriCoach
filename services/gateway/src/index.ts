@@ -169,14 +169,14 @@ app.get('/api/posts', async (req: Request, res: Response) => {
   try {
     const r = await axios.get(`${SERVICES.social}/posts`, { params: req.query });
     res.status(r.status).json(r.data);
-  } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
+  } catch (e: any) { res.status(e.response?.status || 500).json(e.response?.data || { error: e.message }); }
 });
 
 app.post('/api/posts', async (req: Request, res: Response) => {
   try {
     const r = await axios.post(`${SERVICES.social}/posts`, req.body);
     res.status(r.status).json(r.data);
-  } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
+  } catch (e: any) { res.status(e.response?.status || 500).json(e.response?.data || { error: e.message }); }
 });
 
 app.get('/api/feed/:userId', async (req: Request, res: Response) => {

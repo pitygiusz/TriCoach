@@ -197,6 +197,8 @@ app.put('/plans/:planId', async (req: Request, res: Response) => {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
 // Delete a workout
 app.delete('/workouts/:workoutId', async (req: Request, res: Response) => {
   try {
