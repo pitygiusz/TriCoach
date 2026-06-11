@@ -13,7 +13,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
-
   <style>
     /* Specific styles for centering the login card using your existing CSS vars */
     .login-wrapper {
@@ -180,6 +179,11 @@
     const formTitle = document.getElementById('formTitle');
     const switchPrompt = document.getElementById('switchPrompt');
     const errorMessage = document.getElementById('errorMessage');
+    const nameFieldsGroup = document.getElementById('nameFieldsGroup');
+    const firstNameInput = document.getElementById('firstNameInput');
+    const lastNameInput = document.getElementById('lastNameInput');
+
+    let authMode = null;
 
     function clearMessage() {
       errorMessage.textContent = '';
@@ -191,168 +195,39 @@
       errorMessage.style.display = 'block';
     }
 
-    let authMode = null;
-
-    const nameFieldsGroup = document.getElementById('nameFieldsGroup');
-  const firstNameInput = document.getElementById('firstNameInput');
-  const lastNameInput = document.getElementById('lastNameInput');
-
-  function setAuthMode(mode) {
-    authMode = mode;
-    loginModeBtn.classList.toggle('selected', mode === 'login');
-    signupModeBtn.classList.toggle('selected', mode === 'signup');
-    authForm.classList.remove('hidden');
-    usernameGroup.classList.toggle('hidden', mode !== 'signup');
-    nameFieldsGroup.classList.toggle('hidden', mode !== 'signup');
-    
-    const emailLabel = document.getElementById('emailLabel');
-    if (mode === 'signup') {
-      emailLabel.textContent = 'Email';
-      emailInput.type = 'email';
-      emailInput.placeholder = 'athlete@example.com';
-    } else {
-      emailLabel.textContent = 'Email or Username';
-      emailInput.type = 'text';
-      emailInput.placeholder = 'athlete@example.com or username';
-    }
-
-    formTitle.textContent = mode === 'signup' ? 'Create your account' : 'Log in to TriCoach';
-    submitBtn.textContent = mode === 'signup' ? 'Sign Up' : 'Log In';
-    switchPrompt.textContent = mode === 'signup'
-      ? 'Already registered? Click Log In to sign in.'
-      : 'New to TriCoach? Click Sign Up to create an account.';
-    clearMessage();
-  }
-
-  async function handleAuthSubmit(event) {
-    event.preventDefault();
-    clearMessage();
-
-    if (!authMode) {
-      showError('Please choose Log In or Sign Up first.');
-      return;
-    }
-
-    let emailOrUser = emailInput.value.trim();
-    const password = passwordInput.value;
-    const username = usernameInput.value.trim();
-    const firstName = firstNameInput.value.trim();
-    const lastName = lastNameInput.value.trim();
-
-    if (!emailOrUser || !password) {
-      showError('Please complete authentication fields.');
-      return;
-    }
-
-    if (authMode === 'signup') {
-      if (!username || !firstName || !lastName) {
-        showError('Please fill out all identity and profile fields.');
-        return;
-      }
-      const usernameRegex = /^[a-zA-Z0-9]+$/;
-      if (!usernameRegex.test(username)) {
-        showError('Username cannot have spaces or special characters.');
-        return;
-      }
-    }
-
-    try {
-      let targetedEmail = emailOrUser;
-
-      // Resolve username input into an email address if it doesn't match an email pattern
-      if (authMode === 'login' && !emailOrUser.includes('@')) {
-        const resolveRes = await fetch(`/api/users/resolve-email?username=${encodeURIComponent(emailOrUser)}`);
-        if (!resolveRes.ok) {
-          throw new Error('Invalid credentials or username does not exist.');
-        }
-        const data = await resolveRes.json();
-        targetedEmail = data.email;
-      }
-
-      if (!isFirebaseReady()) {
-        if (authMode === 'signup') {
-          const response = await fetch('/api/users/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: targetedEmail, username, password, firstName, lastName }),
-          });
-          if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data.error || 'Registration failed');
-          }
-          showError('Registered successfully! Switching to Login...');
-          setAuthMode('login');
-        } else {
-          const response = await fetch('/api/users/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: emailOrUser, password }),
-          });
-          if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data.error || 'Login failed');
-          }
-          const result = await response.json();
-          sessionStorage.setItem('firebaseToken', result.token);
-          sessionStorage.setItem('firebaseUid', result.user.uid);
-          sessionStorage.setItem('firebaseDisplayName', result.user.username);
-          sessionStorage.setItem('firebaseEmail', result.user.email);
-          window.location.replace('index.html');
-        }
-        return;
-      }
-
-      // Firebase Client SDK code handler
-      if (authMode === 'signup') {
-        const response = await fetch('/api/users/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: targetedEmail, username, password, firstName, lastName }),
-        });
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          throw new Error(data.error || 'Registration database setup failed');
-        }
-        // Log them in immediately via Firebase Client SDK
-        await firebase.auth().signInWithEmailAndPassword(targetedEmail, password);
-      } else {
-        await firebase.auth().signInWithEmailAndPassword(targetedEmail, password);
-      }
-
-      const user = firebase.auth().currentUser;
-      if (!user) throw new Error('Unable to establish authentication session.');
-
-      const token = await user.getIdToken(true);
-      sessionStorage.setItem('firebaseToken', token);
-      sessionStorage.setItem('firebaseUid', user.uid);
-      sessionStorage.setItem('firebaseEmail', user.email);
-
-      window.location.replace('index.html');
-    } catch (error) {
-      console.warn('Authentication error:', error);
-      showError(error.message || 'Authentication failed');
-    }
-  }
-
-    async function callLoginApi(idToken) {
-      const response = await fetch('/api/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Login API failed');
-      }
-      return data;
-    }
-
     function isFirebaseReady() {
       try {
         return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
       } catch (e) {
         return false;
       }
+    }
+
+    function setAuthMode(mode) {
+      authMode = mode;
+      loginModeBtn.classList.toggle('selected', mode === 'login');
+      signupModeBtn.classList.toggle('selected', mode === 'signup');
+      authForm.classList.remove('hidden');
+      usernameGroup.classList.toggle('hidden', mode !== 'signup');
+      nameFieldsGroup.classList.toggle('hidden', mode !== 'signup');
+      
+      const emailLabel = document.getElementById('emailLabel');
+      if (mode === 'signup') {
+        emailLabel.textContent = 'Email';
+        emailInput.type = 'email';
+        emailInput.placeholder = 'athlete@example.com';
+      } else {
+        emailLabel.textContent = 'Email or Username';
+        emailInput.type = 'text';
+        emailInput.placeholder = 'athlete@example.com or username';
+      }
+
+      formTitle.textContent = mode === 'signup' ? 'Create your account' : 'Log in to TriCoach';
+      submitBtn.textContent = mode === 'signup' ? 'Sign Up' : 'Log In';
+      switchPrompt.textContent = mode === 'signup'
+        ? 'Already registered? Click Log In to sign in.'
+        : 'New to TriCoach? Click Sign Up to create an account.';
+      clearMessage();
     }
 
     async function handleAuthSubmit(event) {
@@ -364,28 +239,49 @@
         return;
       }
 
-      const email = emailInput.value.trim();
+      let emailOrUser = emailInput.value.trim();
       const password = passwordInput.value;
       const username = usernameInput.value.trim();
+      const firstName = firstNameInput.value.trim();
+      const lastName = lastNameInput.value.trim();
 
-      if (!email || !password) {
-        showError('Please enter both email and password.');
+      if (!emailOrUser || !password) {
+        showError('Please complete authentication fields.');
         return;
       }
 
-      if (authMode === 'signup' && !username) {
-        showError('Please choose a username.');
-        return;
+      if (authMode === 'signup') {
+        if (!username || !firstName || !lastName) {
+          showError('Please fill out all identity and profile fields.');
+          return;
+        }
+        const usernameRegex = /^[a-zA-Z0-9]+$/;
+        if (!usernameRegex.test(username)) {
+          showError('Username cannot have spaces or special characters.');
+          return;
+        }
       }
 
       try {
+        let targetedEmail = emailOrUser;
+
+        // Resolve username input into an email address if it doesn't match an email pattern
+        if (authMode === 'login' && !emailOrUser.includes('@')) {
+          const resolveRes = await fetch(`/api/users/resolve-email?username=${encodeURIComponent(emailOrUser)}`);
+          if (!resolveRes.ok) {
+            throw new Error('Invalid credentials or username does not exist.');
+          }
+          const data = await resolveRes.json();
+          targetedEmail = data.email;
+        }
+
         if (!isFirebaseReady()) {
           // Backend Fallback Mode
           if (authMode === 'signup') {
             const response = await fetch('/api/users/register', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email, username, password }),
+              body: JSON.stringify({ email: targetedEmail, username, password, firstName, lastName }),
             });
             if (!response.ok) {
               const data = await response.json().catch(() => ({}));
@@ -397,7 +293,7 @@
             const response = await fetch('/api/users/login', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email, password }),
+              body: JSON.stringify({ email: emailOrUser, password }),
             });
             if (!response.ok) {
               const data = await response.json().catch(() => ({}));
@@ -413,24 +309,31 @@
           return;
         }
 
-        // Firebase SDK Mode (matches "login first try" behavior)
+        // Firebase Client SDK Mode
         if (authMode === 'signup') {
-          const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
-          await cred.user.updateProfile({ displayName: username });
+          const response = await fetch('/api/users/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: targetedEmail, username, password, firstName, lastName }),
+          });
+          if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            throw new Error(data.error || 'Registration database setup failed');
+          }
+          // Log them in immediately via Firebase Client SDK
+          await firebase.auth().signInWithEmailAndPassword(targetedEmail, password);
         } else {
-          await firebase.auth().signInWithEmailAndPassword(email, password);
+          await firebase.auth().signInWithEmailAndPassword(targetedEmail, password);
         }
 
         const user = firebase.auth().currentUser;
-        if (!user) {
-          throw new Error('Unable to establish authentication session.');
-        }
+        if (!user) throw new Error('Unable to establish authentication session.');
 
         const token = await user.getIdToken(true);
         sessionStorage.setItem('firebaseToken', token);
         sessionStorage.setItem('firebaseUid', user.uid);
-        sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
         sessionStorage.setItem('firebaseEmail', user.email);
+        sessionStorage.setItem('firebaseDisplayName', user.displayName || username || user.email);
 
         window.location.replace('index.html');
       } catch (error) {
@@ -439,8 +342,14 @@
       }
     }
 
-    document.getElementById('authForm').addEventListener('submit', handleAuthSubmit);
+    // Attach click listeners to the layout mode buttons
+    loginModeBtn.addEventListener('click', () => setAuthMode('login'));
+    signupModeBtn.addEventListener('click', () => setAuthMode('signup'));
 
+    // Attach submit listener to the form element
+    authForm.addEventListener('submit', handleAuthSubmit);
+
+    // Auto-redirect if already authenticated via client-side state hooks
     if (isFirebaseReady()) {
       firebase.auth().onAuthStateChanged(user => {
         if (user) {
@@ -448,7 +357,6 @@
         }
       });
     }
-
   </script>
 </body>
 </html>
