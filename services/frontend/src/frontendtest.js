@@ -268,13 +268,20 @@ function createPostCard(post) {
   let statsHtml = '';
   if (post.trainingDetails) {
     const type = post.trainingDetails.type || 'Workout';
+    const emoji = getDisciplineEmoji(type);
     const dur = post.trainingDetails.duration_minutes || post.trainingDetails.duration || 0;
     const dist = post.trainingDetails.distance_km || post.trainingDetails.distance;
     const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
     statsHtml = `
       <div class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
         <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
-        <span style="font-size: 0.95rem; color: var(--text);">🏃 ${type} · ⏱️ ${dur} mins${distanceText}</span>
+        <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
+      </div>
+    `;
+  } else if (post.trainingId) {
+    statsHtml = `
+      <div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
+        <span style="font-size: 0.95rem; color: var(--muted);">Loading training details...</span>
       </div>
     `;
   }
@@ -301,6 +308,50 @@ function createPostCard(post) {
     ${likedByText}
   `;
   return card;
+}
+
+function getDisciplineEmoji(type) {
+  if (!type) return '🏃';
+  const t = type.toLowerCase();
+  if (t === 'swim' || t === 'swimming') return '🏊';
+  if (t === 'ride' || t === 'bike' || t === 'cycling') return '🚴';
+  if (t === 'run' || t === 'running') return '🏃';
+  return '🏋️';
+}
+
+async function fetchAndRenderAttachedTraining(userId, trainingId, postId) {
+  try {
+    const authHeaders = await getAuthHeaders();
+    const res = await fetch(`/api/workouts/${userId}`, {
+      headers: { 'Content-Type': 'application/json', ...authHeaders }
+    });
+    if (!res.ok) throw new Error(`Status: ${res.status}`);
+    const data = await res.json();
+    const workouts = data.workouts || [];
+    const matchingWorkout = workouts.find(w => w.id === trainingId);
+    const container = document.getElementById(`workout-details-${postId}`);
+    if (container) {
+      if (matchingWorkout) {
+        const type = matchingWorkout.type || 'Workout';
+        const emoji = getDisciplineEmoji(type);
+        const dur = matchingWorkout.duration_minutes || matchingWorkout.duration || 0;
+        const dist = matchingWorkout.distance_km || matchingWorkout.distance;
+        const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
+        container.innerHTML = `
+          <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
+          <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
+        `;
+      } else {
+        container.style.display = 'none';
+      }
+    }
+  } catch (err) {
+    console.error('Error loading attached training details:', err);
+    const container = document.getElementById(`workout-details-${postId}`);
+    if (container) {
+      container.style.display = 'none';
+    }
+  }
 }
 
 window.likePost = async function likePost(postId) {
@@ -332,7 +383,12 @@ function renderPosts(posts) {
     return;
   }
   postsContainer.innerHTML = '';
-  posts.forEach(p => postsContainer.appendChild(createPostCard(p)));
+  posts.forEach(p => {
+    postsContainer.appendChild(createPostCard(p));
+    if (p.trainingId && !p.trainingDetails) {
+      setTimeout(() => fetchAndRenderAttachedTraining(p.userId, p.trainingId, p.id), 0);
+    }
+  });
 }
 
 // ─── Load posts on startup with timeout ───────────────────────────────────────
@@ -476,12 +532,25 @@ submitPostBtn.addEventListener('click', async () => {
 
   if (!content) { alert('Write something first!'); return; }
 
+  let trainingDetails = null;
+  if (trainingId) {
+    const workoutObj = loadedWorkoutsList.find(w => w.id === trainingId);
+    if (workoutObj) {
+      trainingDetails = {
+        type: workoutObj.type,
+        duration_minutes: workoutObj.duration_minutes !== undefined ? workoutObj.duration_minutes : workoutObj.durationMinutes,
+        distance_km: workoutObj.distance_km !== undefined ? workoutObj.distance_km : workoutObj.distanceKm,
+      };
+    }
+  }
+
   try {
     await makeApiRequest('POST', '/api/posts', {
-      user_id:     getCurrentUserId(),
-      username:    getCurrentDisplayName(),
+      user_id:          getCurrentUserId(),
+      username:         getCurrentDisplayName(),
       content,
-      training_id: trainingId,
+      training_id:      trainingId,
+      training_details: trainingDetails,
     });
     postContentInput.value = '';
     workoutSelect.value    = '';
