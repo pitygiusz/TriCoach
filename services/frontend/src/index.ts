@@ -75,6 +75,14 @@ app.get('/index.html', (_req: Request, res: Response) => {
   serveWithFirebaseConfig('index.html', res);
 });
 
+app.get('/login', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('login.html', res);
+});
+
+app.get('/login.html', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('login.html', res);
+});
+
 app.get('/profile', (_req: Request, res: Response) => {
   serveWithFirebaseConfig('profile.html', res);
 });
