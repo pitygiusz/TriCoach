@@ -158,13 +158,13 @@ window.registerUser = async function registerUser() {
 window.logoutUser = async function logoutUser() {
   if (!isFirebaseReady()) {
     sessionStorage.clear();
-    location.reload();
+    window.location.replace('login.html');
     return;
   }
   try {
     await firebase.auth().signOut();
     sessionStorage.clear();
-    location.reload();
+    window.location.replace('login.html');
   } catch (e) {
     alert(`Logout failed: ${e.message}`);
   }
@@ -188,6 +188,7 @@ if (isFirebaseReady()) {
         delete document.body.dataset.uid;
         delete document.body.dataset.displayName;
         sessionStorage.clear();
+        window.location.replace('login.html');
       }
       updateProfileSidebar();
     });

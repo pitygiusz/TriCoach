@@ -258,13 +258,13 @@
       if (isFirebaseReady()) {
         firebase.auth().signOut().then(function() {
           sessionStorage.clear();
-          window.location.href = 'index.html';
+          window.location.replace('login.html');
         }).catch(function(e) {
           alert('Logout failed: ' + e.message);
         });
       } else {
         sessionStorage.clear();
-        window.location.href = 'index.html';
+        window.location.replace('login.html');
       }
     };
 
@@ -376,6 +376,7 @@
           sessionStorage.setItem('firebaseEmail', user.email);
         } else {
           sessionStorage.clear();
+          window.location.replace('login.html');
         }
         updateProfileSidebar();
         loadWorkouts();

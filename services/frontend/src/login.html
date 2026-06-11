@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TriCoach — Welcome</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script>
+    try {
+      if (window.__FIREBASE_CONFIG__ && window.__FIREBASE_CONFIG__.apiKey) {
+        firebase.initializeApp(window.__FIREBASE_CONFIG__);
+      } else {
+        console.warn('🔥 Firebase config missing or incomplete');
+      }
+    } catch (e) {
+      console.warn('🔥 Firebase init error:', e.message);
+    }
+  </script>
+
+  <style>
+    /* Specific styles for centering the login card using your existing CSS vars */
+    .login-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: var(--shadow);
+      text-align: center;
+    }
+    .login-card h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+    }
+    .login-card p {
+      color: var(--muted);
+      margin: 0 0 24px;
+      line-height: 1.5;
+    }
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      text-align: left;
+    }
+    .auth-form input {
+      background: var(--surface-strong);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-family: inherit;
+      font-size: 1rem;
+      width: 100%;
+    }
+    .auth-button {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 999px;
+      padding: 14px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s;
+    }
+    .auth-button:hover {
+      opacity: 0.9;
+    }
+    .error-msg {
+      color: #ef4444;
+      font-size: 0.9rem;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="login-wrapper">
+    <div class="login-card">
+      <h1>TriCoach</h1>
+      <p>Your ultimate triathlon training companion. Log in to track your progress.</p>
+
+      <div class="auth-form">
+        <div id="errorMessage" class="error-msg"></div>
+        
+        <div>
+          <label for="emailInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Email</label>
+          <input type="email" id="emailInput" placeholder="athlete@example.com" required />
+        </div>
+        
+        <div>
+          <label for="passwordInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Password</label>
+          <input type="password" id="passwordInput" placeholder="••••••••" required />
+        </div>
+        
+        <button id="loginBtn" class="auth-button">Log In / Sign Up</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const emailInput = document.getElementById('emailInput');
+    const passwordInput = document.getElementById('passwordInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const errorMessage = document.getElementById('errorMessage');
+
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorMessage.style.display = 'block';
+    }
+
+    // Redirect to feed if already logged in
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        window.location.replace('index.html');
+      }
+    });
+
+    loginBtn.addEventListener('click', () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value;
+
+      if (!email || !password) {
+        showError('Please enter both email and password.');
+        return;
+      }
+
+      // Try logging in first. If the user doesn't exist, you can handle signup.
+      // For simplicity, we'll try to log in, and catch the error to sign them up if needed.
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .then(() => {
+          // Success: onAuthStateChanged will handle the redirect
+        })
+        .catch(error => {
+          if (error.code === 'auth/user-not-found') {
+             // Optional: Auto-create account if they don't exist
+             firebase.auth().createUserWithEmailAndPassword(email, password)
+               .catch(err => showError(err.message));
+          } else {
+             showError(error.message);
+          }
+        });
+    });
+  </script>
+</body>
+</html>
