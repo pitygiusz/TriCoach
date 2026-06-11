@@ -244,10 +244,20 @@ async function makeApiRequest(method, endpoint, data = null) {
 function createPostCard(post) {
   const card = document.createElement('article');
   card.className = 'post-card';
-  const author = post.userId || 'Anonymous';
+  const author = post.username || post.userId || 'Anonymous';
+  
+  // Format likedBy list
+  let likedByText = '';
+  if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
+    const names = post.likedBy.map(like => typeof like === 'object' && like !== null ? like.username : like);
+    likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
+      ❤️ Liked by: ${names.join(', ')}
+    </div>`;
+  }
+
   card.innerHTML = `
     <header>
-      <img class="avatar" src="https://i.pravatar.cc/48?u=${encodeURIComponent(author)}" alt="${author}" />
+      <img class="avatar" src="https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}" alt="${author}" />
       <div class="post-author">
         <strong>${author}</strong>
         <span>${formatTimeAgo(post.createdAt)}</span>
@@ -255,13 +265,28 @@ function createPostCard(post) {
     </header>
     <h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>
     <p>${post.content || ''}</p>
-    <div class="post-meta">
-      <span>${post.likes || 0} likes</span>
+    <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
+      <button onclick="likePost('${post.id}')" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; background-color: var(--surface-strong); color: var(--text); border: 1px solid var(--border);">
+        ❤️ <span class="like-count">${post.likes || 0}</span>
+      </button>
       ${post.trainingId ? '<span>Training attached</span>' : ''}
     </div>
+    ${likedByText}
   `;
   return card;
 }
+
+window.likePost = async function likePost(postId) {
+  try {
+    await makeApiRequest('POST', `/api/posts/${postId}/like`, {
+      user_id: getCurrentUserId(),
+      username: getCurrentDisplayName(),
+    });
+    loadPosts();
+  } catch (err) {
+    alert(`Could not like post: ${err.message}`);
+  }
+};
 
 function renderPosts(posts) {
   if (!Array.isArray(posts) || posts.length === 0) {
@@ -412,6 +437,7 @@ submitPostBtn.addEventListener('click', async () => {
   try {
     await makeApiRequest('POST', '/api/posts', {
       user_id:     getCurrentUserId(),
+      username:    getCurrentDisplayName(),
       content,
       training_id: trainingId,
     });

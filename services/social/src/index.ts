@@ -21,7 +21,7 @@ app.get('/', (req: Request, res: Response) => {
 // Create a post
 app.post('/posts', async (req: Request, res: Response) => {
   try {
-    const { user_id, content, training_id } = req.body;
+    const { user_id, username, content, training_id } = req.body;
 
     if (!user_id || !content) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -30,10 +30,11 @@ app.post('/posts', async (req: Request, res: Response) => {
 
     const postData = {
       userId: user_id,
+      username: username || 'Anonymous',
       trainingId: training_id || null,
       content,
       likes: 0,
-      likedBy: [] as string[],
+      likedBy: [] as any[],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
@@ -62,6 +63,7 @@ app.get('/posts', async (req: Request, res: Response) => {
       return {
         id: doc.id,
         userId: data.userId,
+        username: data.username || 'Anonymous',
         trainingId: data.trainingId || null,
         content: data.content,
         likes: data.likes || 0,
@@ -128,7 +130,7 @@ app.get('/feed/:userId', async (req: Request, res: Response) => {
 app.post('/posts/:postId/like', async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
-    const { user_id } = req.body;
+    const { user_id, username } = req.body;
 
     if (!user_id) {
       res.status(400).json({ error: 'User ID required' });
@@ -136,9 +138,31 @@ app.post('/posts/:postId/like', async (req: Request, res: Response) => {
     }
 
     const postRef = db.collection('posts').doc(postId);
+    const postDoc = await postRef.get();
+    if (!postDoc.exists) {
+      res.status(404).json({ error: 'Post not found' });
+      return;
+    }
+    const postData = postDoc.data() || {};
+    const likedBy = postData.likedBy || [];
+    
+    // Check if user already liked the post
+    const alreadyLiked = likedBy.some((like: any) => {
+      if (typeof like === 'object' && like !== null) {
+        return like.uid === user_id;
+      }
+      return like === user_id;
+    });
+
+    if (alreadyLiked) {
+      res.status(400).json({ error: 'You have already liked this post' });
+      return;
+    }
+
+    const newLike = { uid: user_id, username: username || 'Athlete' };
     await postRef.update({
       likes: admin.firestore.FieldValue.increment(1),
-      likedBy: admin.firestore.FieldValue.arrayUnion(user_id),
+      likedBy: admin.firestore.FieldValue.arrayUnion(newLike),
     });
 
     res.status(200).json({ message: 'Post liked successfully' });
