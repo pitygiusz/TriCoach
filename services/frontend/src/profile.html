@@ -11,6 +11,16 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <style>
+    /* Added some utility classes for the text truncation */
+    .truncate-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+      max-width: 150px;
+    }
+  </style>
 </head>
 <body>
     <div class="app-shell">
@@ -24,45 +34,92 @@
             </header>
             
             <div class="sidebar-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 40px 20px;" id="profileInfo">
-                <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" alt="Profile" style="width: 120px; height: 120px; border-radius: 999px; object-fit: cover; border: 3px solid var(--primary);" />
-                <div>
-                    <div id="profileNameDisplay" style="display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 8px;">
-                      <h2 id="profileName" style="margin: 0; font-size: 1.8rem; color: var(--text);">Loading...</h2>
-                      <button id="profileEditBtn" onclick="toggleNameEdit(true)" style="display: none; background: none; border: none; cursor: pointer; font-size: 1.1rem; color: var(--muted);" title="Edit name">✏️</button>
-                    </div>
-                    <div id="profileNameEdit" style="display: none; gap: 8px; margin-bottom: 8px; justify-content: center; flex-wrap: wrap;">
-                      <input type="text" id="editFirstName" placeholder="First name" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 130px;" />
-                      <input type="text" id="editLastName" placeholder="Last name" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 130px;" />
-                      <button onclick="saveProfileName()" class="action-pill active" style="padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;">Save</button>
-                      <button onclick="toggleNameEdit(false)" class="action-pill" style="padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer;">Cancel</button>
-                    </div>
-                    <span id="profileEmail" style="color: var(--muted); font-size: 1.1rem;">@loading</span>
-                </div>
-
-                <!-- Display user details from user table -->
-                <div id="userDetailsBox" style="width: 100%; max-width: 500px; background: var(--surface-strong); padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-top: 10px; font-size: 0.95rem; text-align: left; display: flex; flex-direction: column; gap: 10px;">
-                    <h3 style="margin: 0 0 4px 0; color: var(--primary); font-size: 1.1rem;">User Details</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                        <div><strong>Username:</strong> <span id="userDetailUsername" style="color: var(--text);">N/A</span></div>
-                        <div><strong>Email:</strong> <span id="userDetailEmail" style="color: var(--text);">N/A</span></div>
-                        <div><strong>First Name:</strong> <span id="userDetailFirstName" style="color: var(--text);">N/A</span></div>
-                        <div><strong>Last Name:</strong> <span id="userDetailLastName" style="color: var(--text);">N/A</span></div>
-                        <div><strong>Age:</strong> <span id="userDetailAge" style="color: var(--text);">N/A</span></div>
-                        <div><strong>Weight:</strong> <span id="userDetailWeight" style="color: var(--text);">N/A</span> kg</div>
-                        <div style="grid-column: span 2;"><strong>Experience Level:</strong> <span id="userDetailExp" style="color: var(--text);">N/A</span></div>
-                    </div>
-                </div>
-
-                <p style="margin: 0; max-width: 500px; line-height: 1.6;">Triathlon enthusiast sharing training progress.</p>
                 
-                <div class="action-bar" style="justify-content: center; width: 100%; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 20px; width: 100%; max-width: 500px; justify-content: flex-start; text-align: left;">
+                    <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" alt="Profile" style="width: 100px; height: 100px; border-radius: 999px; object-fit: cover; border: 3px solid var(--primary); flex-shrink: 0;" />
+                    
+                    <div style="flex: 1; min-width: 0;">
+                        <div id="profileNameDisplay" style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                          <h2 id="profileName" style="margin: 0; font-size: 1.6rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Loading...</h2>
+                          <button id="profileEditBtn" onclick="toggleNameEdit(true)" style="display: none; background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted);" title="Edit name">✏️</button>
+                        </div>
+                        
+                        <div id="profileNameEdit" style="display: none; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                          <input type="text" id="editFirstName" placeholder="First" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 100px;" />
+                          <input type="text" id="editLastName" placeholder="Last" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 100px;" />
+                          <button onclick="saveProfileName()" class="action-pill active" style="padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;">Save</button>
+                          <button onclick="toggleNameEdit(false)" class="action-pill" style="padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer;">Cancel</button>
+                        </div>
+                        
+                        <span id="profileUsernameDisplay" style="color: var(--muted); font-size: 1.1rem; display: block;" class="truncate-text">@loading</span>
+                    </div>
+                </div>
+
+                <div style="width: 100%; max-width: 500px; background: var(--surface-strong); padding: 16px; border-radius: 12px; border: 1px solid var(--border); text-align: left; position: relative;">
+                    <div id="bioDisplayView">
+                        <p id="profileBioText" style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--text);">Loading bio...</p>
+                        <button id="bioEditBtn" onclick="toggleBioEdit(true)" style="display: none; position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted);" title="Edit bio">✏️</button>
+                    </div>
+                    <div id="bioEditView" style="display: none; flex-direction: column; gap: 8px;">
+                        <textarea id="editBioInput" rows="3" placeholder="Tell us about your triathlon journey..." style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: inherit; resize: vertical;"></textarea>
+                        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                            <button onclick="saveProfileBio()" class="action-pill active" style="padding: 6px 14px; font-size: 0.9rem; border: none; border-radius: 8px; cursor: pointer;">Save</button>
+                            <button onclick="toggleBioEdit(false)" class="action-pill" style="padding: 6px 14px; font-size: 0.9rem; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 8px; cursor: pointer;">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="infoBox" style="width: 100%; max-width: 500px; background: var(--surface-strong); padding: 16px; border-radius: 12px; border: 1px solid var(--border); text-align: left; position: relative;">
+                    <h3 style="margin: 0 0 12px 0; color: var(--primary); font-size: 1.05rem;">Info</h3>
+                    <button id="infoEditBtn" onclick="toggleInfoEdit(true)" style="display: none; position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted);" title="Edit info">✏️</button>
+                    
+                    <div id="infoDisplayView" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 0.95rem;">
+                        <div>
+                            <strong style="color:var(--muted); display:block; font-size:0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Age</strong> 
+                            <span id="userDetailAge" style="color: var(--text); font-weight: 500;">N/A</span>
+                        </div>
+                        <div>
+                            <strong style="color:var(--muted); display:block; font-size:0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Weight</strong> 
+                            <span id="userDetailWeight" style="color: var(--text); font-weight: 500;">N/A</span> kg
+                        </div>
+                        <div>
+                            <strong style="color:var(--muted); display:block; font-size:0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Experience</strong> 
+                            <span id="userDetailExp" style="color: var(--text); font-weight: 500;">N/A</span>
+                        </div>
+                    </div>
+
+                    <div id="infoEditView" style="display: none; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: end;">
+                        <div>
+                            <label style="color:var(--muted); font-size:0.8rem; display:block; margin-bottom:4px;">Age</label>
+                            <input type="number" id="editAge" style="width:100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
+                        </div>
+                        <div>
+                            <label style="color:var(--muted); font-size:0.8rem; display:block; margin-bottom:4px;">Weight (kg)</label>
+                            <input type="number" id="editWeight" style="width:100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
+                        </div>
+                        <div>
+                            <label style="color:var(--muted); font-size:0.8rem; display:block; margin-bottom:4px;">Experience</label>
+                            <select id="editExp" style="width:100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
+                                <option value="1">Beginner</option>
+                                <option value="2">Intermediate</option>
+                                <option value="3">Advanced</option>
+                            </select>
+                        </div>
+                        <div style="grid-column: span 3; display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+                            <button onclick="saveProfileInfo()" class="action-pill active" style="padding: 6px 14px; font-size: 0.9rem; border: none; border-radius: 8px; cursor: pointer;">Save</button>
+                            <button onclick="toggleInfoEdit(false)" class="action-pill" style="padding: 6px 14px; font-size: 0.9rem; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 8px; cursor: pointer;">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-bar" style="justify-content: center; width: 100%; max-width: 500px; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
                     <div class="action-pill"><strong id="postCount">0</strong> Posts</div>
                     <div class="action-pill"><strong id="followingCount">0</strong> Following</div>
                     <div class="action-pill"><strong id="followersCount">0</strong> Followers</div>
                 </div>
 
-                <div id="friendsDetailContainer" style="display: none; width: 100%; max-width: 500px; background: var(--bg); padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-top: 10px; font-size: 0.95rem; text-align: left;">
-                    <div style="margin-bottom: 10px;">
+                <div id="friendsDetailContainer" style="display: none; width: 100%; max-width: 500px; background: var(--bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border); font-size: 0.95rem; text-align: left;">
+                    <div style="margin-bottom: 12px;">
                         <strong style="color: var(--primary);">Following:</strong>
                         <div id="followingListNames" style="color: var(--text); margin-top: 4px;">None</div>
                     </div>
@@ -73,16 +130,15 @@
                 </div>
 
                 <button id="profileFollowBtn" class="action-pill active" style="margin-top: 10px; display: none;"></button>
-                <button id="profileLogoutBtn" class="action-pill active" onclick="logoutUser()" style="margin-top: 10px; display: none;">🚪 Logout</button>
             </div>
             
-            <div class="action-bar">
-                <button class="action-pill active">Recent Posts</button>
+            <div style="padding: 20px;">
+                <h3 style="margin: 0; color: var(--text);">User's Posts</h3>
             </div>
             
             <main class="feed">
                 <div class="posts-container" id="userPosts">
-                    <div class="empty-state">Loading your posts...</div>
+                    <div class="empty-state">Loading posts...</div>
                 </div>
             </main>
         </div>
@@ -94,12 +150,12 @@
               <button class="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
                 <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
               </button>
-              <div>
-                <strong id="sidebarNameText">Loading...</strong>
-                <span id="sidebarEmailText">@loading</span>
+              <div style="min-width: 0; flex: 1;">
+                <strong id="sidebarNameText" class="truncate-text" style="max-width: 100%;">Loading...</strong>
+                <span id="sidebarUsernameText" class="truncate-text" style="max-width: 100%; font-size: 0.9rem; color: var(--muted);">@loading</span>
               </div>
             </div>
-            <div id="profileAuthButtons" style="margin-top: 14px; display: flex; gap: 8px;"></div>
+            <div id="profileAuthButtons" style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;"></div>
           </div>
     
           <div class="sidebar-card" id="progressSidebarCard">
@@ -162,10 +218,6 @@
         return sessionStorage.getItem('firebaseUid') || null;
       }
 
-      function getCurrentDisplayName() {
-        return sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
-      }
-
       async function getAuthHeaders() {
         if (isFirebaseReady()) {
           try {
@@ -174,8 +226,6 @@
               const token = await user.getIdToken();
               sessionStorage.setItem('firebaseToken', token);
               sessionStorage.setItem('firebaseUid', user.uid);
-              sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
-              sessionStorage.setItem('firebaseEmail', user.email);
               return { 'Authorization': `Bearer ${token}` };
             }
           } catch (e) {}
@@ -224,19 +274,12 @@
           alert('Please enter a username to follow!');
           return;
         }
-
         const currentUid = getCurrentUserId();
-
         try {
           const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username)}`);
-          if (!userRes.ok) {
-            if (userRes.status === 404) {
-              throw new Error(`User "${username}" not found.`);
-            }
-            throw new Error(`Failed to lookup user. Status: ${userRes.status}`);
-          }
+          if (!userRes.ok) throw new Error(`User "${username}" not found.`);
+          
           const targetUser = await userRes.json();
-
           if (targetUser.uid === currentUid) {
             alert("You cannot follow yourself!");
             return;
@@ -246,36 +289,14 @@
           const res = await fetch('/api/follow', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({
-              follower_id: currentUid,
-              following_id: targetUser.uid,
-            })
+            body: JSON.stringify({ follower_id: currentUid, following_id: targetUser.uid })
           });
           if (!res.ok) throw new Error(`Status: ${res.status}`);
 
           alert(`Successfully followed @${username}!`);
           if (usernameInput) usernameInput.value = '';
-          
           updateProfileSidebar();
-          
-          const urlParams = new URLSearchParams(window.location.search);
-          const urlUid = urlParams.get('uid');
-          const sessionUid = sessionStorage.getItem('firebaseUid');
-          const targetUid = urlUid || sessionUid;
-          if (targetUid) {
-            await loadFollowDetails(targetUid);
-            const logoutBtn = document.getElementById('profileLogoutBtn');
-            const followBtn = document.getElementById('profileFollowBtn');
-            if (sessionUid && targetUid !== sessionUid) {
-              const followingRes = await fetch(`/api/following/${sessionUid}`);
-              if (followingRes.ok) {
-                const data = await followingRes.json();
-                const following = data.following || [];
-                const isFollowing = following.some(f => f.followingId === targetUid);
-                updateFollowButtonState(followBtn, isFollowing, sessionUid, targetUid);
-              }
-            }
-          }
+          loadUserProfile();
         } catch (err) {
           alert(`Could not follow user: ${err.message}`);
         }
@@ -302,8 +323,11 @@
         const uid = sessionStorage.getItem('firebaseUid');
         const pgFirstName = sessionStorage.getItem('pgFirstName');
         const pgLastName = sessionStorage.getItem('pgLastName');
+        const pgUsername = sessionStorage.getItem('pgUsername');
+        
         const pgFullName = [pgFirstName, pgLastName].filter(Boolean).join(' ');
         const name = pgFullName || sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
+        const displayUsername = pgUsername ? '@' + pgUsername : (uid ? '@' + uid.substring(0, 8) : 'Not logged in');
         const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
         if (sidebarProfileCard) {
@@ -311,9 +335,9 @@
             <button class="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
               <img src="${avatar}" alt="${name}" />
             </button>
-            <div>
-              <strong>${name}</strong>
-              <span>${uid ? '@' + uid.substring(0, 8) : 'Not logged in'}</span>
+            <div style="min-width: 0; flex: 1;">
+              <strong class="truncate-text" style="max-width: 100%;">${name}</strong>
+              <span class="truncate-text" style="max-width: 100%; font-size: 0.9rem; color: var(--muted);">${displayUsername}</span>
             </div>
           `;
         }
@@ -321,44 +345,18 @@
         if (profileAuthButtons) {
           if (uid) {
             profileAuthButtons.innerHTML = `
-              <button onclick="logoutUser()" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🚪 Logout</button>
+              <button onclick="alert('Change Profile Picture functionality to be added')" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px dashed var(--primary); background: transparent; color: var(--primary); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🖼️ Change Picture</button>
+              <button onclick="logoutUser()" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🚪 Logout</button>
             `;
           } else {
             profileAuthButtons.innerHTML = `
-              <button onclick="window.location.href='index.html'" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🔑 Log In</button>
-            `;
-          }
-        }
-
-        if (progressOptionsList) {
-          if (uid) {
-            progressOptionsList.innerHTML = `
-              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
-              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI History</li>
-            `;
-          } else {
-            progressOptionsList.innerHTML = `
-              <li style="color:var(--muted);font-size:0.9rem;">Log in to track progress</li>
-            `;
-          }
-        }
-
-        if (plannerOptionsList) {
-          if (uid) {
-            plannerOptionsList.innerHTML = `
-              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
-              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-planner.html'">📅 AI Planner</li>
-            `;
-          } else {
-            plannerOptionsList.innerHTML = `
-              <li style="color:var(--muted);font-size:0.9rem;">Log in to plan</li>
+              <button onclick="window.location.href='index.html'" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🔑 Log In</button>
             `;
           }
         }
 
         const friendsList = document.getElementById('friendsList');
-        if (friendsList) {
-          if (uid) {
+        if (friendsList && uid) {
             try {
               const followingRes = await fetch(`/api/following/${uid}`);
               if (followingRes.ok) {
@@ -366,21 +364,16 @@
                 const following = data.following || [];
                 if (following.length > 0) {
                   friendsList.innerHTML = following.map(f => 
-                    `<li style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${f.followingId}'">
-                      <span style="font-size: 1.2rem;">🏃</span>
-                      <span style="color: var(--text); font-weight: 500;">${f.username}</span>
+                    `<li style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${f.followingId}'">
+                      <img src="https://i.pravatar.cc/40?u=${encodeURIComponent(f.followingId)}" style="width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" alt="avatar" />
+                      <span class="truncate-text" style="color: var(--text); font-weight: 500;">@${f.username}</span>
                     </li>`
                   ).join('');
                 } else {
                   friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">No followed athletes yet</li>';
                 }
               }
-            } catch (e) {
-              friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">Error loading friends</li>';
-            }
-          } else {
-            friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">Log in to see friends</li>';
-          }
+            } catch (e) {}
         }
       }
 
@@ -422,66 +415,80 @@
         }
       }
 
-      window.toggleNameEdit = function toggleNameEdit(show) {
-        const display = document.getElementById('profileNameDisplay');
-        const editForm = document.getElementById('profileNameEdit');
-        if (show) {
-          display.style.display = 'none';
-          editForm.style.display = 'flex';
-        } else {
-          display.style.display = 'flex';
-          editForm.style.display = 'none';
-        }
+      // --- Toggles ---
+      window.toggleNameEdit = function(show) {
+        document.getElementById('profileNameDisplay').style.display = show ? 'none' : 'flex';
+        document.getElementById('profileNameEdit').style.display = show ? 'flex' : 'none';
       };
 
-      window.saveProfileName = async function saveProfileName() {
-        const sessionUid = sessionStorage.getItem('firebaseUid');
-        if (!sessionUid) return;
+      window.toggleBioEdit = function(show) {
+        document.getElementById('bioDisplayView').style.display = show ? 'none' : 'block';
+        document.getElementById('bioEditView').style.display = show ? 'flex' : 'none';
+      };
 
+      window.toggleInfoEdit = function(show) {
+        document.getElementById('infoDisplayView').style.display = show ? 'none' : 'grid';
+        document.getElementById('infoEditView').style.display = show ? 'grid' : 'none';
+      };
+
+      // --- Save Functions ---
+      window.saveProfileName = async function() {
+        const sessionUid = sessionStorage.getItem('firebaseUid');
         const firstName = document.getElementById('editFirstName').value.trim();
         const lastName = document.getElementById('editLastName').value.trim();
+        if (!firstName || !lastName) { alert('Name cannot be empty.'); return; }
 
-        if (!firstName || !lastName) {
-          alert('First and last name cannot be empty.');
-          return;
-        }
-
-        try {
-          const authHeaders = await getAuthHeaders();
-          const res = await fetch(`/api/users/${sessionUid}/profile`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({ firstName, lastName })
-          });
-
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error || `Status: ${res.status}`);
-          }
-
-          const data = await res.json();
-          const updatedUser = data.user || {};
-          const fullName = [updatedUser.firstName, updatedUser.lastName].filter(Boolean).join(' ');
-
-          document.getElementById('profileName').textContent = fullName || firstName + ' ' + lastName;
-          sessionStorage.setItem('pgFirstName', updatedUser.firstName || firstName);
-          sessionStorage.setItem('pgLastName', updatedUser.lastName || lastName);
-
+        await updateProfileData(sessionUid, { firstName, lastName }, () => {
+          const fullName = firstName + ' ' + lastName;
+          document.getElementById('profileName').textContent = fullName;
+          sessionStorage.setItem('pgFirstName', firstName);
+          sessionStorage.setItem('pgLastName', lastName);
           toggleNameEdit(false);
           updateProfileSidebar();
-        } catch (err) {
-          alert(`Could not update name: ${err.message}`);
-        }
+        });
       };
 
-      async function loadUserProfile() {
-        const profileName = document.getElementById('profileName');
-        const profileEmail = document.getElementById('profileEmail');
-        const profileAvatar = document.getElementById('profileAvatar');
-        const postCount = document.getElementById('postCount');
-        const logoutBtn = document.getElementById('profileLogoutBtn');
-        const followBtn = document.getElementById('profileFollowBtn');
+      window.saveProfileBio = async function() {
+        const sessionUid = sessionStorage.getItem('firebaseUid');
+        const bio = document.getElementById('editBioInput').value.trim();
+        await updateProfileData(sessionUid, { bio }, () => {
+          document.getElementById('profileBioText').textContent = bio || 'No bio provided.';
+          toggleBioEdit(false);
+        });
+      };
 
+      window.saveProfileInfo = async function() {
+        const sessionUid = sessionStorage.getItem('firebaseUid');
+        const age = document.getElementById('editAge').value;
+        const weight = document.getElementById('editWeight').value;
+        const experienceLevel = document.getElementById('editExp').value;
+
+        await updateProfileData(sessionUid, { age, weight, experienceLevel }, () => {
+          document.getElementById('userDetailAge').textContent = age || 'N/A';
+          document.getElementById('userDetailWeight').textContent = weight || 'N/A';
+          const expMap = { 1: 'Beginner', 2: 'Intermediate', 3: 'Advanced' };
+          document.getElementById('userDetailExp').textContent = expMap[experienceLevel] || 'Beginner';
+          toggleInfoEdit(false);
+        });
+      };
+
+      async function updateProfileData(uid, payload, onSuccess) {
+        if (!uid) return;
+        try {
+          const authHeaders = await getAuthHeaders();
+          const res = await fetch(`/api/users/${uid}/profile`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error(`Status: ${res.status}`);
+          onSuccess();
+        } catch (err) {
+          alert(`Could not update profile: ${err.message}`);
+        }
+      }
+
+      async function loadUserProfile() {
         const urlParams = new URLSearchParams(window.location.search);
         const urlUid = urlParams.get('uid');
         const sessionUid = sessionStorage.getItem('firebaseUid');
@@ -492,29 +499,29 @@
         }
 
         const targetUid = urlUid || sessionUid;
+        const isOwner = sessionUid && targetUid === sessionUid;
 
-        if (sessionUid && targetUid === sessionUid) {
-          logoutBtn.style.display = 'inline-block';
+        // Toggle Edit Buttons Visibility
+        ['profileEditBtn', 'bioEditBtn', 'infoEditBtn'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.display = isOwner ? 'inline-block' : 'none';
+        });
+
+        // Follow Button Logic
+        const followBtn = document.getElementById('profileFollowBtn');
+        if (isOwner) {
           followBtn.style.display = 'none';
         } else if (sessionUid) {
-          logoutBtn.style.display = 'none';
           try {
             const followingRes = await fetch(`/api/following/${sessionUid}`);
             if (followingRes.ok) {
               const data = await followingRes.json();
-              const following = data.following || [];
-              const isFollowing = following.some(f => f.followingId === targetUid);
+              const isFollowing = (data.following || []).some(f => f.followingId === targetUid);
               updateFollowButtonState(followBtn, isFollowing, sessionUid, targetUid);
-            } else {
-              followBtn.style.display = 'none';
             }
           } catch (e) {
-            console.error('Error fetching following status:', e);
             followBtn.style.display = 'none';
           }
-        } else {
-          logoutBtn.style.display = 'none';
-          followBtn.style.display = 'none';
         }
 
         try {
@@ -523,40 +530,36 @@
           if (profileRes.ok) {
             const profileData = await profileRes.json();
             const fullName = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
-            profileName.textContent = fullName || profileData.username || 'Athlete';
-            profileEmail.textContent = '@' + (profileData.email ? profileData.email.split('@')[0] : 'athlete');
-            profileAvatar.src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+            
+            document.getElementById('profileName').textContent = fullName || profileData.username || 'Athlete';
+            document.getElementById('profileUsernameDisplay').textContent = '@' + (profileData.username || 'athlete');
+            document.getElementById('profileAvatar').src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+            
+            // Bio
+            document.getElementById('profileBioText').textContent = profileData.bio || 'Triathlon enthusiast sharing training progress.';
+            document.getElementById('editBioInput').value = profileData.bio || '';
 
-            // Populate user details fields
-            document.getElementById('userDetailUsername').textContent = profileData.username || 'N/A';
-            document.getElementById('userDetailEmail').textContent = profileData.email || 'N/A';
-            document.getElementById('userDetailFirstName').textContent = profileData.firstName || 'N/A';
-            document.getElementById('userDetailLastName').textContent = profileData.lastName || 'N/A';
+            // Info Details
             document.getElementById('userDetailAge').textContent = profileData.age || 'N/A';
             document.getElementById('userDetailWeight').textContent = profileData.weight || 'N/A';
-
             const expMap = { 1: 'Beginner', 2: 'Intermediate', 3: 'Advanced' };
-            document.getElementById('userDetailExp').textContent = expMap[profileData.experienceLevel] || profileData.experienceLevel || 'Beginner';
+            document.getElementById('userDetailExp').textContent = expMap[profileData.experienceLevel] || 'Beginner';
 
-            const editFirstName = document.getElementById('editFirstName');
-            const editLastName = document.getElementById('editLastName');
-            if (editFirstName) editFirstName.value = profileData.firstName || '';
-            if (editLastName) editLastName.value = profileData.lastName || '';
+            // Pre-fill Edit Inputs
+            if(document.getElementById('editFirstName')) document.getElementById('editFirstName').value = profileData.firstName || '';
+            if(document.getElementById('editLastName')) document.getElementById('editLastName').value = profileData.lastName || '';
+            document.getElementById('editAge').value = profileData.age || '';
+            document.getElementById('editWeight').value = profileData.weight || '';
+            document.getElementById('editExp').value = profileData.experienceLevel || 1;
 
-            if (sessionUid && targetUid === sessionUid) {
+            if (isOwner) {
               sessionStorage.setItem('pgFirstName', profileData.firstName || '');
               sessionStorage.setItem('pgLastName', profileData.lastName || '');
-              const editBtn = document.getElementById('profileEditBtn');
-              if (editBtn) editBtn.style.display = 'inline-block';
+              sessionStorage.setItem('pgUsername', profileData.username || '');
               updateProfileSidebar();
             }
-          } else {
-            profileName.textContent = 'Athlete Profile';
-            profileEmail.textContent = '@athlete';
-            profileAvatar.src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
           }
-
-          // 2. Load Follow Details
+          
           await loadFollowDetails(targetUid);
 
           // 3. Load Posts
@@ -564,8 +567,9 @@
           if (postsRes.ok) {
             const posts = await postsRes.json();
             const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === targetUid) : [];
-            postCount.textContent = userPosts.length;
+            document.getElementById('postCount').textContent = userPosts.length;
             const container = document.getElementById('userPosts');
+            
             if (userPosts.length === 0) {
               container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
             } else {
@@ -580,9 +584,6 @@
           }
         } catch (err) {
           console.error('Failed to load active profile metrics:', err);
-          profileName.textContent = 'Offline Profile';
-          profileEmail.textContent = '@connection-error';
-          document.getElementById('userPosts').innerHTML = '<div class="empty-state">Error communicating with server gateway. Ensure services are up.</div>';
         }
 
         updateProfileSidebar();
@@ -593,8 +594,6 @@
           firebase.auth().signOut().then(function() {
             sessionStorage.clear();
             window.location.replace('login.html');
-          }).catch(function(e) {
-            console.warn('Logout failed:', e);
           });
         } else {
           sessionStorage.clear();
@@ -607,7 +606,6 @@
           if (user) {
             sessionStorage.setItem('firebaseUid', user.uid);
             sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
-            sessionStorage.setItem('firebaseEmail', user.email);
           } else {
             sessionStorage.clear();
             window.location.replace('login.html');
