@@ -277,27 +277,14 @@
           return;
         }
 
-        // Firebase SDK Mode
+        // Firebase SDK Mode (matches "login first try" behavior)
         if (authMode === 'signup') {
-          const registerResponse = await fetch('/api/users/register', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, email, password }),
-          });
-          const registerData = await registerResponse.json();
-          if (!registerResponse.ok) {
-            throw new Error(registerData.error || registerData.message || 'Registration failed');
-          }
-
-          try {
-            const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
-            await cred.user.updateProfile({ displayName: username });
-          } catch (createError) {
-            console.warn('Firebase createUser failed, continuing:', createError.message);
-          }
+          const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
+          await cred.user.updateProfile({ displayName: username });
+        } else {
+          await firebase.auth().signInWithEmailAndPassword(email, password);
         }
 
-        await firebase.auth().signInWithEmailAndPassword(email, password);
         const user = firebase.auth().currentUser;
         if (!user) {
           throw new Error('Unable to establish authentication session.');
@@ -309,7 +296,6 @@
         sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
         sessionStorage.setItem('firebaseEmail', user.email);
 
-        await callLoginApi(token);
         window.location.replace('index.html');
       } catch (error) {
         console.warn('Authentication error:', error);
