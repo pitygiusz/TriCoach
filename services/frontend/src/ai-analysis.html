@@ -67,28 +67,32 @@
     </div>
 
     <aside class="sidebar" id="sidebarHid">
-      <div class="sidebar-card">
+      <div class="sidebar-card" id="profileSidebarCard">
         <h2>Profile</h2>
         <div class="profile-card" id="profileCard">
-          <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
+          <button class="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
+            <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
+          </button>
           <div>
             <strong>Jane Doe</strong>
             <span>@janedoe</span>
           </div>
         </div>
+        <div id="profileAuthButtons" style="margin-top: 14px; display: flex; gap: 8px;"></div>
       </div>
 
-      <div class="sidebar-card">
-        <h2>Options</h2>
-        <ul id="optionsList">
-          <li>Settings</li>
-          <li>Help</li>
+      <div class="sidebar-card" id="progressSidebarCard">
+        <h2>Progress</h2>
+        <ul id="progressOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
         </ul>
       </div>
 
-      <div class="sidebar-card">
+      <div class="sidebar-card" id="friendsSidebarCard">
         <h2>Friends</h2>
-        <ul>
+        <ul id="friendsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--muted); font-size: 0.95rem;">
+          <li>No followed athletes yet</li>
         </ul>
       </div>
     </aside>
@@ -97,7 +101,8 @@
 
   <script>
     const profileCard = document.getElementById('profileCard');
-    const optionsList = document.getElementById('optionsList');
+    const profileAuthButtons = document.getElementById('profileAuthButtons');
+    const progressOptionsList = document.getElementById('progressOptionsList');
     const raceTypeSelect = document.getElementById('raceTypeSelect');
     const runAiSimulationBtn = document.getElementById('runAiSimulationBtn');
     const aiResultArea = document.getElementById('aiResultArea');
@@ -152,19 +157,27 @@
         `;
       }
 
-      if (optionsList) {
+      if (profileAuthButtons) {
         if (uid) {
-          optionsList.innerHTML = `
-            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
-            <li style="cursor:pointer;color:var(--text);" onclick="logoutUser()">🚪 Logout</li>
-            <li>Settings</li>
-            <li>Help</li>
+          profileAuthButtons.innerHTML = `
+            <button onclick="logoutUser()" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🚪 Logout</button>
           `;
         } else {
-          optionsList.innerHTML = `
-            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='index.html'">🔑 Log In</li>
-            <li>Settings</li>
-            <li>Help</li>
+          profileAuthButtons.innerHTML = `
+            <button onclick="window.location.href='index.html'" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🔑 Log In</button>
+          `;
+        }
+      }
+
+      if (progressOptionsList) {
+        if (uid) {
+          progressOptionsList.innerHTML = `
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
+          `;
+        } else {
+          progressOptionsList.innerHTML = `
+            <li style="color:var(--muted);font-size:0.9rem;">Log in to track progress</li>
           `;
         }
       }

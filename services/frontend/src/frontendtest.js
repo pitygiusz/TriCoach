@@ -287,7 +287,7 @@ function createPostCard(post) {
   }
 
   const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
-  const likeStyle = hasLiked ? 'background-color: var(--accent); color: white; border: 1px solid var(--accent);' : 'background-color: var(--surface-strong); color: var(--text); border: 1px solid var(--border);';
+  const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface-strong); color: var(--text); border: 1px solid var(--border);';
 
   card.innerHTML = `
     <header>
@@ -478,10 +478,10 @@ function updateProfileSidebar() {
   const name = sessionStorage.getItem('firebaseDisplayName') || document.body.dataset.displayName || 'Guest';
   const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
 
-  const profileCard = document.querySelector('.profile-card');
+  const profileCard = document.getElementById('profileCard');
   if (profileCard) {
     profileCard.innerHTML = `
-      <button class="profileBtn" id="profileBtn" aria-label="View profile">
+      <button class="profileBtn" id="profileBtn" aria-label="View profile" onclick="window.location.href='profile.html'">
         <img src="${avatar}" alt="${name}" />
       </button>
       <div>
@@ -491,24 +491,30 @@ function updateProfileSidebar() {
     `;
   }
 
-  // Add login/logout buttons to sidebar Options
-  const optionsList = document.querySelector('.sidebar-card:last-child ul');
-  if (optionsList) {
+  const authButtons = document.getElementById('profileAuthButtons');
+  if (authButtons) {
     if (uid) {
-      optionsList.innerHTML = `
-        <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
-        <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
-        <li style="cursor:pointer;color:var(--text);" onclick="logoutUser()">🚪 Logout</li>
-        <li>Settings</li>
-        <li>Notifications</li>
-        <li>Help</li>
+      authButtons.innerHTML = `
+        <button onclick="logoutUser()" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🚪 Logout</button>
       `;
     } else {
-      optionsList.innerHTML = `
-        <li style="cursor:pointer;color:var(--gold);" onclick="loginUser()">🔑 Login</li>
-        <li style="cursor:pointer;color:var(--gold);" onclick="registerUser()">📝 Register</li>
-        <li>Settings</li>
-        <li>Help</li>
+      authButtons.innerHTML = `
+        <button onclick="loginUser()" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🔑 Login</button>
+        <button onclick="registerUser()" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">📝 Register</button>
+      `;
+    }
+  }
+
+  const progressList = document.getElementById('progressOptionsList');
+  if (progressList) {
+    if (uid) {
+      progressList.innerHTML = `
+        <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+        <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
+      `;
+    } else {
+      progressList.innerHTML = `
+        <li style="color:var(--muted);font-size:0.9rem;">Log in to track progress</li>
       `;
     }
   }
