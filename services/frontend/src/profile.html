@@ -11,7 +11,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-
 </head>
 <body>
     <div class="app-shell">
@@ -25,28 +24,19 @@
             </header>
             
             <div class="sidebar-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 40px 20px;" id="profileInfo">
-              <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" alt="Profile" style="width: 120px; height: 120px; border-radius: 999px; object-fit: cover; border: 3px solid var(--primary);" />
-              <div>
-                  <h2 id="profileName" style="margin: 0 0 8px; font-size: 1.8rem; color: var(--text);">Loading...</h2>
-                  <span id="profileEmail" style="color: var(--muted); font-size: 1.1rem; font-weight: 600;">@loading</span>
-              </div>
-              <p style="margin: 0; max-width: 500px; line-height: 1.6;">Triathlon enthusiast sharing training progress.</p>
-              
-              <div id="editNameContainer" style="display:none; background: var(--surface-strong); border: 1px solid var(--border); padding: 16px; border-radius: 12px; margin-top: 10px; width: 100%; max-width: 320px; text-align: left; gap: 8px; flex-direction: column;">
-                <label style="font-size: 0.8rem; color: var(--muted);">Update First Name</label>
-                <input type="text" id="editFirstNameInput" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
-                <label style="font-size: 0.8rem; color: var(--muted);">Update Last Name</label>
-                <input type="text" id="editLastNameInput" style="padding: 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
-                <button onclick="submitNameUpdate()" class="action-pill active" style="margin-top: 8px; border: none; padding: 8px; cursor: pointer; font-weight: bold; width: 100%;">Save Changes</button>
-              </div>
-              <button id="toggleEditBtn" class="action-pill" style="display:none; cursor:pointer;" onclick="document.getElementById('editNameContainer').style.display = document.getElementById('editNameContainer').style.display === 'none' ? 'flex' : 'none'">✏️ Edit Profile Name</button>
+                <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" alt="Profile" style="width: 120px; height: 120px; border-radius: 999px; object-fit: cover; border: 3px solid var(--primary);" />
+                <div>
+                    <h2 id="profileName" style="margin: 0 0 8px; font-size: 1.8rem; color: var(--text);">Loading...</h2>
+                    <span id="profileEmail" style="color: var(--muted); font-size: 1.1rem;">@loading</span>
+                </div>
+                <p style="margin: 0; max-width: 500px; line-height: 1.6;">Triathlon enthusiast sharing training progress.</p>
+                
+                <div class="action-bar" style="justify-content: center; width: 100%; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
+                    <div class="action-pill"><strong id="postCount">0</strong> Posts</div>
+                    <div class="action-pill"><strong id="followingCount">0</strong> Following</div>
+                    <div class="action-pill"><strong id="followersCount">0</strong> Followers</div>
+                </div>
 
-              <div class="action-bar" style="justify-content: center; width: 100%; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
-                  <div class="action-pill"><strong id="postCount">0</strong> Posts</div>
-                  <div class="action-pill"><strong id="followingCount">0</strong> Following</div>
-                  <div class="action-pill"><strong id="followersCount">0</strong> Followers</div>
-            </div>
-              
                 <div id="friendsDetailContainer" style="display: none; width: 100%; max-width: 500px; background: var(--bg); padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-top: 10px; font-size: 0.95rem; text-align: left;">
                     <div style="margin-bottom: 10px;">
                         <strong style="color: var(--primary);">Following:</strong>
@@ -81,8 +71,8 @@
                 <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
               </button>
               <div>
-                <strong>Loading...</strong>
-                <span>@loading</span>
+                <strong id="sidebarNameText">Loading...</strong>
+                <span id="sidebarEmailText">@loading</span>
               </div>
             </div>
             <div id="profileAuthButtons" style="margin-top: 14px; display: flex; gap: 8px;"></div>
@@ -383,116 +373,92 @@
         }
       }
 
-      // Add this submission handling function to your profile scripts
-    async function submitNameUpdate() {
-      const sessionUid = sessionStorage.getItem('firebaseUid');
-      const first = document.getElementById('editFirstNameInput').value.trim();
-      const last = document.getElementById('editLastNameInput').value.trim();
+      async function loadUserProfile() {
+        const profileName = document.getElementById('profileName');
+        const profileEmail = document.getElementById('profileEmail');
+        const profileAvatar = document.getElementById('profileAvatar');
+        const postCount = document.getElementById('postCount');
+        const logoutBtn = document.getElementById('profileLogoutBtn');
+        const followBtn = document.getElementById('profileFollowBtn');
 
-      if (!first || !last) {
-        alert('Both first name and last name fields are required.');
-        return;
-      }
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlUid = urlParams.get('uid');
+        const sessionUid = sessionStorage.getItem('firebaseUid');
 
-      try {
-        const authHeaders = await getAuthHeaders();
-        const res = await fetch(`/api/users/${sessionUid}/profile`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({ firstName: first, lastName: last })
-        });
+        if (!sessionUid) {
+          window.location.replace('login.html');
+          return;
+        }
 
-        if (!res.ok) throw new Error('Failed to save profile changes.');
-        
-        alert('Name updated successfully!');
-        document.getElementById('editNameContainer').style.display = 'none';
-        
-        // Force refresh local view layers
-        loadUserProfile();
-      } catch (err) {
-        alert(err.message);
-      }
-    }
+        const targetUid = urlUid || sessionUid;
 
-    // Modify the loading logic block inside your existing loadUserProfile() function
-    async function loadUserProfile() {
-      const profileName = document.getElementById('profileName');
-      const profileEmail = document.getElementById('profileEmail');
-      const profileAvatar = document.getElementById('profileAvatar');
-      const postCount = document.getElementById('postCount');
-      const logoutBtn = document.getElementById('profileLogoutBtn');
-      const followBtn = document.getElementById('profileFollowBtn');
-      const toggleEditBtn = document.getElementById('toggleEditBtn');
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlUid = urlParams.get('uid');
-      const sessionUid = sessionStorage.getItem('firebaseUid');
-
-      if (!sessionUid) {
-        window.location.replace('login.html');
-        return;
-      }
-
-      const targetUid = urlUid || sessionUid;
-
-      if (sessionUid && targetUid === sessionUid) {
-        logoutBtn.style.display = 'inline-block';
-        toggleEditBtn.style.display = 'inline-block'; // Allow name edits on own profile
-        followBtn.style.display = 'none';
-      } else {
-        logoutBtn.style.display = 'none';
-        toggleEditBtn.style.display = 'none';
-        // ... leave follow status fetching logic as is ...
-      }
-
-      try {
-        // 1. Fetch Profile Data from Prisma
-        const profileRes = await fetch(`/api/users/${targetUid}/profile`);
-        if (profileRes.ok) {
-          const profileData = await profileRes.json();
-          profileName.textContent = `${profileData.firstName} ${profileData.lastName}`;
-          profileEmail.textContent = `@${profileData.username}`;
-          profileAvatar.src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
-          
-          if (targetUid === sessionUid) {
-            document.getElementById('editFirstNameInput').value = profileData.firstName || '';
-            document.getElementById('editLastNameInput').value = profileData.lastName || '';
-            sessionStorage.setItem('firebaseDisplayName', `${profileData.firstName} ${profileData.lastName}`);
+        if (sessionUid && targetUid === sessionUid) {
+          logoutBtn.style.display = 'inline-block';
+          followBtn.style.display = 'none';
+        } else if (sessionUid) {
+          logoutBtn.style.display = 'none';
+          try {
+            const followingRes = await fetch(`/api/following/${sessionUid}`);
+            if (followingRes.ok) {
+              const data = await followingRes.json();
+              const following = data.following || [];
+              const isFollowing = following.some(f => f.followingId === targetUid);
+              updateFollowButtonState(followBtn, isFollowing, sessionUid, targetUid);
+            } else {
+              followBtn.style.display = 'none';
+            }
+          } catch (e) {
+            console.error('Error fetching following status:', e);
+            followBtn.style.display = 'none';
           }
         } else {
-          profileName.textContent = 'Athlete';
-          profileEmail.textContent = '@athlete';
+          logoutBtn.style.display = 'none';
+          followBtn.style.display = 'none';
         }
 
-        // 2. Load Follow Details
-        await loadFollowDetails(targetUid);
-
-        // 3. Load Posts
-        const postsRes = await fetch('/api/posts');
-        if (postsRes.ok) {
-          const posts = await postsRes.json();
-          const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === targetUid) : [];
-          postCount.textContent = userPosts.length;
-          const container = document.getElementById('userPosts');
-          if (userPosts.length === 0) {
-            container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
+        try {
+          // 1. Fetch Profile Data
+          const profileRes = await fetch(`/api/users/${targetUid}/profile`);
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            profileName.textContent = profileData.username || 'Athlete';
+            profileEmail.textContent = '@' + (profileData.email ? profileData.email.split('@')[0] : 'athlete');
+            profileAvatar.src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
           } else {
-            container.innerHTML = '';
-            userPosts.forEach(post => {
-              const card = document.createElement('article');
-              card.className = 'post-card';
-              card.innerHTML = '<p>' + (post.content || '') + '</p><div class="post-meta"><span>' + (post.likes || 0) + ' likes</span></div>';
-              container.appendChild(card);
-            });
+            profileName.textContent = 'Athlete Profile';
+            profileEmail.textContent = '@athlete';
+            profileAvatar.src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
           }
-        }
-      } catch (err) {
-        console.error(err);
-        document.getElementById('userPosts').innerHTML = '<div class="empty-state">Error loading profile data</div>';
-      }
 
-      updateProfileSidebar();
-    }
+          // 2. Load Follow Details
+          await loadFollowDetails(targetUid);
+
+          // 3. Load Posts
+          const postsRes = await fetch('/api/posts');
+          if (postsRes.ok) {
+            const posts = await postsRes.json();
+            const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === targetUid) : [];
+            postCount.textContent = userPosts.length;
+            const container = document.getElementById('userPosts');
+            if (userPosts.length === 0) {
+              container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
+            } else {
+              container.innerHTML = '';
+              userPosts.forEach(post => {
+                const card = document.createElement('article');
+                card.className = 'post-card';
+                card.innerHTML = '<p>' + (post.content || '') + '</p><div class="post-meta"><span>' + (post.likes || 0) + ' likes</span></div>';
+                container.appendChild(card);
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Failed to load active profile metrics:', err);
+          profileName.textContent = 'Offline Profile';
+          profileEmail.textContent = '@connection-error';
+          document.getElementById('userPosts').innerHTML = '<div class="empty-state">Error communicating with server gateway. Ensure services are up.</div>';
+        }
+
         updateProfileSidebar();
       }
 

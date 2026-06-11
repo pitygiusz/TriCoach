@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express, { Request, Response } from 'express';
 import admin from 'firebase-admin';
 import https from 'https';
@@ -7,7 +10,8 @@ const app = express();
 app.use(express.json());
 const port = process.env.PORT || '3001';
 
-// Cloud SQL / Postgres connection setup (Matches Race Service pattern)
+// Database Client Configuration
+const connectionString = process.env.DATABASE_URL;
 const dbHost = process.env.DB_HOST || 'localhost';
 const dbUser = process.env.DB_USER || 'postgres';
 const dbPassword = process.env.DB_PASSWORD || 'password';
@@ -15,7 +19,9 @@ const dbName = process.env.DB_NAME || 'tricoach-db';
 const cloudSqlConnectionName = process.env.CLOUD_SQL_CONNECTION_NAME;
 
 const db = new Client(
-  cloudSqlConnectionName
+  connectionString
+    ? { connectionString }
+    : cloudSqlConnectionName
     ? {
         user: dbUser,
         password: dbPassword,
@@ -30,7 +36,9 @@ const db = new Client(
       }
 );
 
-db.connect().catch(err => console.error('Database connection failed:', err));
+db.connect()
+  .then(() => console.log('🚀 Direct Postgres connection established successfully.'))
+  .catch(err => console.error('❌ Database connection failed:', err));
 
 // Initialize Firebase Admin SDK
 const firebaseAdmin = admin.initializeApp({
@@ -82,7 +90,6 @@ app.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    // Username regex: alphanumeric with no spaces or special characters
     const usernameRegex = /^[a-zA-Z0-9]+$/;
     if (!usernameRegex.test(username)) {
       res.status(400).json({ error: 'Username must be alphanumeric with no spaces or special characters' });
@@ -102,7 +109,6 @@ app.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
-    // Pass chosen username explicitly as the firebase uid string
     let firebaseUser;
     try {
       firebaseUser = await auth.createUser({
@@ -124,7 +130,7 @@ app.post('/register', async (req: Request, res: Response) => {
       `INSERT INTO "User" (id, username, email, "firstName", "lastName", age, weight, "experienceLevel", "createdAt", "updatedAt")
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())`,
       [
-        firebaseUser.uid, // Username serves as primary key ID
+        firebaseUser.uid,
         normalizedUsername,
         email.toLowerCase(),
         firstName,
@@ -155,7 +161,7 @@ app.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// Login user (Supports email OR username parsing automatically)
+// Login user
 app.post('/login', async (req: Request, res: Response) => {
   try {
     let { email, password, idToken } = req.body;
@@ -181,7 +187,6 @@ app.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
-    // If the string doesn't include an '@', handle it as a chosen username lookup
     if (!email.includes('@')) {
       const resolvedUser = await db.query('SELECT email FROM "User" WHERE username = $1', [email.toLowerCase()]);
       if (resolvedUser.rows.length === 0) {
@@ -272,7 +277,7 @@ app.get('/users/:userId/profile', async (req: Request, res: Response) => {
   }
 });
 
-// Update profile name params (Allows updating firstName OR lastName cleanly)
+// Update profile name params
 app.put('/users/:userId/profile', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
@@ -300,7 +305,6 @@ app.put('/users/:userId/profile', async (req: Request, res: Response) => {
       [finalFirstName, finalLastName, userId.toLowerCase()]
     );
 
-    // Sync to Firebase Auth display profile meta-layer
     await auth.updateUser(userId, {
       displayName: `${finalFirstName} ${finalLastName}`,
     });
@@ -321,7 +325,7 @@ app.put('/users/:userId/profile', async (req: Request, res: Response) => {
   }
 });
 
-// Verify token endpoint – used by gateway to validate requests
+// Verify token endpoint
 app.post('/verify-token', async (req: Request, res: Response) => {
   try {
     const { idToken } = req.body;
@@ -344,7 +348,7 @@ app.post('/verify-token', async (req: Request, res: Response) => {
   }
 });
 
-// Lookup user by username (Direct SQL query match)
+// Lookup user by username
 app.get('/users/by-username/:username', async (req: Request, res: Response) => {
   try {
     const { username } = req.params;
