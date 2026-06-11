@@ -67,6 +67,11 @@
       font-size: 1rem;
       width: 100%;
     }
+    .choice-buttons {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
     .auth-button {
       background: var(--primary);
       color: white;
@@ -79,8 +84,26 @@
       margin-top: 8px;
       transition: opacity 0.2s;
     }
+    .auth-button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .auth-button.secondary.selected {
+      background: var(--primary);
+      color: white;
+      border-color: transparent;
+    }
     .auth-button:hover {
       opacity: 0.9;
+    }
+    .hidden {
+      display: none;
+    }
+    .muted-text {
+      color: var(--muted);
+      font-size: 0.95rem;
+      margin-top: 8px;
     }
     .error-msg {
       color: #ef4444;
@@ -99,65 +122,156 @@
 
       <div class="auth-form">
         <div id="errorMessage" class="error-msg"></div>
-        
-        <div>
-          <label for="emailInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Email</label>
-          <input type="email" id="emailInput" placeholder="athlete@example.com" required />
+
+        <div id="choiceButtons" class="choice-buttons">
+          <button id="loginModeBtn" type="button" class="auth-button secondary">Log In</button>
+          <button id="signupModeBtn" type="button" class="auth-button secondary">Sign Up</button>
         </div>
-        
-        <div>
-          <label for="passwordInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Password</label>
-          <input type="password" id="passwordInput" placeholder="••••••••" required />
-        </div>
-        
-        <button id="loginBtn" class="auth-button">Log In / Sign Up</button>
+
+        <form id="authForm" class="auth-fields hidden">
+          <h2 id="formTitle" style="margin:0;">Log in to TriCoach</h2>
+
+          <div id="usernameGroup" class="hidden">
+            <label for="usernameInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Username</label>
+            <input type="text" id="usernameInput" placeholder="Choose a username" />
+          </div>
+
+          <div>
+            <label for="emailInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Email</label>
+            <input type="email" id="emailInput" placeholder="athlete@example.com" required />
+          </div>
+
+          <div>
+            <label for="passwordInput" style="color: var(--muted); font-size: 0.9rem; margin-bottom: 4px; display: block;">Password</label>
+            <input type="password" id="passwordInput" placeholder="••••••••" required />
+          </div>
+
+          <button id="submitBtn" class="auth-button" type="submit">Continue</button>
+          <div id="switchPrompt" class="muted-text"></div>
+        </form>
       </div>
     </div>
   </div>
 
   <script>
+    const loginModeBtn = document.getElementById('loginModeBtn');
+    const signupModeBtn = document.getElementById('signupModeBtn');
+    const authForm = document.getElementById('authForm');
+    const usernameGroup = document.getElementById('usernameGroup');
+    const usernameInput = document.getElementById('usernameInput');
     const emailInput = document.getElementById('emailInput');
     const passwordInput = document.getElementById('passwordInput');
-    const loginBtn = document.getElementById('loginBtn');
+    const submitBtn = document.getElementById('submitBtn');
+    const formTitle = document.getElementById('formTitle');
+    const switchPrompt = document.getElementById('switchPrompt');
     const errorMessage = document.getElementById('errorMessage');
 
+    function clearMessage() {
+      errorMessage.textContent = '';
+      errorMessage.style.display = 'none';
+    }
+
     function showError(msg) {
-      errorMessage.textContent = msg;
+      errorMessage.textContent = msg || 'Unable to continue. Please try again.';
       errorMessage.style.display = 'block';
     }
 
-    // Redirect to feed if already logged in
-    firebase.auth().onAuthStateChanged(user => {
-      if (user) {
-        window.location.replace('index.html');
-      }
-    });
+    let authMode = null;
 
-    loginBtn.addEventListener('click', () => {
+    function setAuthMode(mode) {
+      authMode = mode;
+      loginModeBtn.classList.toggle('selected', mode === 'login');
+      signupModeBtn.classList.toggle('selected', mode === 'signup');
+      authForm.classList.remove('hidden');
+      usernameGroup.classList.toggle('hidden', mode !== 'signup');
+      formTitle.textContent = mode === 'signup' ? 'Create your account' : 'Log in to TriCoach';
+      submitBtn.textContent = mode === 'signup' ? 'Sign Up' : 'Log In';
+      switchPrompt.textContent = mode === 'signup'
+        ? 'Already registered? Click Log In to sign in.'
+        : 'New to TriCoach? Click Sign Up to create an account.';
+      clearMessage();
+    }
+
+    loginModeBtn.addEventListener('click', () => setAuthMode('login'));
+    signupModeBtn.addEventListener('click', () => setAuthMode('signup'));
+
+    async function callLoginApi(idToken) {
+      const response = await fetch('/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Login API failed');
+      }
+      return data;
+    }
+
+    async function handleAuthSubmit(event) {
+      event.preventDefault();
+      clearMessage();
+
+      if (!authMode) {
+        showError('Please choose Log In or Sign Up first.');
+        return;
+      }
+
       const email = emailInput.value.trim();
       const password = passwordInput.value;
+      const username = usernameInput.value.trim();
 
       if (!email || !password) {
         showError('Please enter both email and password.');
         return;
       }
 
-      // Try logging in first. If the user doesn't exist, you can handle signup.
-      // For simplicity, we'll try to log in, and catch the error to sign them up if needed.
-      firebase.auth().signInWithEmailAndPassword(email, password)
-        .then(() => {
-          // Success: onAuthStateChanged will handle the redirect
-        })
-        .catch(error => {
-          if (error.code === 'auth/user-not-found') {
-             // Optional: Auto-create account if they don't exist
-             firebase.auth().createUserWithEmailAndPassword(email, password)
-               .catch(err => showError(err.message));
-          } else {
-             showError(error.message);
+      if (authMode === 'signup' && !username) {
+        showError('Please choose a username.');
+        return;
+      }
+
+      try {
+        if (authMode === 'signup') {
+          const registerResponse = await fetch('/api/users/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password }),
+          });
+          const registerData = await registerResponse.json();
+          if (!registerResponse.ok) {
+            throw new Error(registerData.error || registerData.message || 'Registration failed');
           }
-        });
+        }
+
+        await firebase.auth().signInWithEmailAndPassword(email, password);
+        const user = firebase.auth().currentUser;
+        if (!user) {
+          throw new Error('Unable to establish authentication session.');
+        }
+
+        const token = await user.getIdToken(true);
+        sessionStorage.setItem('firebaseToken', token);
+        sessionStorage.setItem('firebaseUid', user.uid);
+        sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+        sessionStorage.setItem('firebaseEmail', user.email);
+
+        await callLoginApi(token);
+        window.location.replace('index.html');
+      } catch (error) {
+        console.warn('Authentication error:', error);
+        showError(error.message || 'Authentication failed');
+      }
+    }
+
+    document.getElementById('authForm').addEventListener('submit', handleAuthSubmit);
+
+    firebase.auth().onAuthStateChanged(user => {
+      if (user) {
+        window.location.replace('index.html');
+      }
     });
+
   </script>
 </body>
 </html>

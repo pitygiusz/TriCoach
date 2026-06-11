@@ -82,77 +82,11 @@ async function getAuthHeaders() {
 }
 
 window.loginUser = async function loginUser() {
-  const email = prompt('Email:') || 'test@example.com';
-  const password = prompt('Password:') || 'test123';
-
-  if (!isFirebaseReady()) {
-    try {
-      const response = await fetch('/api/users/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`${response.status}: ${body}`);
-      }
-      const result = await response.json();
-      sessionStorage.setItem('firebaseToken', result.token);
-      sessionStorage.setItem('firebaseUid', result.user.uid);
-      sessionStorage.setItem('firebaseDisplayName', result.user.username || result.user.email);
-      sessionStorage.setItem('firebaseEmail', result.user.email);
-      alert(`Logged in as ${result.user.email} (Backend Fallback)`);
-      location.reload();
-    } catch (e) {
-      alert(`Login failed (Backend Fallback): ${e.message}`);
-    }
-    return;
-  }
-
-  try {
-    const cred = await firebase.auth().signInWithEmailAndPassword(email, password);
-    await getAuthHeaders();
-    alert(`Logged in as ${cred.user.email}`);
-    location.reload();
-  } catch (e) {
-    alert(`Login failed: ${e.message}`);
-  }
+  window.location.replace('login.html');
 };
 
 window.registerUser = async function registerUser() {
-  const email = prompt('Email:') || 'newuser@example.com';
-  const password = prompt('Password:') || 'test123';
-  const displayName = prompt('Display name:') || 'New User';
-
-  if (!isFirebaseReady()) {
-    try {
-      const response = await fetch('/api/users/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: displayName, email, password }),
-      });
-      if (!response.ok) {
-        const body = await response.text();
-        throw new Error(`${response.status}: ${body}`);
-      }
-      const result = await response.json();
-      alert(`Registered as ${result.user.email} successfully! Please log in.`);
-      location.reload();
-    } catch (e) {
-      alert(`Registration failed (Backend Fallback): ${e.message}`);
-    }
-    return;
-  }
-
-  try {
-    const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
-    await cred.user.updateProfile({ displayName });
-    await getAuthHeaders();
-    alert(`Registered as ${email}`);
-    location.reload();
-  } catch (e) {
-    alert(`Registration failed: ${e.message}`);
-  }
+  window.location.replace('login.html');
 };
 
 window.logoutUser = async function logoutUser() {
@@ -166,7 +100,7 @@ window.logoutUser = async function logoutUser() {
     sessionStorage.clear();
     window.location.replace('login.html');
   } catch (e) {
-    alert(`Logout failed: ${e.message}`);
+    console.warn(`Logout failed: ${e.message}`);
   }
 };
 
@@ -203,13 +137,13 @@ if (isFirebaseReady()) {
 function getCurrentUserId() {
   return sessionStorage.getItem('firebaseUid') || 
          document.body.dataset.uid || 
-         'user_janedoe_47';
+         null;
 }
 
 function getCurrentDisplayName() {
   return sessionStorage.getItem('firebaseDisplayName') || 
          document.body.dataset.displayName || 
-         'Jane Doe';
+         'Athlete';
 }
 
 // ─── All API calls ────────────────────────────────────────────────────────────
@@ -524,8 +458,8 @@ settingsBtn.addEventListener('click', () => alert('Open settings.'));
 // ─── Update profile sidebar ───────────────────────────────────────────────────
 async function updateProfileSidebar() {
   const uid = sessionStorage.getItem('firebaseUid') || document.body.dataset.uid;
-  const name = sessionStorage.getItem('firebaseDisplayName') || document.body.dataset.displayName || 'Guest';
-  const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
+  const name = sessionStorage.getItem('firebaseDisplayName') || document.body.dataset.displayName || 'Athlete';
+  const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
   const profileCard = document.getElementById('profileCard');
   if (profileCard) {
@@ -548,8 +482,8 @@ async function updateProfileSidebar() {
       `;
     } else {
       authButtons.innerHTML = `
-        <button onclick="loginUser()" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🔑 Login</button>
-        <button onclick="registerUser()" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">📝 Register</button>
+        <button onclick="window.location.replace('login.html')" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🔑 Login</button>
+        <button onclick="window.location.replace('login.html')" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">📝 Register</button>
       `;
     }
   }

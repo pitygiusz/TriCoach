@@ -112,11 +112,11 @@
     }
 
     function getCurrentUserId() {
-      return sessionStorage.getItem('firebaseUid') || 'guest';
+      return sessionStorage.getItem('firebaseUid') || null;
     }
 
     function getCurrentDisplayName() {
-      return sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+      return sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
     }
 
     async function getAuthHeaders() {
@@ -141,8 +141,8 @@
     // ─── Update Profile Sidebar ────────────────────────────────────────────────
     async function updateProfileSidebar() {
       const uid = sessionStorage.getItem('firebaseUid');
-      const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
-      const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
+      const name = sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
+      const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
       if (profileCard) {
         profileCard.innerHTML = `
@@ -260,7 +260,7 @@
           sessionStorage.clear();
           window.location.replace('login.html');
         }).catch(function(e) {
-          alert('Logout failed: ' + e.message);
+          console.warn('Logout failed:', e);
         });
       } else {
         sessionStorage.clear();
@@ -279,13 +279,8 @@
 
     async function loadWorkouts() {
       const uid = getCurrentUserId();
-      if (uid === 'guest') {
-        workoutsContainer.innerHTML = `
-          <div class="empty-state">
-            <p>Please log in to see your workouts.</p>
-            <button class="action-pill active" onclick="window.location.href='index.html'" style="margin-top:12px;">Go to Login</button>
-          </div>
-        `;
+      if (!uid) {
+        window.location.replace('login.html');
         return;
       }
 

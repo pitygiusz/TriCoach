@@ -124,11 +124,11 @@
       }
 
       function getCurrentUserId() {
-        return sessionStorage.getItem('firebaseUid') || 'guest';
+        return sessionStorage.getItem('firebaseUid') || null;
       }
 
       function getCurrentDisplayName() {
-        return sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+        return sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
       }
 
       async function getAuthHeaders() {
@@ -265,8 +265,8 @@
 
       async function updateProfileSidebar() {
         const uid = sessionStorage.getItem('firebaseUid');
-        const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
-        const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
+        const name = sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
+        const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
         if (sidebarProfileCard) {
           sidebarProfileCard.innerHTML = `
@@ -382,18 +382,13 @@
         const urlParams = new URLSearchParams(window.location.search);
         const urlUid = urlParams.get('uid');
         const sessionUid = sessionStorage.getItem('firebaseUid');
-        const targetUid = urlUid || sessionUid;
 
-        if (!targetUid) {
-          profileName.textContent = 'Guest';
-          profileEmail.textContent = 'Not logged in';
-          profileAvatar.src = 'https://i.pravatar.cc/150?u=guest';
-          logoutBtn.style.display = 'none';
-          followBtn.style.display = 'none';
-          document.getElementById('userPosts').innerHTML = '<div class="empty-state">Please log in to view profiles</div>';
-          updateProfileSidebar();
+        if (!sessionUid) {
+          window.location.replace('login.html');
           return;
         }
+
+        const targetUid = urlUid || sessionUid;
 
         // Show logout button only if viewing own profile
         if (sessionUid && targetUid === sessionUid) {
@@ -471,7 +466,7 @@
             sessionStorage.clear();
             window.location.replace('login.html');
           }).catch(function(e) {
-            alert('Logout failed: ' + e.message);
+            console.warn('Logout failed:', e);
           });
         } else {
           sessionStorage.clear();
