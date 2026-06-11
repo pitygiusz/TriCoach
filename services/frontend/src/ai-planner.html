@@ -12,6 +12,7 @@
   
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 
 </head>
 
@@ -58,7 +59,7 @@
           <label for="goalDistanceInput">Target Distance:</label>
           <select id="goalDistanceInput" style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit;">
             <option value="25.75">Sprint (25.75 km)</option>
-            <option value="51.5" selected>Olimpijski (51.5 km)</option>
+            <option value="51.5" selected>Olympic (51.5 km)</option>
             <option value="28.25">1/8 Ironman (28.25 km)</option>
             <option value="56.5">1/4 Ironman (56.5 km)</option>
             <option value="113.0">1/2 Ironman (113.0 km)</option>
@@ -327,16 +328,24 @@
       }
     };
 
-    // ─── Recent Plans Loading & Selection ─────────────────────────────────────
+    // ─── Recent Plans Loading & Selection (NoSQL / Firestore) ─────────────────
     async function loadRecentPlans() {
       const uid = getCurrentUserId();
       if (!uid) return;
 
       try {
-        const res = await fetch(`/api/plans/${uid}`);
-        if (!res.ok) throw new Error('Failed to load plans');
-        const data = await res.json();
-        const plans = data.plans || [];
+        if (!isFirebaseReady()) return;
+
+        const firestoreDb = firebase.firestore();
+        const snapshot = await firestoreDb.collection('plans')
+          .where('userId', '==', uid)
+          .orderBy('createdAt', 'desc')
+          .get();
+
+        const plans = [];
+        snapshot.forEach(doc => {
+          plans.push(doc.data());
+        });
 
         const recentPlansSection = document.getElementById('recentPlansSection');
         const recentPlansList = document.getElementById('recentPlansList');
@@ -344,15 +353,14 @@
         if (plans.length > 0) {
           recentPlansSection.style.display = 'block';
           recentPlansList.innerHTML = plans.map(plan => {
-            const hasDetails = localStorage.getItem('ai_plan_' + plan.id) !== null;
             return `
               <div class="plan-item-card" data-plan-id="${plan.id}" onclick="selectPlan(${JSON.stringify(plan).replace(/"/g, '&quot;')})" style="padding: 14px; background: var(--surface-strong); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s; min-height: 80px;">
                 <div>
                   <strong style="display: block; color: var(--text); font-size: 0.95rem; margin-bottom: 4px;">${plan.name}</strong>
-                  <span style="color: var(--muted); font-size: 0.85rem;">Distance: ${plan.target_distance_km} km</span>
+                  <span style="color: var(--muted); font-size: 0.85rem;">Distance: ${plan.target_distance_km} km (${plan.duration_weeks}w)</span>
                 </div>
-                <span style="font-size: 0.8rem; margin-top: 8px; color: ${hasDetails ? 'var(--primary)' : 'var(--muted)'}; display: flex; align-items: center; gap: 4px; font-weight: 500;">
-                  ${hasDetails ? '⚡ Ready to display' : '⏳ Click to generate schedule'}
+                <span style="font-size: 0.8rem; margin-top: 8px; color: var(--primary); display: flex; align-items: center; gap: 4px; font-weight: 500;">
+                  ⚡ Click to view schedule
                 </span>
               </div>
             `;
@@ -361,7 +369,7 @@
           recentPlansSection.style.display = 'none';
         }
       } catch (err) {
-        console.error('Failed to load recent plans:', err);
+        console.error('Failed to load recent plans from Firestore:', err);
       }
     }
 
@@ -382,50 +390,18 @@
 
       // Update form fields
       document.getElementById('goalNameInput').value = plan.name;
+      document.getElementById('planDurationSelect').value = plan.duration_weeks;
       
-      // Try to find matching select option for distance
       const select = document.getElementById('goalDistanceInput');
-      let found = false;
       for (let i = 0; i < select.options.length; i++) {
         if (parseFloat(select.options[i].value) === parseFloat(plan.target_distance_km)) {
           select.selectedIndex = i;
-          found = true;
           break;
         }
       }
-      if (!found) {
-        // If not found in the list, create a temporary option for it
-        const newOpt = document.createElement('option');
-        newOpt.value = plan.target_distance_km;
-        newOpt.textContent = `Custom (${plan.target_distance_km} km)`;
-        select.appendChild(newOpt);
-        select.value = plan.target_distance_km;
-      }
 
-      // Check localStorage
-      const cached = localStorage.getItem('ai_plan_' + plan.id);
-      if (cached) {
-        const data = JSON.parse(cached);
-        renderPlanDetails(data);
-      } else {
-        document.getElementById('formSectionTitle').textContent = `Generate Schedule for "${plan.name}"`;
-        document.getElementById('generatorFormSection').scrollIntoView({ behavior: 'smooth' });
-        
-        aiResultArea.innerHTML = `
-          <div class="empty-state">
-            <p style="font-weight: bold; margin-bottom: 8px;">Schedule not generated yet.</p>
-            <p style="color: var(--muted); margin-bottom: 16px;">Click the button below to generate the week-by-week AI training plan for "${plan.name}".</p>
-            <button onclick="triggerAutoGeneration('${plan.id}')" class="action-pill active" style="font-weight: bold; padding: 10px 20px; border: none; cursor: pointer;">
-              ⚡ Generate Schedule Now
-            </button>
-          </div>
-        `;
-      }
-    };
-
-    window.triggerAutoGeneration = function triggerAutoGeneration(planId) {
-      window.currentPlanIdOverride = planId;
-      document.getElementById('runAiPlannerBtn').click();
+      // Render plan details directly from the Firestore document (no regeneration needed)
+      renderPlanDetails(plan);
     };
 
     window.createNewPlan = function createNewPlan() {
@@ -443,7 +419,6 @@
       aiResultArea.innerHTML = `
         <div class="empty-state">Configure your goal above and generate your progressive training plan.</div>
       `;
-      window.currentPlanIdOverride = null;
     };
 
     document.getElementById('createNewPlanBtn').addEventListener('click', createNewPlan);
@@ -456,7 +431,7 @@
             <div style="font-size: 2.5rem; margin-right: 12px;">📅</div>
             <div class="post-author">
               <strong>Training Plan</strong>
-              <span>${data.name} · ${data.duration_weeks} Weeks · Target: ${data.target_distance_km} km</span>
+              <span>${data.name} · ${data.duration_weeks || data.duration_weeks} Weeks · Target: ${data.target_distance_km} km</span>
             </div>
           </header>
           
@@ -537,10 +512,6 @@
           duration_weeks: planDuration
         };
 
-        if (window.currentPlanIdOverride) {
-          requestBody.plan_id = window.currentPlanIdOverride;
-        }
-
         const res = await fetch('/api/plans/generate-ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders },
@@ -557,14 +528,30 @@
           throw new Error('Invalid response from AI plan generator.');
         }
 
-        // Cache details locally
-        localStorage.setItem('ai_plan_' + data.plan_id, JSON.stringify(data));
+        // Save generated plan to Firebase NoSQL (Firestore)
+        if (!isFirebaseReady()) {
+          throw new Error('Firebase SDK is not ready.');
+        }
 
-        // Render plan
-        renderPlanDetails(data);
+        const firestoreDb = firebase.firestore();
+        const planRef = firestoreDb.collection('plans').doc();
+        const planData = {
+          id: planRef.id,
+          userId: uid,
+          name: goalName,
+          target_distance_km: goalDistance,
+          duration_weeks: planDuration,
+          overview: data.overview,
+          weeks: data.weeks,
+          createdAt: new Date().toISOString()
+        };
 
-        // Reset the override & refresh plan list
-        window.currentPlanIdOverride = null;
+        await planRef.set(planData);
+
+        // Render the plan
+        renderPlanDetails(planData);
+
+        // Refresh plans list from Firestore
         loadRecentPlans();
 
       } catch (err) {
