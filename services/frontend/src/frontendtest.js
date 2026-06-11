@@ -287,7 +287,7 @@ function createPostCard(post) {
   }
 
   const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
-  const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface-strong); color: var(--text); border: 1px solid var(--border);';
+  const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
 
   card.innerHTML = `
     <header>
