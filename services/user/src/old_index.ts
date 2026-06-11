@@ -47,9 +47,6 @@ const firebaseAdmin = admin.initializeApp({
 });
 
 const auth = firebaseAdmin.auth();
-// Initialize Firestore to fetch follow relationships
-const firestore = firebaseAdmin.firestore(); 
-
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || '';
 const signInUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`;
 
@@ -396,44 +393,6 @@ app.get('/users/by-username/:username', async (req: Request, res: Response) => {
     const dbUser = result.rows[0];
     res.status(200).json({ uid: dbUser.id, username: dbUser.username, email: dbUser.email });
   } catch (error: any) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ─── FRIENDS LOGIC (Mutual Followers) ─────────────────────────────────────────
-app.get('/users/:userId/friends', async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.params;
-    
-    // Note: Assuming the Firestore collection is named 'follows'. Adjust if it's 'followers' or 'relationships'.
-    
-    // 1. Get people the user is following
-    const followingSnap = await firestore.collection('follows').where('followerId', '==', userId).get();
-    const followingIds = followingSnap.docs.map(doc => doc.data().followingId);
-
-    // 2. Get people following the user
-    const followersSnap = await firestore.collection('follows').where('followingId', '==', userId).get();
-    const followerIds = followersSnap.docs.map(doc => doc.data().followerId);
-
-    // 3. Intersect arrays to find mutual friends and remove any duplicates
-    const mutualIds = [...new Set(followingIds.filter(id => followerIds.includes(id)))];
-
-    if (mutualIds.length === 0) {
-      return res.status(200).json({ friends: [] });
-    }
-
-    // 4. Fetch the friend profiles from Postgres (just the necessary info)
-    const placeholders = mutualIds.map((_, i) => `$${i + 1}`).join(',');
-    const query = `
-      SELECT id as uid, username, "profilePicture" 
-      FROM "User" 
-      WHERE id IN (${placeholders})
-    `;
-    const result = await db.query(query, mutualIds);
-
-    res.status(200).json({ friends: result.rows });
-  } catch (error: any) {
-    console.error('Error fetching friends:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

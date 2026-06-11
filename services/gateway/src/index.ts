@@ -86,6 +86,14 @@ app.put('/api/users/:userId/preferences', async (req: Request, res: Response) =>
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
+// Added route for mutual followers (friends)
+app.get('/api/users/:userId/friends', async (req: Request, res: Response) => {
+  try {
+    const r = await axios.get(`${SERVICES.user}/users/${req.params.userId}/friends`);
+    res.status(r.status).json(r.data);
+  } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
+});
+
 // ─── TRAINING SERVICE ─────────────────────────────────────────────────────────
 app.post('/api/workouts', async (req: Request, res: Response) => {
   try {
@@ -180,8 +188,6 @@ app.get('/api/progress/:userId/:planId', async (req: Request, res: Response) => 
 });
 
 // ─── SOCIAL SERVICE ───────────────────────────────────────────────────────────
-// BUG FIX: original code had GET /posts (no /api prefix) — the frontend was
-// calling GET /api/posts and getting a 404. Fixed by adding the correct route.
 app.get('/api/posts', async (req: Request, res: Response) => {
   try {
     const r = await axios.get(`${SERVICES.social}/posts`, { params: req.query });
@@ -301,7 +307,6 @@ app.post('/api/plans/generate-ai', async (req: Request, res: Response) => {
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
-
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(Number(port), () => {
