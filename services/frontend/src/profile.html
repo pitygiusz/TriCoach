@@ -39,6 +39,12 @@
         font-size: 0.95rem;
     }
 
+    .friends-search-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
     @media (max-width: 640px) {
       /* Sliding sidebar correctly sliding in from the right edge */
       .sidebar {
@@ -90,6 +96,18 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
+      }
+    }
+
+    @media (max-width: 340px) {
+      .friends-search-row {
+        flex-direction: column;
+      }
+      .friends-search-row input {
+        width: 100%;
+      }
+      .friends-search-row button {
+        width: 100%;
       }
     }
   </style>
@@ -156,13 +174,12 @@
                     </div>
                 </div>
 
-                <div class="action-bar" style="justify-content: center; gap: 12px;">
+                <div class="action-bar" style="justify-content: center; gap: 12px; align-items: center;" id="profileActionBar">
                     <div class="action-pill"><strong id="postCount">0</strong> Posts</div>
                     <div class="action-pill"><strong id="followingCount">0</strong> Following</div>
                     <div class="action-pill"><strong id="followersCount">0</strong> Followers</div>
+                    <button id="profileFollowBtn" class="action-pill active" style="display: none; margin: 0;"></button>
                 </div>
-                
-                <button id="profileFollowBtn" class="action-pill active" style="margin: 0 auto; display: none;"></button>
             </div>
             
             <main class="feed" style="padding: 20px;">
@@ -207,7 +224,7 @@
           
           <div class="sidebar-card" id="friendsSidebarCard">
             <h2>Friends</h2>
-            <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+            <div class="friends-search-row">
               <input type="text" id="followUsernameInput" placeholder="Username..." style="flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
               <button onclick="followUserByUsername()" class="action-pill active" style="padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer;">Follow</button>
             </div>
@@ -401,13 +418,13 @@
       function updateFollowButtonState(btn, isFollowing, sessionUid, targetUid) {
         if (isFollowing) {
           btn.textContent = 'Unfollow';
-          btn.style.background = 'transparent';
-          btn.style.border = '1px solid var(--border)';
-          btn.style.color = 'var(--text)';
+          btn.style.background = '#ef4444'; // Soft/bright reddish tone
+          btn.style.border = 'none';
+          btn.style.color = 'white';
           btn.onclick = () => unfollowUser(sessionUid, targetUid);
         } else {
           btn.textContent = 'Follow';
-          btn.style.background = 'var(--primary)';
+          btn.style.background = '#f97316'; // Orange Follow button
           btn.style.border = 'none';
           btn.style.color = 'white';
           btn.onclick = () => followUser(sessionUid, targetUid);
@@ -431,6 +448,11 @@
         const pgLastName = sessionStorage.getItem('pgLastName');
         const pgUsername = sessionStorage.getItem('pgUsername');
         
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlUid = urlParams.get('uid');
+        const targetUid = urlUid || uid;
+        const isOwner = uid && targetUid === uid;
+        
         const pgFullName = [pgFirstName, pgLastName].filter(Boolean).join(' ');
         const name = pgFullName || sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
         const displayUsername = pgUsername ? '@' + pgUsername : (uid ? '@' + uid.substring(0, 8) : 'Not logged in');
@@ -452,16 +474,14 @@
         }
 
         if (profileAuthButtons) {
-          if (uid) {
+          if (uid && isOwner) {
             profileAuthButtons.innerHTML = `
               <button onclick="openUserInfoModal()" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500;">📝 Change Info</button>
               <button onclick="triggerAvatarUpload()" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500; margin-top: 8px;">🖼️ Change Photo</button>
               <button onclick="logoutUser()" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500; margin-top: 8px;">🚪 Logout</button>
             `;
           } else {
-            profileAuthButtons.innerHTML = `
-              <button onclick="window.location.href='index.html'" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🔑 Log In</button>
-            `;
+            profileAuthButtons.innerHTML = '';
           }
         }
 
@@ -667,7 +687,6 @@
               sessionStorage.setItem('pgLastName', profileData.lastName || '');
               sessionStorage.setItem('pgUsername', profileData.username || '');
               sessionStorage.setItem('pgAvatar', profileData.profilePicture || '');
-              updateProfileSidebar();
             }
           }
           
