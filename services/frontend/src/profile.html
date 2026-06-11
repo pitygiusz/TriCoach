@@ -92,6 +92,7 @@
             <h2>Progress</h2>
             <ul id="progressOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
               <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
               <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
             </ul>
           </div>
@@ -308,6 +309,7 @@
           if (uid) {
             progressOptionsList.innerHTML = `
               <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
               <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
             `;
           } else {

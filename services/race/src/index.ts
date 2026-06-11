@@ -201,6 +201,98 @@ You MUST return the response ONLY as a valid JSON object without any markdown wr
   }
 });
 
+// 3. NEW AI HISTORY ANALYZER (Powered by OpenRouter)
+app.post('/analyze-history-ai', async (req: Request, res: Response) => {
+  try {
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      res.status(400).json({ error: 'Missing user_id' });
+      return;
+    }
+
+    // 1. Fetch aggregate stats
+    const statsResult = await db.query(
+      `SELECT 
+         type,
+         COUNT(*) as count,
+         SUM(duration_minutes) as total_duration,
+         SUM(distance_km) as total_distance,
+         AVG(duration_minutes / NULLIF(distance_km, 0)) as avg_pace
+       FROM "TrainingHistory"
+       WHERE user_id = $1
+       GROUP BY type`,
+      [user_id]
+    );
+
+    // 2. Fetch recent workouts
+    const historyResult = await db.query(
+      `SELECT 
+         type,
+         duration_minutes,
+         distance_km,
+         timestamp
+       FROM "TrainingHistory"
+       WHERE user_id = $1
+       ORDER BY timestamp DESC
+       LIMIT 30`,
+      [user_id]
+    );
+
+    const stats = statsResult.rows;
+    const history = historyResult.rows;
+
+    const statsDescription = stats.map(s => {
+      const avgPace = s.avg_pace ? parseFloat(s.avg_pace).toFixed(2) : 'N/A';
+      return `- Type: ${s.type}, Count: ${s.count}, Total Duration: ${s.total_duration} mins, Total Distance: ${s.total_distance ? parseFloat(s.total_distance).toFixed(2) : 0} km, Avg Pace: ${avgPace} min/km`;
+    }).join('\n');
+
+    const historyDescription = history.map(h => {
+      const date = new Date(h.timestamp).toISOString().split('T')[0];
+      return `- [${date}] ${h.type.toUpperCase()}: ${h.duration_minutes} mins, ${h.distance_km ? parseFloat(h.distance_km).toFixed(2) : 0} km`;
+    }).join('\n');
+
+    const systemPrompt = `You are an expert triathlon coach and sports scientist. Your task is to analyze the athlete's training history and provide a professional, structured critique with actionable feedback.
+
+Athlete's aggregate training statistics:
+${statsDescription || 'No aggregate stats available.'}
+
+Athlete's recent 30 training sessions (newest first):
+${historyDescription || 'No training sessions logged yet.'}
+
+Analyze the training volume, frequency, pacing trends, and consistency. Identify active disciplines versus neglected ones.
+Provide your response ONLY as a valid JSON object without any markdown wrapping. Use the exact structure below:
+{
+  "total_workouts": ${history.length},
+  "coaching_critique": "A detailed narrative of 2-3 paragraphs analyzing the consistency, progression, discipline balance, and pacing quality. Highlight achievements and call out potential overtraining, pacing issues, or lack of frequency.",
+  "key_findings": [
+    "A list of 3-4 specific observations about the athlete's training (e.g. 'Strong running pace progression', 'Neglected swimming volume', 'Training gaps in the last week')"
+  ],
+  "recommendations": [
+    "A list of 3-4 highly actionable recommendations for the athlete (e.g. 'Add a 45-minute recovery run on Wednesdays', 'Focus on swim consistency by adding 1 session next week')"
+  ]
+}`;
+
+    const aiResponse = await openai.chat.completions.create({
+      model: "deepseek/deepseek-v4-flash",
+      messages: [{ role: "system", content: systemPrompt }],
+      response_format: { type: "json_object" }
+    });
+
+    const aiContent = aiResponse.choices[0]?.message?.content || '{}';
+    const analysisData = JSON.parse(aiContent);
+
+    res.status(200).json({
+      success: true,
+      analysis: analysisData
+    });
+
+  } catch (error) {
+    console.error('AI History Analysis error:', error);
+    res.status(500).json({ error: 'AI History Analysis failed' });
+  }
+});
+
 // Listen without specifying 0.0.0.0
 app.listen(Number(port), () => {
   console.log(`🏁 Race Service running on port ${port}`);

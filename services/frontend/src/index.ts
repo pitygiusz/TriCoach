@@ -98,6 +98,14 @@ app.get('/workouts.html', (_req: Request, res: Response) => {
   serveWithFirebaseConfig('workouts.html', res);
 });
 
+app.get('/ai-race', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('ai-race.html', res);
+});
+
+app.get('/ai-race.html', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('ai-race.html', res);
+});
+
 app.get('/ai-analysis', (_req: Request, res: Response) => {
   serveWithFirebaseConfig('ai-analysis.html', res);
 });

@@ -25,33 +25,23 @@
 
         <div class="title-group">
           <span class="app-label">TriCoach</span>
-          <h1>AI Race Analyzer</h1>
+          <h1>AI Analyzer</h1>
         </div>
       </header>
 
       <section class="post-card" style="margin-bottom: 8px;">
-        <h3>AI Race Simulator</h3>
+        <h3>AI History Critique</h3>
         <p style="color: var(--muted); margin-bottom: 20px;">
-          Our AI model analyzes your logged workouts and predicts your finish time for standard triathlon distances, factoring in fatigue and transitions.
+          Our AI coach analyzes your logged workout consistency, pacing trends, and disciplines distribution over your recent training history, offering professional critiques and actionable advice.
         </p>
 
-        <div class="workout-selector" style="margin-bottom: 20px;">
-          <label for="raceTypeSelect">Select Target Race Distance:</label>
-          <select id="raceTypeSelect" style="width: 100%;">
-            <option value="sprint">Sprint (0.75k swim / 20k bike / 5k run)</option>
-            <option value="olympic" selected>Olympic (1.5k swim / 40k bike / 10k run)</option>
-            <option value="half_ironman">Half Ironman (1.9k swim / 90k bike / 21.1k run)</option>
-            <option value="ironman">Ironman (3.86k swim / 180k bike / 42.2k run)</option>
-          </select>
-        </div>
-
-        <button id="runAiSimulationBtn" class="action-pill active" style="width: 100%; font-weight: bold; padding: 14px;">
-          🔮 Run AI Simulation
+        <button id="runAiAnalysisBtn" class="action-pill active" style="width: 100%; font-weight: bold; padding: 14px;">
+          🔮 Run AI History Analysis
         </button>
       </section>
 
       <div id="aiResultArea" class="posts-container">
-        <div class="empty-state">Select a race type and run the simulation.</div>
+        <div class="empty-state">Click the button to generate your AI coaching critique.</div>
       </div>
 
     </div>
@@ -75,6 +65,7 @@
         <h2>Progress</h2>
         <ul id="progressOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
           <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
           <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
         </ul>
       </div>
@@ -110,8 +101,7 @@
     const profileCard = document.getElementById('profileCard');
     const profileAuthButtons = document.getElementById('profileAuthButtons');
     const progressOptionsList = document.getElementById('progressOptionsList');
-    const raceTypeSelect = document.getElementById('raceTypeSelect');
-    const runAiSimulationBtn = document.getElementById('runAiSimulationBtn');
+    const runAiAnalysisBtn = document.getElementById('runAiAnalysisBtn');
     const aiResultArea = document.getElementById('aiResultArea');
 
     // ─── Firebase Helper ──────────────────────────────────────────────────────
@@ -180,6 +170,7 @@
         if (uid) {
           progressOptionsList.innerHTML = `
             <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
             <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
           `;
         } else {
@@ -276,30 +267,28 @@
       }
     };
 
-    // ─── Run AI Simulation ────────────────────────────────────────────────────
-    runAiSimulationBtn.addEventListener('click', async () => {
+    // ─── Run AI History Analysis ──────────────────────────────────────────────
+    runAiAnalysisBtn.addEventListener('click', async () => {
       const uid = getCurrentUserId();
       if (!uid) {
         window.location.replace('login.html');
         return;
       }
 
-      const raceType = raceTypeSelect.value;
       aiResultArea.innerHTML = `
         <div class="empty-state">
           <p style="font-size: 1.2rem; font-weight: bold; margin-bottom: 8px;">⏳ AI Coach is analyzing your training history...</p>
-          <p style="color: var(--muted);">This might take a moment as our LLM reviews segments, pacing, and transition factors.</p>
+          <p style="color: var(--muted);">This might take a moment as our LLM reviews consistency, volume distribution, and pacing trends.</p>
         </div>
       `;
 
       try {
         const authHeaders = await getAuthHeaders();
-        const res = await fetch('/api/race/simulate-ai', {
+        const res = await fetch('/api/analytics/analyze-ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders },
           body: JSON.stringify({
-            user_id: uid,
-            race_type: raceType
+            user_id: uid
           })
         });
 
@@ -309,41 +298,72 @@
         }
 
         const data = await res.json();
-        if (!data.success || !data.ai_prediction) {
-          throw new Error('Invalid response from AI simulator.');
+        if (!data.success || !data.analysis) {
+          throw new Error('Invalid response from AI history analyzer.');
         }
 
-        const pred = data.ai_prediction;
-        const dist = data.distances;
+        const analysis = data.analysis;
+
+        const keyFindingsHtml = analysis.key_findings.map(f => `
+          <li style="margin-bottom: 12px; font-size: 1.05rem; display: flex; align-items: start; gap: 10px; line-height: 1.5;">
+            <span style="color: var(--primary); font-size: 1.2rem;">✔</span>
+            <span style="color: var(--text);">${f}</span>
+          </li>
+        `).join('');
+
+        const recommendationsHtml = analysis.recommendations.map(r => `
+          <li style="margin-bottom: 12px; font-size: 1.05rem; display: flex; align-items: start; gap: 10px; line-height: 1.5;">
+            <span style="color: var(--gold); font-size: 1.2rem;">⚡</span>
+            <span style="color: var(--text);">${r}</span>
+          </li>
+        `).join('');
 
         aiResultArea.innerHTML = `
-          <article class="post-card" style="border-left: 5px solid var(--primary);">
+          <article class="post-card" style="border-left: 5px solid var(--primary); margin-bottom: 16px;">
             <header>
-              <div style="font-size: 2.5rem; margin-right: 12px;">🏆</div>
+              <div style="font-size: 2.5rem; margin-right: 12px;">🧠</div>
               <div class="post-author">
-                <strong>Simulation Success</strong>
-                <span>Target: ${data.race_type.toUpperCase()}</span>
+                <strong>AI Coaching Critique</strong>
+                <span>Based on ${analysis.total_workouts} workouts analyzed</span>
               </div>
             </header>
             
-            <h2 style="font-size: 2.2rem; color: var(--text); margin-bottom: 12px;">
-              Predicted Time: <span style="color: var(--primary);">${pred.formatted_time || (pred.total_time_minutes + ' mins')}</span>
-            </h2>
-
-            <p style="color: var(--muted); margin-bottom: 20px; font-size: 0.95rem;">
-              Distance Details: Swim ${dist.swim}km · Bike ${dist.bike}km · Run ${dist.run}km
-            </p>
-
-            <div style="background: var(--surface-strong); border-radius: 16px; padding: 18px; line-height: 1.8;">
-              <strong style="color: var(--primary); display: block; margin-bottom: 8px;">📋 AI Coach Analysis:</strong>
-              <p style="margin: 0; font-size: 1.05rem;">${pred.ai_analysis}</p>
+            <div style="line-height: 1.8; margin-top: 14px; background: var(--surface-strong); border-radius: 16px; padding: 18px;">
+              <strong style="color: var(--primary); display: block; margin-bottom: 8px; font-size: 1.1rem;">📋 Critique:</strong>
+              <p style="margin: 0; font-size: 1.05rem; white-space: pre-line;">${analysis.coaching_critique}</p>
             </div>
+          </article>
+
+          <article class="post-card" style="border-left: 5px solid var(--primary); margin-bottom: 16px;">
+            <header>
+              <div style="font-size: 2.5rem; margin-right: 12px;">🔍</div>
+              <div class="post-author">
+                <strong>Key Findings</strong>
+                <span>Observations from recent sessions</span>
+              </div>
+            </header>
+            <ul style="list-style: none; padding: 0; margin: 18px 0 0 0;">
+              ${keyFindingsHtml}
+            </ul>
+          </article>
+
+          <article class="post-card" style="border-left: 5px solid var(--gold); margin-bottom: 16px;">
+            <header>
+              <div style="font-size: 2.5rem; margin-right: 12px;">💡</div>
+              <div class="post-author">
+                <strong>Actionable Recommendations</strong>
+                <span>Suggested steps for next cycles</span>
+              </div>
+            </header>
+            <ul style="list-style: none; padding: 0; margin: 18px 0 0 0;">
+              ${recommendationsHtml}
+            </ul>
           </article>
         `;
       } catch (err) {
         aiResultArea.innerHTML = `
           <div class="error-state">
-            <p>AI Simulation Failed</p>
+            <p>AI Analysis Failed</p>
             <span style="font-size: 0.9rem;">${err.message}</span>
           </div>
         `;

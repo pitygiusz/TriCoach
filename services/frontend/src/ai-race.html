@@ -4,7 +4,7 @@
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TriCoach - My Workouts</title>
+  <title>TriCoach - AI Race</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,27 +25,37 @@
 
         <div class="title-group">
           <span class="app-label">TriCoach</span>
-          <h1>My Workouts</h1>
+          <h1>AI Race</h1>
         </div>
       </header>
 
-      <div class="action-bar" id="filterBar">
-        <button class="action-pill active" data-type="">All Disciplines</button>
-        <button class="action-pill" data-type="swim">🏊 Swim</button>
-        <button class="action-pill" data-type="ride">🚴 Ride</button>
-        <button class="action-pill" data-type="run">🏃 Run</button>
-        <button class="action-pill" data-type="other">🏋️ Other</button>
-      </div>
+      <section class="post-card" style="margin-bottom: 8px;">
+        <h3>AI Race Simulator</h3>
+        <p style="color: var(--muted); margin-bottom: 20px;">
+          Our AI model analyzes your logged workouts and predicts your finish time for standard triathlon distances, factoring in fatigue and transitions.
+        </p>
 
-      <main class="feed">
-        <div id="workoutsContainer" class="posts-container">
-          <div class="empty-state">Loading your workouts…</div>
+        <div class="workout-selector" style="margin-bottom: 20px;">
+          <label for="raceTypeSelect">Select Target Race Distance:</label>
+          <select id="raceTypeSelect" style="width: 100%;">
+            <option value="sprint">Sprint (0.75k swim / 20k bike / 5k run)</option>
+            <option value="olympic" selected>Olympic (1.5k swim / 40k bike / 10k run)</option>
+            <option value="half_ironman">Half Ironman (1.9k swim / 90k bike / 21.1k run)</option>
+            <option value="ironman">Ironman (3.86k swim / 180k bike / 42.2k run)</option>
+          </select>
         </div>
-      </main>
+
+        <button id="runAiSimulationBtn" class="action-pill active" style="width: 100%; font-weight: bold; padding: 14px;">
+          🔮 Run AI Simulation
+        </button>
+      </section>
+
+      <div id="aiResultArea" class="posts-container">
+        <div class="empty-state">Select a race type and run the simulation.</div>
+      </div>
 
     </div>
 
-    <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
     <aside class="sidebar" id="sidebarHid">
       <div class="sidebar-card" id="profileSidebarCard">
         <h2>Profile</h2>
@@ -98,13 +108,12 @@
       console.warn('🔥 Firebase init error:', e.message);
     }
 
-    // ─── DOM refs ─────────────────────────────────────────────────────────────
-    const workoutsContainer = document.getElementById('workoutsContainer');
     const profileCard = document.getElementById('profileCard');
     const profileAuthButtons = document.getElementById('profileAuthButtons');
     const progressOptionsList = document.getElementById('progressOptionsList');
-
-    let currentFilterType = "";
+    const raceTypeSelect = document.getElementById('raceTypeSelect');
+    const runAiSimulationBtn = document.getElementById('runAiSimulationBtn');
+    const aiResultArea = document.getElementById('aiResultArea');
 
     // ─── Firebase Helper ──────────────────────────────────────────────────────
     function isFirebaseReady() {
@@ -117,10 +126,6 @@
 
     function getCurrentUserId() {
       return sessionStorage.getItem('firebaseUid') || null;
-    }
-
-    function getCurrentDisplayName() {
-      return sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
     }
 
     async function getAuthHeaders() {
@@ -273,98 +278,78 @@
       }
     };
 
-    // ─── Fetch and Render Workouts ──────────────────────────────────────────
-    function getDisciplineEmoji(type) {
-      const t = type.toLowerCase();
-      if (t === 'swim' || t === 'swimming') return '🏊';
-      if (t === 'ride' || t === 'bike' || t === 'cycling') return '🚴';
-      if (t === 'run' || t === 'running') return '🏃';
-      return '🏋️';
-    }
-
-    async function loadWorkouts() {
+    // ─── Run AI Simulation ────────────────────────────────────────────────────
+    runAiSimulationBtn.addEventListener('click', async () => {
       const uid = getCurrentUserId();
       if (!uid) {
         window.location.replace('login.html');
         return;
       }
 
-      workoutsContainer.innerHTML = '<div class="empty-state">Loading workouts…</div>';
+      const raceType = raceTypeSelect.value;
+      aiResultArea.innerHTML = `
+        <div class="empty-state">
+          <p style="font-size: 1.2rem; font-weight: bold; margin-bottom: 8px;">⏳ AI Coach is analyzing your training history...</p>
+          <p style="color: var(--muted);">This might take a moment as our LLM reviews segments, pacing, and transition factors.</p>
+        </div>
+      `;
 
       try {
         const authHeaders = await getAuthHeaders();
-        let url = `/api/workouts/${uid}`;
-        if (currentFilterType) {
-          url += `?type=${currentFilterType}`;
+        const res = await fetch('/api/race/simulate-ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({
+            user_id: uid,
+            race_type: raceType
+          })
+        });
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({}));
+          throw new Error(errBody.error || `Server responded with ${res.status}`);
         }
 
-        const res = await fetch(url, {
-          headers: { 'Content-Type': 'application/json', ...authHeaders }
-        });
-        if (!res.ok) throw new Error(`Status: ${res.status}`);
-        
         const data = await res.json();
-        const workouts = data.workouts || [];
-        
-        if (workouts.length === 0) {
-          workoutsContainer.innerHTML = `<div class="empty-state">No workouts logged under this filter discipline yet.</div>`;
-          return;
+        if (!data.success || !data.ai_prediction) {
+          throw new Error('Invalid response from AI simulator.');
         }
 
-        workoutsContainer.innerHTML = '';
-        workouts.forEach(w => {
-          const card = document.createElement('article');
-          card.className = 'post-card';
-          const emoji = getDisciplineEmoji(w.type);
-          const date = w.timestamp ? new Date(w.timestamp).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Logged';
-          const distanceText = w.distance_km ? ` · ${parseFloat(w.distance_km).toFixed(2)} km` : '';
-          
-          card.innerHTML = `
-            <header style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-              <div style="display: flex; align-items: center;">
-                <div style="font-size: 2.2rem; margin-right: 12px;">${emoji}</div>
-                <div class="post-author">
-                  <strong>${w.type.toUpperCase()} workout</strong>
-                  <span>${date}</span>
-                </div>
+        const pred = data.ai_prediction;
+        const dist = data.distances;
+
+        aiResultArea.innerHTML = `
+          <article class="post-card" style="border-left: 5px solid var(--primary);">
+            <header>
+              <div style="font-size: 2.5rem; margin-right: 12px;">🏆</div>
+              <div class="post-author">
+                <strong>Simulation Success</strong>
+                <span>Target: ${data.race_type.toUpperCase()}</span>
               </div>
-              <button onclick="deleteWorkout('${w.id}')" style="background: transparent; border: none; font-size: 1.25rem; padding: 4px 8px; color: var(--muted); cursor: pointer;" aria-label="Delete workout">🗑️</button>
             </header>
-            <p style="font-size: 1.15rem; margin-bottom: 8px; margin-top: 12px;">
-              Logged <strong>${w.duration_minutes}</strong> minutes of activity${distanceText}.
+            
+            <h2 style="font-size: 2.2rem; color: var(--text); margin-bottom: 12px;">
+              Predicted Time: <span style="color: var(--primary);">${pred.formatted_time || (pred.total_time_minutes + ' mins')}</span>
+            </h2>
+
+            <p style="color: var(--muted); margin-bottom: 20px; font-size: 0.95rem;">
+              Distance Details: Swim ${dist.swim}km · Bike ${dist.bike}km · Run ${dist.run}km
             </p>
-          `;
-          workoutsContainer.appendChild(card);
-        });
-      } catch (err) {
-        workoutsContainer.innerHTML = `<div class="error-state">Could not load workouts: ${err.message}</div>`;
-      }
-    }
 
-    window.deleteWorkout = async function deleteWorkout(workoutId) {
-      if (!confirm('Are you sure you want to delete this workout?')) return;
-      try {
-        const authHeaders = await getAuthHeaders();
-        const res = await fetch(`/api/workouts/${workoutId}`, {
-          method: 'DELETE',
-          headers: authHeaders
-        });
-        if (!res.ok) throw new Error(`Status: ${res.status}`);
-        alert('Workout deleted successfully!');
-        loadWorkouts();
+            <div style="background: var(--surface-strong); border-radius: 16px; padding: 18px; line-height: 1.8;">
+              <strong style="color: var(--primary); display: block; margin-bottom: 8px;">📋 AI Coach Analysis:</strong>
+              <p style="margin: 0; font-size: 1.05rem;">${pred.ai_analysis}</p>
+            </div>
+          </article>
+        `;
       } catch (err) {
-        alert(`Could not delete workout: ${err.message}`);
+        aiResultArea.innerHTML = `
+          <div class="error-state">
+            <p>AI Simulation Failed</p>
+            <span style="font-size: 0.9rem;">${err.message}</span>
+          </div>
+        `;
       }
-    };
-
-    // ─── Filter Pill Handling ─────────────────────────────────────────────────
-    document.querySelectorAll('#filterBar .action-pill').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('#filterBar .action-pill').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentFilterType = btn.getAttribute('data-type');
-        loadWorkouts();
-      });
     });
 
     // ─── Bootstrap ────────────────────────────────────────────────────────────
@@ -379,11 +364,9 @@
           window.location.replace('login.html');
         }
         updateProfileSidebar();
-        loadWorkouts();
       });
     } else {
       updateProfileSidebar();
-      loadWorkouts();
     }
   </script>
 </body>

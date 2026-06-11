@@ -463,9 +463,13 @@ const workoutsMenuBtn = document.getElementById('workoutsMenuBtn');
 if (workoutsMenuBtn) {
   workoutsMenuBtn.addEventListener('click', () => { window.location.href = 'workouts.html'; });
 }
-const aiMenuBtn = document.getElementById('aiMenuBtn');
-if (aiMenuBtn) {
-  aiMenuBtn.addEventListener('click', () => { window.location.href = 'ai-analysis.html'; });
+const aiRaceMenuBtn = document.getElementById('aiRaceMenuBtn');
+if (aiRaceMenuBtn) {
+  aiRaceMenuBtn.addEventListener('click', () => { window.location.href = 'ai-race.html'; });
+}
+const aiAnalysisMenuBtn = document.getElementById('aiAnalysisMenuBtn');
+if (aiAnalysisMenuBtn) {
+  aiAnalysisMenuBtn.addEventListener('click', () => { window.location.href = 'ai-analysis.html'; });
 }
 draftsBtn.addEventListener('click',   () => alert('Show draft posts.'));
 settingsBtn.addEventListener('click', () => alert('Open settings.'));
