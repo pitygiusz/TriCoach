@@ -467,9 +467,13 @@ const aiRaceMenuBtn = document.getElementById('aiRaceMenuBtn');
 if (aiRaceMenuBtn) {
   aiRaceMenuBtn.addEventListener('click', () => { window.location.href = 'ai-race.html'; });
 }
-const aiAnalysisMenuBtn = document.getElementById('aiAnalysisMenuBtn');
-if (aiAnalysisMenuBtn) {
-  aiAnalysisMenuBtn.addEventListener('click', () => { window.location.href = 'ai-analysis.html'; });
+const aiHistoryMenuBtn = document.getElementById('aiHistoryMenuBtn');
+if (aiHistoryMenuBtn) {
+  aiHistoryMenuBtn.addEventListener('click', () => { window.location.href = 'ai-analysis.html'; });
+}
+const aiPlannerMenuBtn = document.getElementById('aiPlannerMenuBtn');
+if (aiPlannerMenuBtn) {
+  aiPlannerMenuBtn.addEventListener('click', () => { window.location.href = 'ai-planner.html'; });
 }
 draftsBtn.addEventListener('click',   () => alert('Show draft posts.'));
 settingsBtn.addEventListener('click', () => alert('Open settings.'));

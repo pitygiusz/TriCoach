@@ -4,7 +4,7 @@
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TriCoach - AI Analyzer</title>
+  <title>TriCoach - AI History</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,7 +25,7 @@
 
         <div class="title-group">
           <span class="app-label">TriCoach</span>
-          <h1>AI Analyzer</h1>
+          <h1>AI History</h1>
         </div>
       </header>
 
@@ -65,8 +65,15 @@
         <h2>Progress</h2>
         <ul id="progressOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
           <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI History</li>
+        </ul>
+      </div>
+
+      <div class="sidebar-card" id="plannerSidebarCard">
+        <h2>Planner</h2>
+        <ul id="plannerOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
           <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-planner.html'">📅 AI Planner</li>
         </ul>
       </div>
 
@@ -101,6 +108,7 @@
     const profileCard = document.getElementById('profileCard');
     const profileAuthButtons = document.getElementById('profileAuthButtons');
     const progressOptionsList = document.getElementById('progressOptionsList');
+    const plannerOptionsList = document.getElementById('plannerOptionsList');
     const runAiAnalysisBtn = document.getElementById('runAiAnalysisBtn');
     const aiResultArea = document.getElementById('aiResultArea');
 
@@ -170,12 +178,24 @@
         if (uid) {
           progressOptionsList.innerHTML = `
             <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
-            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
-            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI History</li>
           `;
         } else {
           progressOptionsList.innerHTML = `
             <li style="color:var(--muted);font-size:0.9rem;">Log in to track progress</li>
+          `;
+        }
+      }
+
+      if (plannerOptionsList) {
+        if (uid) {
+          plannerOptionsList.innerHTML = `
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-planner.html'">📅 AI Planner</li>
+          `;
+        } else {
+          plannerOptionsList.innerHTML = `
+            <li style="color:var(--muted);font-size:0.9rem;">Log in to plan</li>
           `;
         }
       }

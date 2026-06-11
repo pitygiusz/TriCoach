@@ -75,8 +75,15 @@
         <h2>Progress</h2>
         <ul id="progressOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
           <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI History</li>
+        </ul>
+      </div>
+
+      <div class="sidebar-card" id="plannerSidebarCard">
+        <h2>Planner</h2>
+        <ul id="plannerOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
           <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-planner.html'">📅 AI Planner</li>
         </ul>
       </div>
 
@@ -111,6 +118,7 @@
     const profileCard = document.getElementById('profileCard');
     const profileAuthButtons = document.getElementById('profileAuthButtons');
     const progressOptionsList = document.getElementById('progressOptionsList');
+    const plannerOptionsList = document.getElementById('plannerOptionsList');
     const raceTypeSelect = document.getElementById('raceTypeSelect');
     const runAiSimulationBtn = document.getElementById('runAiSimulationBtn');
     const aiResultArea = document.getElementById('aiResultArea');
@@ -181,12 +189,24 @@
         if (uid) {
           progressOptionsList.innerHTML = `
             <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
-            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
-            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI Analyzer</li>
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI History</li>
           `;
         } else {
           progressOptionsList.innerHTML = `
             <li style="color:var(--muted);font-size:0.9rem;">Log in to track progress</li>
+          `;
+        }
+      }
+
+      if (plannerOptionsList) {
+        if (uid) {
+          plannerOptionsList.innerHTML = `
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
+            <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-planner.html'">📅 AI Planner</li>
+          `;
+        } else {
+          plannerOptionsList.innerHTML = `
+            <li style="color:var(--muted);font-size:0.9rem;">Log in to plan</li>
           `;
         }
       }

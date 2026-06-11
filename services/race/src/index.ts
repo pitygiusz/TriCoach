@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { Client } from 'pg';
 import OpenAI from 'openai';
+import crypto from 'crypto';
 
 const app = express();
 app.use(express.json());
@@ -290,6 +291,123 @@ Provide your response ONLY as a valid JSON object without any markdown wrapping.
   } catch (error) {
     console.error('AI History Analysis error:', error);
     res.status(500).json({ error: 'AI History Analysis failed' });
+  }
+});
+
+// 4. NEW AI PLAN GENERATOR (Powered by OpenRouter)
+app.post('/generate-plan-ai', async (req: Request, res: Response) => {
+  try {
+    const { user_id, target_name, target_distance_km, duration_weeks } = req.body;
+
+    if (!user_id || !target_name || !target_distance_km || !duration_weeks) {
+      res.status(400).json({ error: 'Missing required parameters: user_id, target_name, target_distance_km, duration_weeks' });
+      return;
+    }
+
+    // 1. Fetch aggregate stats
+    const statsResult = await db.query(
+      `SELECT 
+         type,
+         COUNT(*) as count,
+         SUM(duration_minutes) as total_duration,
+         SUM(distance_km) as total_distance,
+         AVG(duration_minutes / NULLIF(distance_km, 0)) as avg_pace
+       FROM "TrainingHistory"
+       WHERE user_id = $1
+       GROUP BY type`,
+      [user_id]
+    );
+
+    // 2. Fetch recent workouts
+    const historyResult = await db.query(
+      `SELECT 
+         type,
+         duration_minutes,
+         distance_km,
+         timestamp
+       FROM "TrainingHistory"
+       WHERE user_id = $1
+       ORDER BY timestamp DESC
+       LIMIT 30`,
+      [user_id]
+    );
+
+    const stats = statsResult.rows;
+    const history = historyResult.rows;
+
+    const statsDescription = stats.map(s => {
+      const avgPace = s.avg_pace ? parseFloat(s.avg_pace).toFixed(2) : 'N/A';
+      return `- Type: ${s.type}, Count: ${s.count}, Total Duration: ${s.total_duration} mins, Total Distance: ${s.total_distance ? parseFloat(s.total_distance).toFixed(2) : 0} km, Avg Pace: ${avgPace} min/km`;
+    }).join('\n');
+
+    const historyDescription = history.map(h => {
+      const date = new Date(h.timestamp).toISOString().split('T')[0];
+      return `- [${date}] ${h.type.toUpperCase()}: ${h.duration_minutes} mins, ${h.distance_km ? parseFloat(h.distance_km).toFixed(2) : 0} km`;
+    }).join('\n');
+
+    // 3. Save new plan metadata to SQL DB TrainingPlans table
+    const planId = crypto.randomUUID();
+    await db.query(
+      `INSERT INTO "TrainingPlans" (id, user_id, name, target_distance_km)
+       VALUES ($1, $2, $3, $4)`,
+      [planId, user_id, target_name, target_distance_km]
+    );
+
+    const systemPrompt = `You are an expert triathlon coach and sports scientist. Your task is to generate a detailed, highly personalized training plan for an athlete.
+
+Athlete's aggregate training statistics:
+${statsDescription || 'No aggregate stats available.'}
+
+Athlete's recent 30 training sessions (newest first):
+${historyDescription || 'No training sessions logged yet.'}
+
+Target Goal Name: "${target_name}"
+Target Distance (km): ${target_distance_km}
+Plan Duration: ${duration_weeks} weeks
+
+Analyze the athlete's current training volume, pacing, and history. Build a progressive training program that fits their current fitness level and safely scales up to meet their target goal.
+You MUST structure the response strictly as a valid JSON object without any markdown wrapping. Use the exact structure below:
+{
+  "overview": "A detailed narrative (1-2 paragraphs) of the coaching strategy, highlighting how this plan bridges their recent training to their target goal.",
+  "weeks": [
+    {
+      "week_number": 1,
+      "focus": "Focus of the week (e.g., Base building & technique)",
+      "days": [
+        { "day": "Monday", "activity": "Swim/Bike/Run/Rest/Brick", "description": "Specific training instruction including durations, distances, or target pacing." },
+        { "day": "Tuesday", "activity": "Swim/Bike/Run/Rest/Brick", "description": "Specific training instruction." },
+        { "day": "Wednesday", "activity": "Swim/Bike/Run/Rest/Brick", "description": "Specific training instruction." },
+        { "day": "Thursday", "activity": "Swim/Bike/Run/Rest/Brick", "description": "Specific training instruction." },
+        { "day": "Friday", "activity": "Swim/Bike/Run/Rest/Brick", "description": "Specific training instruction." },
+        { "day": "Saturday", "activity": "Swim/Bike/Run/Rest/Brick", "description": "Specific training instruction." },
+        { "day": "Sunday", "activity": "Swim/Bike/Run/Rest/Brick", "description": "Specific training instruction." }
+      ]
+    }
+  ]
+}`;
+
+    const aiResponse = await openai.chat.completions.create({
+      model: "deepseek/deepseek-v4-flash",
+      messages: [{ role: "system", content: systemPrompt }],
+      response_format: { type: "json_object" }
+    });
+
+    const aiContent = aiResponse.choices[0]?.message?.content || '{}';
+    const planDetails = JSON.parse(aiContent);
+
+    res.status(200).json({
+      success: true,
+      plan_id: planId,
+      name: target_name,
+      target_distance_km,
+      duration_weeks,
+      overview: planDetails.overview,
+      weeks: planDetails.weeks
+    });
+
+  } catch (error) {
+    console.error('AI Plan Generation error:', error);
+    res.status(500).json({ error: 'AI Plan Generation failed' });
   }
 });
 

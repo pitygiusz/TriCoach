@@ -285,6 +285,13 @@ app.post('/api/analytics/analyze-ai', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
+app.post('/api/plans/generate-ai', async (req: Request, res: Response) => {
+  try {
+    const r = await axios.post(`${SERVICES.race}/generate-plan-ai`, req.body);
+    res.status(r.status).json(r.data);
+  } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
+});
+
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(Number(port), () => {

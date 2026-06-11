@@ -114,6 +114,14 @@ app.get('/ai-analysis.html', (_req: Request, res: Response) => {
   serveWithFirebaseConfig('ai-analysis.html', res);
 });
 
+app.get('/ai-planner', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('ai-planner.html', res);
+});
+
+app.get('/ai-planner.html', (_req: Request, res: Response) => {
+  serveWithFirebaseConfig('ai-planner.html', res);
+});
+
 app.get('/console', (req: Request, res: Response) => {
   serveWithFirebaseConfig('console.html', res);
 });
