@@ -211,6 +211,14 @@
       return data;
     }
 
+    function isFirebaseReady() {
+      try {
+        return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
+      } catch (e) {
+        return false;
+      }
+    }
+
     async function handleAuthSubmit(event) {
       event.preventDefault();
       clearMessage();
@@ -235,6 +243,41 @@
       }
 
       try {
+        if (!isFirebaseReady()) {
+          // Backend Fallback Mode
+          if (authMode === 'signup') {
+            const response = await fetch('/api/users/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username, email, password }),
+            });
+            if (!response.ok) {
+              const data = await response.json().catch(() => ({}));
+              throw new Error(data.error || 'Registration failed');
+            }
+            showError('Registered successfully! Switching to Login...');
+            setAuthMode('login');
+          } else {
+            const response = await fetch('/api/users/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, password }),
+            });
+            if (!response.ok) {
+              const data = await response.json().catch(() => ({}));
+              throw new Error(data.error || 'Login failed');
+            }
+            const result = await response.json();
+            sessionStorage.setItem('firebaseToken', result.token);
+            sessionStorage.setItem('firebaseUid', result.user.uid);
+            sessionStorage.setItem('firebaseDisplayName', result.user.username || result.user.email);
+            sessionStorage.setItem('firebaseEmail', result.user.email);
+            window.location.replace('index.html');
+          }
+          return;
+        }
+
+        // Firebase SDK Mode
         if (authMode === 'signup') {
           const registerResponse = await fetch('/api/users/register', {
             method: 'POST',
@@ -244,6 +287,13 @@
           const registerData = await registerResponse.json();
           if (!registerResponse.ok) {
             throw new Error(registerData.error || registerData.message || 'Registration failed');
+          }
+
+          try {
+            const cred = await firebase.auth().createUserWithEmailAndPassword(email, password);
+            await cred.user.updateProfile({ displayName: username });
+          } catch (createError) {
+            console.warn('Firebase createUser failed, continuing:', createError.message);
           }
         }
 
@@ -269,11 +319,13 @@
 
     document.getElementById('authForm').addEventListener('submit', handleAuthSubmit);
 
-    firebase.auth().onAuthStateChanged(user => {
-      if (user) {
-        window.location.replace('index.html');
-      }
-    });
+    if (isFirebaseReady()) {
+      firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+          window.location.replace('index.html');
+        }
+      });
+    }
 
   </script>
 </body>
