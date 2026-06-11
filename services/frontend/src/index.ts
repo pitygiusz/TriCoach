@@ -4,7 +4,6 @@ import fs from 'fs';
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname), { index: false }));
 
 const port = process.env.PORT || '8080';
 const gatewayUrl = process.env.GATEWAY_URL || 'http://localhost:3000';
@@ -110,6 +109,12 @@ app.get('/ai-analysis.html', (_req: Request, res: Response) => {
 app.get('/console', (req: Request, res: Response) => {
   serveWithFirebaseConfig('console.html', res);
 });
+
+app.get('/console.html', (req: Request, res: Response) => {
+  serveWithFirebaseConfig('console.html', res);
+});
+
+app.use(express.static(path.join(__dirname), { index: false }));
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 app.listen(Number(port), () => {
