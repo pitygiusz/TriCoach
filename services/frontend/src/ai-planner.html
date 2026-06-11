@@ -337,8 +337,7 @@
         if (!isFirebaseReady()) return;
 
         const firestoreDb = firebase.firestore();
-        const snapshot = await firestoreDb.collection('plans')
-          .where('userId', '==', uid)
+        const snapshot = await firestoreDb.collection('users').doc(uid).collection('plans')
           .orderBy('createdAt', 'desc')
           .get();
 
@@ -534,7 +533,7 @@
         }
 
         const firestoreDb = firebase.firestore();
-        const planRef = firestoreDb.collection('plans').doc();
+        const planRef = firestoreDb.collection('users').doc(uid).collection('plans').doc();
         const planData = {
           id: planRef.id,
           userId: uid,
