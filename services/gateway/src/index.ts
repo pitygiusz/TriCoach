@@ -50,14 +50,14 @@ app.get('/api/users/by-username/:username', async (req: Request, res: Response) 
 
 app.get('/api/users/:userId/profile', async (req: Request, res: Response) => {
   try {
-    const r = await axios.get(`${SERVICES.user}/profile/${req.params.userId}`);
+    const r = await axios.get(`${SERVICES.user}/users/${req.params.userId}/profile`);
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
 app.put('/api/users/:userId/profile', async (req: Request, res: Response) => {
   try {
-    const r = await axios.put(`${SERVICES.user}/profile/${req.params.userId}`, req.body);
+    const r = await axios.put(`${SERVICES.user}/users/${req.params.userId}/profile`, req.body);
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
