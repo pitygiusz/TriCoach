@@ -41,6 +41,16 @@ app.post('/api/users/login', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
+app.get('/api/users/resolve-email', async (req: Request, res: Response) => {
+  try {
+    // Note: We use { params: req.query } to pass the ?username= parameter forward
+    const r = await axios.get(`${SERVICES.user}/users/resolve-email`, { params: req.query });
+    res.status(r.status).json(r.data);
+  } catch (e: any) { 
+    res.status(e.response?.status || 500).json(e.response?.data || { error: e.message }); 
+  }
+});
+
 app.get('/api/users/by-username/:username', async (req: Request, res: Response) => {
   try {
     const r = await axios.get(`${SERVICES.user}/users/by-username/${req.params.username}`);

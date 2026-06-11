@@ -213,10 +213,17 @@
       
       const emailLabel = document.getElementById('emailLabel');
       if (mode === 'signup') {
+        nameFieldsGroup.style.display = 'grid';
+        usernameGroup.style.display = 'block';
+        usernameGroup.type = 'text';
+
         emailLabel.textContent = 'Email';
         emailInput.type = 'email';
         emailInput.placeholder = 'athlete@example.com';
       } else {
+        nameFieldsGroup.style.display = 'none'; 
+        usernameGroup.style.display = 'none';
+
         emailLabel.textContent = 'Email or Username';
         emailInput.type = 'text';
         emailInput.placeholder = 'athlete@example.com or username';
