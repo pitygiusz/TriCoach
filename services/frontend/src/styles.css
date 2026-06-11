@@ -1,12 +1,12 @@
 :root {
-  --bg: #1b1b1a;
-  --surface: #423e35;
-  --surface-strong: #080808;
+  --bg: #090714;
+  --surface: #1f2933;
+  --surface-strong: #7c2d12;
   --text: #f8f8f8;
-  --muted: #d3d3d3;
+  --muted: #b8c0c8;
   --border: #000000;
-  --primary: #2563eb;
-  --shadow: 0 12px 30px rgba(255, 170, 80, 0.18);
+  --primary: #f97316;
+  --shadow: 0 12px 30px rgba(249, 115, 22, 0.22);
 }
 
 * {
@@ -38,7 +38,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  background-color: #080808;
+  background-color: #090714;
   border-radius: 22px;
   flex-shrink: 0;
   transition: transform 0.28s ease;

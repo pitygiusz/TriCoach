@@ -5,7 +5,7 @@
 // ─── DOM refs ─────────────────────────────────────────────────────────────────
 const postsContainer      = document.getElementById('postsContainer');
 const menuPanel           = document.getElementById('menuPanel');
-const hamburgerBtn        = document.getElementById('hamburgerBtn');
+// const hamburgerBtn        = document.getElementById('hamburgerBtn');
 const newPostBtn          = document.getElementById('newPostBtn');
 const draftsBtn           = document.getElementById('draftsBtn');
 const settingsBtn         = document.getElementById('settingsBtn');
@@ -359,7 +359,7 @@ function openMenu() {
 
 toggle.addEventListener('click', toggleSidebar);
 overlay?.addEventListener('click', toggleSidebar);
-hamburgerBtn.addEventListener('click', openMenu);
+// hamburgerBtn.addEventListener('click', openMenu);
 profileBtn.addEventListener('click', () => { window.location.href = 'profile.html'; });
 
 newPostBtn.addEventListener('click',  () => { createPostModal.classList.remove('hidden'); fetchWorkouts(); });
