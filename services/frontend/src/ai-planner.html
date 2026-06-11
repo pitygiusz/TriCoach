@@ -29,8 +29,22 @@
         </div>
       </header>
 
-      <section class="post-card" style="margin-bottom: 8px;">
-        <h3>Create AI Training Plan</h3>
+      <!-- Recent Plans Container -->
+      <section id="recentPlansSection" class="post-card" style="margin-bottom: 16px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <h3 style="margin: 0;">Your Training Plans</h3>
+          <button id="createNewPlanBtn" class="action-pill" style="font-weight: bold; padding: 6px 12px; font-size: 0.85rem; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer;">
+            ➕ Create New Plan
+          </button>
+        </div>
+        <p style="color: var(--muted); margin-bottom: 12px; font-size: 0.9rem;">Select a plan to view its schedule, or generate a new one below.</p>
+        <div id="recentPlansList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">
+          <!-- Plan items will be rendered here -->
+        </div>
+      </section>
+
+      <section class="post-card" style="margin-bottom: 8px;" id="generatorFormSection">
+        <h3 id="formSectionTitle">Create AI Training Plan</h3>
         <p style="color: var(--muted); margin-bottom: 20px;">
           Define your target goal and distance. Our AI coach reviews your recent workouts to construct a customized week-by-week progressive training schedule.
         </p>
@@ -41,8 +55,15 @@
         </div>
 
         <div class="workout-selector" style="margin-bottom: 16px;">
-          <label for="goalDistanceInput">Target Distance (total km):</label>
-          <input type="number" id="goalDistanceInput" step="0.1" placeholder="e.g. 51.5 for Olympic" style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit;" />
+          <label for="goalDistanceInput">Target Distance:</label>
+          <select id="goalDistanceInput" style="width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit;">
+            <option value="25.75">Sprint (25.75 km)</option>
+            <option value="51.5" selected>Olimpijski (51.5 km)</option>
+            <option value="28.25">1/8 Ironman (28.25 km)</option>
+            <option value="56.5">1/4 Ironman (56.5 km)</option>
+            <option value="113.0">1/2 Ironman (113.0 km)</option>
+            <option value="226.0">Ironman (226.0 km)</option>
+          </select>
         </div>
 
         <div class="workout-selector" style="margin-bottom: 20px;">
@@ -306,6 +327,179 @@
       }
     };
 
+    // ─── Recent Plans Loading & Selection ─────────────────────────────────────
+    async function loadRecentPlans() {
+      const uid = getCurrentUserId();
+      if (!uid) return;
+
+      try {
+        const res = await fetch(`/api/plans/${uid}`);
+        if (!res.ok) throw new Error('Failed to load plans');
+        const data = await res.json();
+        const plans = data.plans || [];
+
+        const recentPlansSection = document.getElementById('recentPlansSection');
+        const recentPlansList = document.getElementById('recentPlansList');
+
+        if (plans.length > 0) {
+          recentPlansSection.style.display = 'block';
+          recentPlansList.innerHTML = plans.map(plan => {
+            const hasDetails = localStorage.getItem('ai_plan_' + plan.id) !== null;
+            return `
+              <div class="plan-item-card" data-plan-id="${plan.id}" onclick="selectPlan(${JSON.stringify(plan).replace(/"/g, '&quot;')})" style="padding: 14px; background: var(--surface-strong); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s; min-height: 80px;">
+                <div>
+                  <strong style="display: block; color: var(--text); font-size: 0.95rem; margin-bottom: 4px;">${plan.name}</strong>
+                  <span style="color: var(--muted); font-size: 0.85rem;">Distance: ${plan.target_distance_km} km</span>
+                </div>
+                <span style="font-size: 0.8rem; margin-top: 8px; color: ${hasDetails ? 'var(--primary)' : 'var(--muted)'}; display: flex; align-items: center; gap: 4px; font-weight: 500;">
+                  ${hasDetails ? '⚡ Ready to display' : '⏳ Click to generate schedule'}
+                </span>
+              </div>
+            `;
+          }).join('');
+        } else {
+          recentPlansSection.style.display = 'none';
+        }
+      } catch (err) {
+        console.error('Failed to load recent plans:', err);
+      }
+    }
+
+    window.selectPlan = async function selectPlan(plan) {
+      // Highlight selected card
+      document.querySelectorAll('.plan-item-card').forEach(card => {
+        if (card.getAttribute('data-plan-id') === plan.id) {
+          card.style.borderColor = 'var(--primary)';
+          card.style.background = 'var(--surface)';
+        } else {
+          card.style.borderColor = 'var(--border)';
+          card.style.background = 'var(--surface-strong)';
+        }
+      });
+
+      // Show create new button
+      document.getElementById('createNewPlanBtn').style.display = 'inline-block';
+
+      // Update form fields
+      document.getElementById('goalNameInput').value = plan.name;
+      
+      // Try to find matching select option for distance
+      const select = document.getElementById('goalDistanceInput');
+      let found = false;
+      for (let i = 0; i < select.options.length; i++) {
+        if (parseFloat(select.options[i].value) === parseFloat(plan.target_distance_km)) {
+          select.selectedIndex = i;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        // If not found in the list, create a temporary option for it
+        const newOpt = document.createElement('option');
+        newOpt.value = plan.target_distance_km;
+        newOpt.textContent = `Custom (${plan.target_distance_km} km)`;
+        select.appendChild(newOpt);
+        select.value = plan.target_distance_km;
+      }
+
+      // Check localStorage
+      const cached = localStorage.getItem('ai_plan_' + plan.id);
+      if (cached) {
+        const data = JSON.parse(cached);
+        renderPlanDetails(data);
+      } else {
+        document.getElementById('formSectionTitle').textContent = `Generate Schedule for "${plan.name}"`;
+        document.getElementById('generatorFormSection').scrollIntoView({ behavior: 'smooth' });
+        
+        aiResultArea.innerHTML = `
+          <div class="empty-state">
+            <p style="font-weight: bold; margin-bottom: 8px;">Schedule not generated yet.</p>
+            <p style="color: var(--muted); margin-bottom: 16px;">Click the button below to generate the week-by-week AI training plan for "${plan.name}".</p>
+            <button onclick="triggerAutoGeneration('${plan.id}')" class="action-pill active" style="font-weight: bold; padding: 10px 20px; border: none; cursor: pointer;">
+              ⚡ Generate Schedule Now
+            </button>
+          </div>
+        `;
+      }
+    };
+
+    window.triggerAutoGeneration = function triggerAutoGeneration(planId) {
+      window.currentPlanIdOverride = planId;
+      document.getElementById('runAiPlannerBtn').click();
+    };
+
+    window.createNewPlan = function createNewPlan() {
+      document.getElementById('goalNameInput').value = '';
+      document.getElementById('goalDistanceInput').value = '51.5';
+      document.getElementById('planDurationSelect').value = '8';
+      document.getElementById('formSectionTitle').textContent = 'Create AI Training Plan';
+      
+      document.querySelectorAll('.plan-item-card').forEach(card => {
+        card.style.borderColor = 'var(--border)';
+        card.style.background = 'var(--surface-strong)';
+      });
+      document.getElementById('createNewPlanBtn').style.display = 'none';
+
+      aiResultArea.innerHTML = `
+        <div class="empty-state">Configure your goal above and generate your progressive training plan.</div>
+      `;
+      window.currentPlanIdOverride = null;
+    };
+
+    document.getElementById('createNewPlanBtn').addEventListener('click', createNewPlan);
+
+    function renderPlanDetails(data) {
+      // Render overview
+      let resultHtml = `
+        <article class="post-card" style="border-left: 5px solid var(--primary); margin-bottom: 16px;">
+          <header>
+            <div style="font-size: 2.5rem; margin-right: 12px;">📅</div>
+            <div class="post-author">
+              <strong>Training Plan</strong>
+              <span>${data.name} · ${data.duration_weeks} Weeks · Target: ${data.target_distance_km} km</span>
+            </div>
+          </header>
+          
+          <div style="line-height: 1.8; margin-top: 14px; background: var(--surface-strong); border-radius: 16px; padding: 18px;">
+            <strong style="color: var(--primary); display: block; margin-bottom: 8px; font-size: 1.1rem;">📋 Coach's Strategy Overview:</strong>
+            <p style="margin: 0; font-size: 1.05rem; white-space: pre-line;">${data.overview}</p>
+          </div>
+        </article>
+      `;
+
+      // Render weeks
+      data.weeks.forEach(w => {
+        const daysHtml = w.days.map(d => {
+          const emoji = getActivityEmoji(d.activity);
+          return `
+            <div style="padding: 12px; background: var(--bg); border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong style="color: var(--primary); font-size: 0.95rem; text-transform: uppercase;">${d.day}</strong>
+                <span style="font-size: 1rem;">${emoji} ${d.activity}</span>
+              </div>
+              <p style="margin: 0; font-size: 0.95rem; color: var(--text);">${d.description}</p>
+            </div>
+          `;
+        }).join('');
+
+        resultHtml += `
+          <div class="accordion-item" style="background: var(--surface-strong); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px; overflow: hidden;">
+            <button class="accordion-header" onclick="toggleAccordion(this)" style="width: 100%; text-align: left; background: none; border: none; padding: 18px; color: var(--text); font-family: inherit; font-size: 1.15rem; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+              <span>Week ${w.week_number}: ${w.focus}</span>
+              <span class="accordion-icon" style="transition: transform 0.2s; font-size: 1rem;">▼</span>
+            </button>
+            <div class="accordion-body" style="max-height: 0; overflow: hidden; transition: max-height 0.25s ease-out; padding: 0 18px;">
+              <div style="display: grid; gap: 10px; padding-bottom: 18px;">
+                ${daysHtml}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      aiResultArea.innerHTML = resultHtml;
+    }
+
     // ─── Run AI History Planner ───────────────────────────────────────────────
     runAiPlannerBtn.addEventListener('click', async () => {
       const uid = getCurrentUserId();
@@ -336,15 +530,21 @@
 
       try {
         const authHeaders = await getAuthHeaders();
+        const requestBody = {
+          user_id: uid,
+          target_name: goalName,
+          target_distance_km: goalDistance,
+          duration_weeks: planDuration
+        };
+
+        if (window.currentPlanIdOverride) {
+          requestBody.plan_id = window.currentPlanIdOverride;
+        }
+
         const res = await fetch('/api/plans/generate-ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', ...authHeaders },
-          body: JSON.stringify({
-            user_id: uid,
-            target_name: goalName,
-            target_distance_km: goalDistance,
-            duration_weeks: planDuration
-          })
+          body: JSON.stringify(requestBody)
         });
 
         if (!res.ok) {
@@ -357,55 +557,15 @@
           throw new Error('Invalid response from AI plan generator.');
         }
 
-        // Render overview
-        let resultHtml = `
-          <article class="post-card" style="border-left: 5px solid var(--primary); margin-bottom: 16px;">
-            <header>
-              <div style="font-size: 2.5rem; margin-right: 12px;">📅</div>
-              <div class="post-author">
-                <strong>Training Plan Generated</strong>
-                <span>${data.name} · ${data.duration_weeks} Weeks · Target: ${data.target_distance_km} km</span>
-              </div>
-            </header>
-            
-            <div style="line-height: 1.8; margin-top: 14px; background: var(--surface-strong); border-radius: 16px; padding: 18px;">
-              <strong style="color: var(--primary); display: block; margin-bottom: 8px; font-size: 1.1rem;">📋 Coach's Strategy Overview:</strong>
-              <p style="margin: 0; font-size: 1.05rem; white-space: pre-line;">${data.overview}</p>
-            </div>
-          </article>
-        `;
+        // Cache details locally
+        localStorage.setItem('ai_plan_' + data.plan_id, JSON.stringify(data));
 
-        // Render weeks
-        data.weeks.forEach(w => {
-          const daysHtml = w.days.map(d => {
-            const emoji = getActivityEmoji(d.activity);
-            return `
-              <div style="padding: 12px; background: var(--bg); border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <strong style="color: var(--primary); font-size: 0.95rem; text-transform: uppercase;">${d.day}</strong>
-                  <span style="font-size: 1rem;">${emoji} ${d.activity}</span>
-                </div>
-                <p style="margin: 0; font-size: 0.95rem; color: var(--text);">${d.description}</p>
-              </div>
-            `;
-          }).join('');
+        // Render plan
+        renderPlanDetails(data);
 
-          resultHtml += `
-            <div class="accordion-item" style="background: var(--surface-strong); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px; overflow: hidden;">
-              <button class="accordion-header" onclick="toggleAccordion(this)" style="width: 100%; text-align: left; background: none; border: none; padding: 18px; color: var(--text); font-family: inherit; font-size: 1.15rem; font-weight: bold; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
-                <span>Week ${w.week_number}: ${w.focus}</span>
-                <span class="accordion-icon" style="transition: transform 0.2s; font-size: 1rem;">▼</span>
-              </button>
-              <div class="accordion-body" style="max-height: 0; overflow: hidden; transition: max-height 0.25s ease-out; padding: 0 18px;">
-                <div style="display: grid; gap: 10px; padding-bottom: 18px;">
-                  ${daysHtml}
-                </div>
-              </div>
-            </div>
-          `;
-        });
-
-        aiResultArea.innerHTML = resultHtml;
+        // Reset the override & refresh plan list
+        window.currentPlanIdOverride = null;
+        loadRecentPlans();
 
       } catch (err) {
         aiResultArea.innerHTML = `
@@ -451,9 +611,11 @@
           window.location.replace('login.html');
         }
         updateProfileSidebar();
+        loadRecentPlans();
       });
     } else {
       updateProfileSidebar();
+      loadRecentPlans();
     }
   </script>
 </body>

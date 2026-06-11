@@ -345,13 +345,15 @@ app.post('/generate-plan-ai', async (req: Request, res: Response) => {
       return `- [${date}] ${h.type.toUpperCase()}: ${h.duration_minutes} mins, ${h.distance_km ? parseFloat(h.distance_km).toFixed(2) : 0} km`;
     }).join('\n');
 
-    // 3. Save new plan metadata to SQL DB TrainingPlans table
-    const planId = crypto.randomUUID();
-    await db.query(
-      `INSERT INTO "TrainingPlans" (id, user_id, name, target_distance_km)
-       VALUES ($1, $2, $3, $4)`,
-      [planId, user_id, target_name, target_distance_km]
-    );
+    // 3. Save new plan metadata to SQL DB TrainingPlans table if it doesn't exist
+    const planId = req.body.plan_id || crypto.randomUUID();
+    if (!req.body.plan_id) {
+      await db.query(
+        `INSERT INTO "TrainingPlans" (id, user_id, name, target_distance_km)
+         VALUES ($1, $2, $3, $4)`,
+        [planId, user_id, target_name, target_distance_km]
+      );
+    }
 
     const systemPrompt = `You are an expert triathlon coach and sports scientist. Your task is to generate a detailed, highly personalized training plan for an athlete.
 

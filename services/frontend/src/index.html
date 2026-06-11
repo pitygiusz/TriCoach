@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
   <meta charset="UTF-8" />
@@ -9,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 </head>
@@ -47,12 +48,12 @@
       <div id="menuPanel" class="menu-panel hidden" aria-hidden="true">
         <div class="menu-content">
           <h2>Menu</h2>
-          <button id="newPostBtn"  class="menu-item">Create Post</button>
+          <button id="newPostBtn" class="menu-item">Create Post</button>
           <button id="workoutsMenuBtn" class="menu-item">My Workouts</button>
-          <button id="aiHistoryMenuBtn" class="menu-item">🔮 AI History</button>
-          <button id="aiRaceMenuBtn" class="menu-item">🏁 AI Race</button>
-          <button id="aiPlannerMenuBtn" class="menu-item">📅 AI Planner</button>
-          <button id="draftsBtn"   class="menu-item">Drafts</button>
+          <button id="aiHistoryMenuBtn" class="menu-item">🔮 AI Workouts Analysis</button>
+          <button id="aiRaceMenuBtn" class="menu-item">🏁 AI Race Simulator</button>
+          <button id="aiPlannerMenuBtn" class="menu-item">📅 AI Training Plans</button>
+          <button id="draftsBtn" class="menu-item">Drafts</button>
           <button id="settingsBtn" class="menu-item">Settings</button>
         </div>
       </div>
@@ -71,7 +72,8 @@
       <div class="sidebar-card" id="profileSidebarCard">
         <h2>Profile</h2>
         <div class="profile-card" id="profileCard">
-          <button class="profileBtn" id="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
+          <button class="profileBtn" id="profileBtn" onclick="window.location.href='profile.html'"
+            aria-label="View profile">
             <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
           </button>
           <div>
@@ -85,8 +87,10 @@
       <div class="sidebar-card" id="progressSidebarCard">
         <h2>Progress</h2>
         <ul id="progressOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI History</li>
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts
+          </li>
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI History
+          </li>
         </ul>
       </div>
 
@@ -94,17 +98,21 @@
         <h2>Planner</h2>
         <ul id="plannerOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
           <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-planner.html'">📅 AI Planner</li>
+          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-planner.html'">📅 AI Planner
+          </li>
         </ul>
       </div>
-      
+
       <div class="sidebar-card" id="friendsSidebarCard">
         <h2>Friends</h2>
         <div style="margin-bottom: 12px; display: flex; gap: 8px;">
-          <input type="text" id="followUsernameInput" placeholder="Username..." style="flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
-          <button onclick="followUserByUsername()" class="action-pill active" style="padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer;">Follow</button>
+          <input type="text" id="followUsernameInput" placeholder="Username..."
+            style="flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
+          <button onclick="followUserByUsername()" class="action-pill active"
+            style="padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer;">Follow</button>
         </div>
-        <ul id="friendsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--muted); font-size: 0.95rem;">
+        <ul id="friendsList"
+          style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--muted); font-size: 0.95rem;">
           <li>No followed athletes yet</li>
         </ul>
       </div>
@@ -172,4 +180,5 @@
 
   <script src="frontendtest.js"></script>
 </body>
+
 </html>
