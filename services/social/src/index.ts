@@ -55,11 +55,80 @@ app.post('/posts', async (req: Request, res: Response) => {
   }
 });
 
+// Helper to fetch user profiles and training details for posts
+async function populatePostsMetadata(posts: any[]) {
+  try {
+    // 1. Fetch Usernames from Firebase Auth
+    const userIds = Array.from(new Set(posts.map(p => p.userId).filter(Boolean)));
+    const userMap: Record<string, string> = {};
+    
+    if (userIds.length > 0) {
+      try {
+        // Fetch up to 100 users at once (Firebase Admin limit is 100)
+        const identifiers = userIds.map(uid => ({ uid }));
+        const usersResult = await admin.auth().getUsers(identifiers);
+        usersResult.users.forEach(userRecord => {
+          if (userRecord.displayName) {
+            userMap[userRecord.uid] = userRecord.displayName;
+          }
+        });
+      } catch (authErr) {
+        console.error('Error fetching users from Firebase:', authErr);
+      }
+    }
+
+    // 2. Fetch Training Details from Training Service
+    const trainingServiceUrl = process.env.TRAINING_SERVICE_URL || 'http://localhost:3002';
+    
+    // Process posts one by one or in parallel
+    const populated = await Promise.all(posts.map(async (post) => {
+      let username = post.username;
+      // Overwrite/fallback to Firebase Auth displayName if available
+      if (post.userId && userMap[post.userId]) {
+        username = userMap[post.userId];
+      }
+
+      let trainingDetails = post.trainingDetails;
+      // If we have a trainingId but no details, or we want to guarantee fresh SQL data:
+      if (post.trainingId && !trainingDetails) {
+        try {
+          // Fetch training from training service using the user's workouts API
+          const workoutRes = await fetch(`${trainingServiceUrl}/workouts/${post.userId}`);
+          if (workoutRes.ok) {
+            const workoutData = await workoutRes.json();
+            const matchingWorkout = workoutData.workouts?.find((w: any) => w.id === post.trainingId);
+            if (matchingWorkout) {
+              trainingDetails = {
+                type: matchingWorkout.type,
+                duration_minutes: matchingWorkout.duration_minutes,
+                distance_km: matchingWorkout.distance_km,
+              };
+            }
+          }
+        } catch (trainErr) {
+          console.error(`Error fetching training details for ${post.trainingId}:`, trainErr);
+        }
+      }
+
+      return {
+        ...post,
+        username,
+        trainingDetails,
+      };
+    }));
+
+    return populated;
+  } catch (err) {
+    console.error('Error populating post metadata:', err);
+    return posts;
+  }
+}
+
 // Get all posts
 app.get('/posts', async (req: Request, res: Response) => {
   try {
     const postsSnapshot = await db.collection('posts').get();
-    const posts = postsSnapshot.docs.map((doc) => {
+    const rawPosts = postsSnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -75,7 +144,9 @@ app.get('/posts', async (req: Request, res: Response) => {
       };
     });
 
-    const sortedPosts = posts.sort((a: any, b: any) => {
+    const populatedPosts = await populatePostsMetadata(rawPosts);
+
+    const sortedPosts = populatedPosts.sort((a: any, b: any) => {
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;
@@ -102,7 +173,7 @@ app.get('/feed/:userId', async (req: Request, res: Response) => {
 
     // Get posts from followed users
     const postsSnapshot = await db.collection('posts').where('userId', 'in', followedUserIds).get();
-    const posts = postsSnapshot.docs.map((doc) => {
+    const rawPosts = postsSnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
@@ -118,10 +189,12 @@ app.get('/feed/:userId', async (req: Request, res: Response) => {
       };
     });
 
+    const populatedPosts = await populatePostsMetadata(rawPosts);
+
     // Sort by date and paginate
-    const sortedPosts = posts.sort((a: any, b: any) => {
-      const aTime = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate().getTime() : new Date(a.createdAt).getTime()) : 0;
-      const bTime = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate().getTime() : new Date(b.createdAt).getTime()) : 0;
+    const sortedPosts = populatedPosts.sort((a: any, b: any) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;
     });
     const paginatedPosts = sortedPosts.slice(Number(offset), Number(offset) + Number(limit));
