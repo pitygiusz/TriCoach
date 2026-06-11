@@ -90,6 +90,10 @@
       
       <div class="sidebar-card" id="friendsSidebarCard">
         <h2>Friends</h2>
+        <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+          <input type="text" id="followUsernameInput" placeholder="Username..." style="flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
+          <button onclick="followUserByUsername()" class="action-pill active" style="padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer;">Follow</button>
+        </div>
         <ul id="friendsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--muted); font-size: 0.95rem;">
           <li>No followed athletes yet</li>
         </ul>

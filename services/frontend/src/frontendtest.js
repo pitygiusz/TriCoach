@@ -398,7 +398,11 @@ async function loadPosts() {
   const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
   try {
-    const res = await fetch('/api/posts', {
+    const uid = getCurrentUserId();
+    const isLoggedIn = sessionStorage.getItem('firebaseUid') || document.body.dataset.uid;
+    const url = isLoggedIn ? `/api/feed/${uid}` : '/api/posts';
+
+    const res = await fetch(url, {
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -409,14 +413,58 @@ async function loadPosts() {
       throw new Error(`${res.status}: ${body}`);
     }
     const data = await res.json();
-    renderPosts(data);
+    const postsArray = Array.isArray(data) ? data : (data.posts || []);
+    renderPosts(postsArray);
   } catch (err) {
     clearTimeout(timeout);
     // Show the empty state instead of an error so the page is usable
-    postsContainer.innerHTML = '<div class="empty-state">No posts yet — log a training and share it!</div>';
+    postsContainer.innerHTML = '<div class="empty-state">No posts yet — follow some athletes to see updates!</div>';
     console.warn('loadPosts:', err.message);
   }
 }
+
+window.followUserByUsername = async function followUserByUsername() {
+  const usernameInput = document.getElementById('followUsernameInput');
+  const username = usernameInput ? usernameInput.value.trim() : '';
+  if (!username) {
+    alert('Please enter a username to follow!');
+    return;
+  }
+
+  const currentUid = getCurrentUserId();
+
+  try {
+    // 1. Resolve username to UID
+    const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username)}`);
+    if (!userRes.ok) {
+      if (userRes.status === 404) {
+        throw new Error(`User "${username}" not found.`);
+      }
+      throw new Error(`Failed to lookup user. Status: ${userRes.status}`);
+    }
+    const targetUser = await userRes.json();
+
+    if (targetUser.uid === currentUid) {
+      alert("You cannot follow yourself!");
+      return;
+    }
+
+    // 2. Send follow request
+    await makeApiRequest('POST', '/api/follow', {
+      follower_id: currentUid,
+      following_id: targetUser.uid,
+    });
+
+    alert(`Successfully followed @${username}!`);
+    if (usernameInput) usernameInput.value = '';
+    
+    // Refresh sidebar and feed
+    updateProfileSidebar();
+    loadPosts();
+  } catch (err) {
+    alert(`Could not follow user: ${err.message}`);
+  }
+};
 
 // ─── Workouts dropdown ────────────────────────────────────────────────────────
 let loadedWorkoutsList = [];
@@ -473,7 +521,7 @@ draftsBtn.addEventListener('click',   () => alert('Show draft posts.'));
 settingsBtn.addEventListener('click', () => alert('Open settings.'));
 
 // ─── Update profile sidebar ───────────────────────────────────────────────────
-function updateProfileSidebar() {
+async function updateProfileSidebar() {
   const uid = sessionStorage.getItem('firebaseUid') || document.body.dataset.uid;
   const name = sessionStorage.getItem('firebaseDisplayName') || document.body.dataset.displayName || 'Guest';
   const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
@@ -516,6 +564,33 @@ function updateProfileSidebar() {
       progressList.innerHTML = `
         <li style="color:var(--muted);font-size:0.9rem;">Log in to track progress</li>
       `;
+    }
+  }
+
+  const friendsList = document.getElementById('friendsList');
+  if (friendsList) {
+    if (uid) {
+      try {
+        const followingRes = await fetch(`/api/following/${uid}`);
+        if (followingRes.ok) {
+          const data = await followingRes.json();
+          const following = data.following || [];
+          if (following.length > 0) {
+            friendsList.innerHTML = following.map(f => 
+              `<li style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${f.followingId}'">
+                <span style="font-size: 1.2rem;">🏃</span>
+                <span style="color: var(--text); font-weight: 500;">${f.username}</span>
+              </li>`
+            ).join('');
+          } else {
+            friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">No followed athletes yet</li>';
+          }
+        }
+      } catch (e) {
+        friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">Error loading friends</li>';
+      }
+    } else {
+      friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">Log in to see friends</li>';
     }
   }
 }

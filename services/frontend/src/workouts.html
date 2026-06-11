@@ -81,6 +81,10 @@
 
       <div class="sidebar-card" id="friendsSidebarCard">
         <h2>Friends</h2>
+        <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+          <input type="text" id="followUsernameInput" placeholder="Username..." style="flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
+          <button onclick="followUserByUsername()" class="action-pill active" style="padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer;">Follow</button>
+        </div>
         <ul id="friendsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--muted); font-size: 0.95rem;">
           <li>No followed athletes yet</li>
         </ul>
@@ -135,7 +139,7 @@
     }
 
     // ─── Update Profile Sidebar ────────────────────────────────────────────────
-    function updateProfileSidebar() {
+    async function updateProfileSidebar() {
       const uid = sessionStorage.getItem('firebaseUid');
       const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
       const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
@@ -176,7 +180,79 @@
           `;
         }
       }
+
+      const friendsList = document.getElementById('friendsList');
+      if (friendsList) {
+        if (uid) {
+          try {
+            const followingRes = await fetch(`/api/following/${uid}`);
+            if (followingRes.ok) {
+              const data = await followingRes.json();
+              const following = data.following || [];
+              if (following.length > 0) {
+                friendsList.innerHTML = following.map(f => 
+                  `<li style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${f.followingId}'">
+                    <span style="font-size: 1.2rem;">🏃</span>
+                    <span style="color: var(--text); font-weight: 500;">${f.username}</span>
+                  </li>`
+                ).join('');
+              } else {
+                friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">No followed athletes yet</li>';
+              }
+            }
+          } catch (e) {
+            friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">Error loading friends</li>';
+          }
+        } else {
+          friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">Log in to see friends</li>';
+        }
+      }
     }
+
+    window.followUserByUsername = async function followUserByUsername() {
+      const usernameInput = document.getElementById('followUsernameInput');
+      const username = usernameInput ? usernameInput.value.trim() : '';
+      if (!username) {
+        alert('Please enter a username to follow!');
+        return;
+      }
+
+      const currentUid = getCurrentUserId();
+
+      try {
+        const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username)}`);
+        if (!userRes.ok) {
+          if (userRes.status === 404) {
+            throw new Error(`User "${username}" not found.`);
+          }
+          throw new Error(`Failed to lookup user. Status: ${userRes.status}`);
+        }
+        const targetUser = await userRes.json();
+
+        if (targetUser.uid === currentUid) {
+          alert("You cannot follow yourself!");
+          return;
+        }
+
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch('/api/follow', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({
+            follower_id: currentUid,
+            following_id: targetUser.uid,
+          })
+        });
+        if (!res.ok) throw new Error(`Status: ${res.status}`);
+
+        alert(`Successfully followed @${username}!`);
+        if (usernameInput) usernameInput.value = '';
+        
+        updateProfileSidebar();
+      } catch (err) {
+        alert(`Could not follow user: ${err.message}`);
+      }
+    };
 
     window.logoutUser = function logoutUser() {
       if (isFirebaseReady()) {

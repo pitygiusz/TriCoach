@@ -42,10 +42,25 @@
                 </div>
                 <p style="margin: 0; max-width: 500px; line-height: 1.6;">Triathlon enthusiast sharing training progress.</p>
                 
-                <div class="action-bar" style="justify-content: center; width: 100%; margin-top: 10px;">
+                <div class="action-bar" style="justify-content: center; width: 100%; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
                     <div class="action-pill"><strong id="postCount">0</strong> Posts</div>
+                    <div class="action-pill"><strong id="followingCount">0</strong> Following</div>
+                    <div class="action-pill"><strong id="followersCount">0</strong> Followers</div>
                 </div>
-                <button class="action-pill active" onclick="logoutUser()" style="margin-top: 10px;">🚪 Logout</button>
+
+                <div id="friendsDetailContainer" style="display: none; width: 100%; max-width: 500px; background: var(--bg); padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-top: 10px; font-size: 0.95rem; text-align: left;">
+                    <div style="margin-bottom: 10px;">
+                        <strong style="color: var(--primary);">Following:</strong>
+                        <div id="followingListNames" style="color: var(--text); margin-top: 4px;">None</div>
+                    </div>
+                    <div>
+                        <strong style="color: var(--primary);">Followed by:</strong>
+                        <div id="followersListNames" style="color: var(--text); margin-top: 4px;">None</div>
+                    </div>
+                </div>
+
+                <button id="profileFollowBtn" class="action-pill active" style="margin-top: 10px; display: none;"></button>
+                <button id="profileLogoutBtn" class="action-pill active" onclick="logoutUser()" style="margin-top: 10px; display: none;">🚪 Logout</button>
             </div>
             
             <div class="action-bar">
@@ -84,6 +99,10 @@
           
           <div class="sidebar-card" id="friendsSidebarCard">
             <h2>Friends</h2>
+            <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+              <input type="text" id="followUsernameInput" placeholder="Username..." style="flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
+              <button onclick="followUserByUsername()" class="action-pill active" style="padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer;">Follow</button>
+            </div>
             <ul id="friendsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--muted); font-size: 0.95rem;">
               <li>No followed athletes yet</li>
             </ul>
@@ -104,7 +123,147 @@
         }
       }
 
-      function updateProfileSidebar() {
+      function getCurrentUserId() {
+        return sessionStorage.getItem('firebaseUid') || 'guest';
+      }
+
+      function getCurrentDisplayName() {
+        return sessionStorage.getItem('firebaseDisplayName') || 'Guest';
+      }
+
+      async function getAuthHeaders() {
+        if (isFirebaseReady()) {
+          try {
+            const user = firebase.auth().currentUser;
+            if (user) {
+              const token = await user.getIdToken();
+              sessionStorage.setItem('firebaseToken', token);
+              sessionStorage.setItem('firebaseUid', user.uid);
+              sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+              sessionStorage.setItem('firebaseEmail', user.email);
+              return { 'Authorization': `Bearer ${token}` };
+            }
+          } catch (e) {}
+        }
+        const token = sessionStorage.getItem('firebaseToken');
+        if (!token) return {};
+        return { 'Authorization': `Bearer ${token}` };
+      }
+
+      async function followUser(followerId, followingId) {
+        try {
+          const authHeaders = await getAuthHeaders();
+          const res = await fetch('/api/follow', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify({ follower_id: followerId, following_id: followingId })
+          });
+          if (!res.ok) throw new Error(`Status: ${res.status}`);
+          alert('Successfully followed user!');
+          loadUserProfile();
+        } catch (err) {
+          alert(`Could not follow user: ${err.message}`);
+        }
+      }
+
+      async function unfollowUser(followerId, followingId) {
+        try {
+          const authHeaders = await getAuthHeaders();
+          const res = await fetch('/api/unfollow', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify({ follower_id: followerId, following_id: followingId })
+          });
+          if (!res.ok) throw new Error(`Status: ${res.status}`);
+          alert('Successfully unfollowed user!');
+          loadUserProfile();
+        } catch (err) {
+          alert(`Could not unfollow user: ${err.message}`);
+        }
+      }
+
+      window.followUserByUsername = async function followUserByUsername() {
+        const usernameInput = document.getElementById('followUsernameInput');
+        const username = usernameInput ? usernameInput.value.trim() : '';
+        if (!username) {
+          alert('Please enter a username to follow!');
+          return;
+        }
+
+        const currentUid = getCurrentUserId();
+
+        try {
+          const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username)}`);
+          if (!userRes.ok) {
+            if (userRes.status === 404) {
+              throw new Error(`User "${username}" not found.`);
+            }
+            throw new Error(`Failed to lookup user. Status: ${userRes.status}`);
+          }
+          const targetUser = await userRes.json();
+
+          if (targetUser.uid === currentUid) {
+            alert("You cannot follow yourself!");
+            return;
+          }
+
+          const authHeaders = await getAuthHeaders();
+          const res = await fetch('/api/follow', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify({
+              follower_id: currentUid,
+              following_id: targetUser.uid,
+            })
+          });
+          if (!res.ok) throw new Error(`Status: ${res.status}`);
+
+          alert(`Successfully followed @${username}!`);
+          if (usernameInput) usernameInput.value = '';
+          
+          updateProfileSidebar();
+          
+          const urlParams = new URLSearchParams(window.location.search);
+          const urlUid = urlParams.get('uid');
+          const sessionUid = sessionStorage.getItem('firebaseUid');
+          const targetUid = urlUid || sessionUid;
+          if (targetUid) {
+            await loadFollowDetails(targetUid);
+            const logoutBtn = document.getElementById('profileLogoutBtn');
+            const followBtn = document.getElementById('profileFollowBtn');
+            if (sessionUid && targetUid !== sessionUid) {
+              const followingRes = await fetch(`/api/following/${sessionUid}`);
+              if (followingRes.ok) {
+                const data = await followingRes.json();
+                const following = data.following || [];
+                const isFollowing = following.some(f => f.followingId === targetUid);
+                updateFollowButtonState(followBtn, isFollowing, sessionUid, targetUid);
+              }
+            }
+          }
+        } catch (err) {
+          alert(`Could not follow user: ${err.message}`);
+        }
+      };
+
+      function updateFollowButtonState(btn, isFollowing, sessionUid, targetUid) {
+        if (isFollowing) {
+          btn.textContent = 'Unfollow';
+          btn.style.background = 'transparent';
+          btn.style.border = '1px solid var(--border)';
+          btn.style.color = 'var(--text)';
+          btn.onclick = () => unfollowUser(sessionUid, targetUid);
+        } else {
+          btn.textContent = 'Follow';
+          btn.style.background = 'var(--primary)';
+          btn.style.border = 'none';
+          btn.style.color = 'white';
+          btn.onclick = () => followUser(sessionUid, targetUid);
+        }
+        btn.style.display = 'inline-block';
+      }
+
+      async function updateProfileSidebar() {
         const uid = sessionStorage.getItem('firebaseUid');
         const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
         const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'guest')}`;
@@ -145,47 +304,165 @@
             `;
           }
         }
+
+        const friendsList = document.getElementById('friendsList');
+        if (friendsList) {
+          if (uid) {
+            try {
+              const followingRes = await fetch(`/api/following/${uid}`);
+              if (followingRes.ok) {
+                const data = await followingRes.json();
+                const following = data.following || [];
+                if (following.length > 0) {
+                  friendsList.innerHTML = following.map(f => 
+                    `<li style="display: flex; align-items: center; gap: 8px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${f.followingId}'">
+                      <span style="font-size: 1.2rem;">🏃</span>
+                      <span style="color: var(--text); font-weight: 500;">${f.username}</span>
+                    </li>`
+                  ).join('');
+                } else {
+                  friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">No followed athletes yet</li>';
+                }
+              }
+            } catch (e) {
+              friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">Error loading friends</li>';
+            }
+          } else {
+            friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">Log in to see friends</li>';
+          }
+        }
       }
 
-      function loadProfileFallback() {
+      async function loadFollowDetails(uid) {
+        try {
+          const followingRes = await fetch(`/api/following/${uid}`);
+          const followersRes = await fetch(`/api/followers/${uid}`);
+          
+          let followingNames = 'None';
+          let followersNames = 'None';
+          let followingCount = 0;
+          let followersCount = 0;
+
+          if (followingRes.ok) {
+            const data = await followingRes.json();
+            const following = data.following || [];
+            followingCount = following.length;
+            if (followingCount > 0) {
+              followingNames = following.map(f => '@' + f.username).join(', ');
+            }
+          }
+          
+          if (followersRes.ok) {
+            const data = await followersRes.json();
+            const followers = data.followers || [];
+            followersCount = followers.length;
+            if (followersCount > 0) {
+              followersNames = followers.map(f => '@' + f.username).join(', ');
+            }
+          }
+
+          document.getElementById('followingCount').textContent = followingCount;
+          document.getElementById('followersCount').textContent = followersCount;
+          document.getElementById('followingListNames').textContent = followingNames;
+          document.getElementById('followersListNames').textContent = followersNames;
+          document.getElementById('friendsDetailContainer').style.display = 'block';
+        } catch (err) {
+          console.error('Error loading follow details:', err);
+        }
+      }
+
+      async function loadUserProfile() {
         const profileName = document.getElementById('profileName');
         const profileEmail = document.getElementById('profileEmail');
         const profileAvatar = document.getElementById('profileAvatar');
         const postCount = document.getElementById('postCount');
+        const logoutBtn = document.getElementById('profileLogoutBtn');
+        const followBtn = document.getElementById('profileFollowBtn');
 
-        const uid = sessionStorage.getItem('firebaseUid');
-        const name = sessionStorage.getItem('firebaseDisplayName') || 'Guest';
-        const email = sessionStorage.getItem('firebaseEmail') || 'Not logged in';
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlUid = urlParams.get('uid');
+        const sessionUid = sessionStorage.getItem('firebaseUid');
+        const targetUid = urlUid || sessionUid;
 
-        profileName.textContent = name;
-        profileEmail.textContent = email;
-        profileAvatar.src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(uid || 'guest');
+        if (!targetUid) {
+          profileName.textContent = 'Guest';
+          profileEmail.textContent = 'Not logged in';
+          profileAvatar.src = 'https://i.pravatar.cc/150?u=guest';
+          logoutBtn.style.display = 'none';
+          followBtn.style.display = 'none';
+          document.getElementById('userPosts').innerHTML = '<div class="empty-state">Please log in to view profiles</div>';
+          updateProfileSidebar();
+          return;
+        }
+
+        // Show logout button only if viewing own profile
+        if (sessionUid && targetUid === sessionUid) {
+          logoutBtn.style.display = 'inline-block';
+          followBtn.style.display = 'none';
+        } else if (sessionUid) {
+          logoutBtn.style.display = 'none';
+          try {
+            const followingRes = await fetch(`/api/following/${sessionUid}`);
+            if (followingRes.ok) {
+              const data = await followingRes.json();
+              const following = data.following || [];
+              const isFollowing = following.some(f => f.followingId === targetUid);
+              updateFollowButtonState(followBtn, isFollowing, sessionUid, targetUid);
+            } else {
+              followBtn.style.display = 'none';
+            }
+          } catch (e) {
+            console.error('Error fetching following status:', e);
+            followBtn.style.display = 'none';
+          }
+        } else {
+          logoutBtn.style.display = 'none';
+          followBtn.style.display = 'none';
+        }
+
+        try {
+          // 1. Fetch Profile Data
+          const profileRes = await fetch(`/api/users/${targetUid}/profile`);
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            profileName.textContent = profileData.username || 'Athlete';
+            profileEmail.textContent = '@' + (profileData.email ? profileData.email.split('@')[0] : 'athlete');
+            profileAvatar.src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+          } else {
+            // Fallback default info
+            profileName.textContent = 'Athlete';
+            profileEmail.textContent = '@athlete';
+            profileAvatar.src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+          }
+
+          // 2. Load Follow Details
+          await loadFollowDetails(targetUid);
+
+          // 3. Load Posts
+          const postsRes = await fetch('/api/posts');
+          if (postsRes.ok) {
+            const posts = await postsRes.json();
+            const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === targetUid) : [];
+            postCount.textContent = userPosts.length;
+            const container = document.getElementById('userPosts');
+            if (userPosts.length === 0) {
+              container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
+            } else {
+              container.innerHTML = '';
+              userPosts.forEach(post => {
+                const card = document.createElement('article');
+                card.className = 'post-card';
+                card.innerHTML = '<p>' + (post.content || '') + '</p><div class="post-meta"><span>' + (post.likes || 0) + ' likes</span></div>';
+                container.appendChild(card);
+              });
+            }
+          }
+        } catch (err) {
+          console.error(err);
+          document.getElementById('userPosts').innerHTML = '<div class="empty-state">Error loading profile data</div>';
+        }
 
         updateProfileSidebar();
-
-        if (uid) {
-          fetch('/api/posts')
-            .then(r => r.json())
-            .then(posts => {
-              const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === uid) : [];
-              postCount.textContent = userPosts.length;
-              const container = document.getElementById('userPosts');
-              if (userPosts.length === 0) {
-                container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
-              } else {
-                container.innerHTML = '';
-                userPosts.forEach(post => {
-                  const card = document.createElement('article');
-                  card.className = 'post-card';
-                  card.innerHTML = '<p>' + (post.content || '') + '</p><div class="post-meta"><span>' + (post.likes || 0) + ' likes</span></div>';
-                  container.appendChild(card);
-                });
-              }
-            })
-            .catch(() => {
-              document.getElementById('userPosts').innerHTML = '<div class="empty-state">Could not load posts</div>';
-            });
-        }
       }
 
       window.logoutUser = function logoutUser() {
@@ -204,50 +481,17 @@
 
       if (isFirebaseReady()) {
         firebase.auth().onAuthStateChanged(function(user) {
-          const profileName = document.getElementById('profileName');
-          const profileEmail = document.getElementById('profileEmail');
-          const profileAvatar = document.getElementById('profileAvatar');
-          const postCount = document.getElementById('postCount');
-
           if (user) {
             sessionStorage.setItem('firebaseUid', user.uid);
             sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
             sessionStorage.setItem('firebaseEmail', user.email);
-
-            profileName.textContent = user.displayName || 'Athlete';
-            profileEmail.textContent = '@' + user.email;
-            profileAvatar.src = 'https://i.pravatar.cc/150?u=' + encodeURIComponent(user.uid);
-
-            const uid = user.uid;
-            fetch('/api/posts')
-              .then(r => r.json())
-              .then(posts => {
-                const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === uid) : [];
-                postCount.textContent = userPosts.length;
-                const container = document.getElementById('userPosts');
-                if (userPosts.length === 0) {
-                  container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
-                } else {
-                  container.innerHTML = '';
-                  userPosts.forEach(post => {
-                    const card = document.createElement('article');
-                    card.className = 'post-card';
-                    card.innerHTML = '<p>' + (post.content || '') + '</p><div class="post-meta"><span>' + (post.likes || 0) + ' likes</span></div>';
-                    container.appendChild(card);
-                  });
-                }
-              })
-              .catch(() => {
-                document.getElementById('userPosts').innerHTML = '<div class="empty-state">Could not load posts</div>';
-              });
           } else {
             sessionStorage.clear();
-            loadProfileFallback();
           }
-          updateProfileSidebar();
+          loadUserProfile();
         });
       } else {
-        loadProfileFallback();
+        loadUserProfile();
       }
     </script>
 </body>

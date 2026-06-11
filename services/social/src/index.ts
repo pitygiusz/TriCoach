@@ -331,16 +331,66 @@ app.post('/follow', async (req: Request, res: Response) => {
   }
 });
 
+// Unfollow a user
+app.post('/unfollow', async (req: Request, res: Response) => {
+  try {
+    const { follower_id, following_id } = req.body;
+
+    if (!follower_id || !following_id) {
+      res.status(400).json({ error: 'Missing follower or following ID' });
+      return;
+    }
+
+    const followQuery = await db.collection('follows')
+      .where('followerId', '==', follower_id)
+      .where('followingId', '==', following_id)
+      .get();
+
+    if (followQuery.empty) {
+      res.status(404).json({ error: 'Follow relation not found' });
+      return;
+    }
+
+    const batch = db.batch();
+    followQuery.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+
+    res.status(200).json({
+      message: 'User unfollowed successfully',
+    });
+  } catch (error: any) {
+    console.error('Unfollow error:', error);
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
+  }
+});
+
+
 // Get followers
 app.get('/followers/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
 
     const followersSnapshot = await db.collection('follows').where('followingId', '==', userId).get();
+    const rawFollowers = followersSnapshot.docs.map((doc) => doc.data());
 
-    const followers = followersSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
+    const userIds = Array.from(new Set(rawFollowers.map(f => f.followerId).filter(Boolean)));
+    const userMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      try {
+        const usersResult = await admin.auth().getUsers(userIds.map(uid => ({ uid })));
+        usersResult.users.forEach(u => {
+          userMap[u.uid] = u.displayName || u.email || 'Athlete';
+        });
+      } catch (authErr) {
+        console.error('Error listing followers from auth:', authErr);
+      }
+    }
+
+    const followers = rawFollowers.map(f => ({
+      followerId: f.followerId,
+      username: userMap[f.followerId] || 'Athlete',
     }));
 
     res.status(200).json({
@@ -359,10 +409,24 @@ app.get('/following/:userId', async (req: Request, res: Response) => {
     const { userId } = req.params;
 
     const followingSnapshot = await db.collection('follows').where('followerId', '==', userId).get();
+    const rawFollowing = followingSnapshot.docs.map((doc) => doc.data());
 
-    const following = followingSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
+    const userIds = Array.from(new Set(rawFollowing.map(f => f.followingId).filter(Boolean)));
+    const userMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      try {
+        const usersResult = await admin.auth().getUsers(userIds.map(uid => ({ uid })));
+        usersResult.users.forEach(u => {
+          userMap[u.uid] = u.displayName || u.email || 'Athlete';
+        });
+      } catch (authErr) {
+        console.error('Error listing following from auth:', authErr);
+      }
+    }
+
+    const following = rawFollowing.map(f => ({
+      followingId: f.followingId,
+      username: userMap[f.followingId] || 'Athlete',
     }));
 
     res.status(200).json({

@@ -231,6 +231,25 @@ app.post('/verify-token', async (req: Request, res: Response) => {
   }
 });
 
+// Lookup user by username (displayName)
+app.get('/users/by-username/:username', async (req: Request, res: Response) => {
+  try {
+    const { username } = req.params;
+    const listUsersResult = await auth.listUsers();
+    const user = listUsersResult.users.find(
+      (u) => u.displayName?.toLowerCase() === username.toLowerCase()
+    );
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    res.status(200).json({ uid: user.uid, username: user.displayName, email: user.email });
+  } catch (error: any) {
+    console.error(error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 app.listen(Number(port), () => {
   console.log(`🏃 User Service (Firebase Auth) running on port ${port}`);
 });

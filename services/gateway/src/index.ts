@@ -41,6 +41,13 @@ app.post('/api/users/login', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
+app.get('/api/users/by-username/:username', async (req: Request, res: Response) => {
+  try {
+    const r = await axios.get(`${SERVICES.user}/users/by-username/${req.params.username}`);
+    res.status(r.status).json(r.data);
+  } catch (e: any) { res.status(e.response?.status || 500).json(e.response?.data || { error: e.message }); }
+});
+
 app.get('/api/users/:userId/profile', async (req: Request, res: Response) => {
   try {
     const r = await axios.get(`${SERVICES.user}/profile/${req.params.userId}`);
@@ -203,6 +210,13 @@ app.post('/api/posts/:postId/unlike', async (req: Request, res: Response) => {
 app.post('/api/follow', async (req: Request, res: Response) => {
   try {
     const r = await axios.post(`${SERVICES.social}/follow`, req.body);
+    res.status(r.status).json(r.data);
+  } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
+});
+
+app.post('/api/unfollow', async (req: Request, res: Response) => {
+  try {
+    const r = await axios.post(`${SERVICES.social}/unfollow`, req.body);
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
