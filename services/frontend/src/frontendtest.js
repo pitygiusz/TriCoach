@@ -534,38 +534,61 @@ async function fetchFriendsList(uid) {
   if (!friendsListEl) return;
 
   try {
-    // Assuming you have/will create an endpoint for this that queries Firebase
-    const res = await fetch(`/api/users/${uid}/friends`);
-    if (!res.ok) throw new Error('Friends API failed');
-    
-    const data = await res.json();
-    const friends = data.friends || [];
+    // Fetch followers and following lists independently via existing API
+    // Using makeApiRequest guarantees auth headers are passed properly
+    const [followersData, followingData] = await Promise.all([
+      makeApiRequest('GET', `/api/followers/${uid}`).catch(() => []),
+      makeApiRequest('GET', `/api/following/${uid}`).catch(() => [])
+    ]);
 
-    if (friends.length === 0) {
+    const followers = Array.isArray(followersData) ? followersData : (followersData.followers || []);
+    const following = Array.isArray(followingData) ? followingData : (followingData.following || []);
+
+    const followerIds = followers.map(f => f.followerId || f.uid || f.id || f);
+    const followingIds = following.map(f => f.followingId || f.uid || f.id || f);
+
+    // Filter to find the overlap (Mutual followers)
+    const mutualIds = [...new Set(followingIds.filter(id => followerIds.includes(id)))];
+
+    if (mutualIds.length === 0) {
       friendsListEl.innerHTML = '<li>No friends yet. Follow someone!</li>';
       return;
     }
 
     friendsListEl.innerHTML = '';
-    friends.forEach(friend => {
+    
+    // Fetch profile data for the mutual IDs to display correct images and usernames
+    const profiles = await Promise.all(
+      mutualIds.map(friendId => 
+        makeApiRequest('GET', `/api/users/${friendId}/profile`)
+          .catch(() => ({ uid: friendId, username: 'Unknown', profilePicture: null }))
+      )
+    );
+
+    profiles.forEach(friend => {
+      if (friend.username === 'Unknown') return; // Skip if we failed to load this profile
+
       const li = document.createElement('li');
       li.style.display = 'flex';
       li.style.alignItems = 'center';
       li.style.gap = '10px';
       li.style.cursor = 'pointer';
-      li.style.padding = '4px 0';
+      li.style.padding = '6px 0';
+      li.style.overflow = 'hidden'; // Ensures the flex child doesn't overflow container
       li.onclick = () => window.location.href = `profile.html?user=${friend.username}`;
 
-      // Show dynamic images (fallback to pravatar with user ID if none uploaded)
       const friendAvatar = friend.profilePicture || `https://i.pravatar.cc/40?u=${encodeURIComponent(friend.uid)}`;
 
-      // Show usernames ONLY per requirement
       li.innerHTML = `
-        <img src="${friendAvatar}" alt="${friend.username}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
-        <span style="color: var(--text); font-weight: 500; font-size: 0.95rem;">${friend.username}</span>
+        <img src="${friendAvatar}" alt="${friend.username}" style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
+        <span style="color: var(--text); font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${friend.username}</span>
       `;
       friendsListEl.appendChild(li);
     });
+
+    if (friendsListEl.innerHTML === '') {
+       friendsListEl.innerHTML = '<li>No friends yet. Follow someone!</li>';
+    }
   } catch (err) {
     console.warn('Could not load friends list:', err);
     friendsListEl.innerHTML = '<li>Could not load friends.</li>';
