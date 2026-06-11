@@ -26,7 +26,16 @@
             <div class="sidebar-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 40px 20px;" id="profileInfo">
                 <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" alt="Profile" style="width: 120px; height: 120px; border-radius: 999px; object-fit: cover; border: 3px solid var(--primary);" />
                 <div>
-                    <h2 id="profileName" style="margin: 0 0 8px; font-size: 1.8rem; color: var(--text);">Loading...</h2>
+                    <div id="profileNameDisplay" style="display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 8px;">
+                      <h2 id="profileName" style="margin: 0; font-size: 1.8rem; color: var(--text);">Loading...</h2>
+                      <button id="profileEditBtn" onclick="toggleNameEdit(true)" style="display: none; background: none; border: none; cursor: pointer; font-size: 1.1rem; color: var(--muted);" title="Edit name">✏️</button>
+                    </div>
+                    <div id="profileNameEdit" style="display: none; gap: 8px; margin-bottom: 8px; justify-content: center; flex-wrap: wrap;">
+                      <input type="text" id="editFirstName" placeholder="First name" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 130px;" />
+                      <input type="text" id="editLastName" placeholder="Last name" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 130px;" />
+                      <button onclick="saveProfileName()" class="action-pill active" style="padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;">Save</button>
+                      <button onclick="toggleNameEdit(false)" class="action-pill" style="padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer;">Cancel</button>
+                    </div>
                     <span id="profileEmail" style="color: var(--muted); font-size: 1.1rem;">@loading</span>
                 </div>
                 <p style="margin: 0; max-width: 500px; line-height: 1.6;">Triathlon enthusiast sharing training progress.</p>
@@ -268,7 +277,10 @@
 
       async function updateProfileSidebar() {
         const uid = sessionStorage.getItem('firebaseUid');
-        const name = sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
+        const pgFirstName = sessionStorage.getItem('pgFirstName');
+        const pgLastName = sessionStorage.getItem('pgLastName');
+        const pgFullName = [pgFirstName, pgLastName].filter(Boolean).join(' ');
+        const name = pgFullName || sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
         const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
         if (sidebarProfileCard) {
@@ -375,6 +387,58 @@
         }
       }
 
+      window.toggleNameEdit = function toggleNameEdit(show) {
+        const display = document.getElementById('profileNameDisplay');
+        const editForm = document.getElementById('profileNameEdit');
+        if (show) {
+          display.style.display = 'none';
+          editForm.style.display = 'flex';
+        } else {
+          display.style.display = 'flex';
+          editForm.style.display = 'none';
+        }
+      };
+
+      window.saveProfileName = async function saveProfileName() {
+        const sessionUid = sessionStorage.getItem('firebaseUid');
+        if (!sessionUid) return;
+
+        const firstName = document.getElementById('editFirstName').value.trim();
+        const lastName = document.getElementById('editLastName').value.trim();
+
+        if (!firstName || !lastName) {
+          alert('First and last name cannot be empty.');
+          return;
+        }
+
+        try {
+          const authHeaders = await getAuthHeaders();
+          const res = await fetch(`/api/users/${sessionUid}/profile`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
+            body: JSON.stringify({ firstName, lastName })
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Status: ${res.status}`);
+          }
+
+          const data = await res.json();
+          const updatedUser = data.user || {};
+          const fullName = [updatedUser.firstName, updatedUser.lastName].filter(Boolean).join(' ');
+
+          document.getElementById('profileName').textContent = fullName || firstName + ' ' + lastName;
+          sessionStorage.setItem('pgFirstName', updatedUser.firstName || firstName);
+          sessionStorage.setItem('pgLastName', updatedUser.lastName || lastName);
+
+          toggleNameEdit(false);
+          updateProfileSidebar();
+        } catch (err) {
+          alert(`Could not update name: ${err.message}`);
+        }
+      };
+
       async function loadUserProfile() {
         const profileName = document.getElementById('profileName');
         const profileEmail = document.getElementById('profileEmail');
@@ -423,9 +487,23 @@
           const profileRes = await fetch(`/api/users/${targetUid}/profile`);
           if (profileRes.ok) {
             const profileData = await profileRes.json();
-            profileName.textContent = profileData.username || 'Athlete';
+            const fullName = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
+            profileName.textContent = fullName || profileData.username || 'Athlete';
             profileEmail.textContent = '@' + (profileData.email ? profileData.email.split('@')[0] : 'athlete');
             profileAvatar.src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+
+            const editFirstName = document.getElementById('editFirstName');
+            const editLastName = document.getElementById('editLastName');
+            if (editFirstName) editFirstName.value = profileData.firstName || '';
+            if (editLastName) editLastName.value = profileData.lastName || '';
+
+            if (sessionUid && targetUid === sessionUid) {
+              sessionStorage.setItem('pgFirstName', profileData.firstName || '');
+              sessionStorage.setItem('pgLastName', profileData.lastName || '');
+              const editBtn = document.getElementById('profileEditBtn');
+              if (editBtn) editBtn.style.display = 'inline-block';
+              updateProfileSidebar();
+            }
           } else {
             profileName.textContent = 'Athlete Profile';
             profileEmail.textContent = '@athlete';
