@@ -110,28 +110,28 @@ app.delete('/api/workouts/:workoutId', async (req: Request, res: Response) => {
 
 app.post('/api/plans', async (req: Request, res: Response) => {
   try {
-    const r = await axios.post(`${SERVICES.training}/plans`, req.body);
+    const r = await axios.post(`${SERVICES.social}/plans`, req.body);
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
 app.get('/api/plans/:userId', async (req: Request, res: Response) => {
   try {
-    const r = await axios.get(`${SERVICES.training}/plans/${req.params.userId}`);
+    const r = await axios.get(`${SERVICES.social}/plans/${req.params.userId}`);
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
 app.get('/api/plans/:userId/:planId', async (req: Request, res: Response) => {
   try {
-    const r = await axios.get(`${SERVICES.training}/plans/${req.params.userId}/${req.params.planId}`);
+    const r = await axios.get(`${SERVICES.social}/plans/${req.params.userId}/${req.params.planId}`);
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
 app.put('/api/plans/:planId', async (req: Request, res: Response) => {
   try {
-    const r = await axios.put(`${SERVICES.training}/plans/${req.params.planId}`, req.body);
+    const r = await axios.put(`${SERVICES.social}/plans/${req.params.planId}`, req.body);
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });

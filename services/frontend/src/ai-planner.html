@@ -334,17 +334,15 @@
       if (!uid) return;
 
       try {
-        if (!isFirebaseReady()) return;
-
-        const firestoreDb = firebase.firestore();
-        const snapshot = await firestoreDb.collection('users').doc(uid).collection('plans')
-          .orderBy('createdAt', 'desc')
-          .get();
-
-        const plans = [];
-        snapshot.forEach(doc => {
-          plans.push(doc.data());
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(`/api/plans/${uid}`, {
+          headers: authHeaders
         });
+        if (!res.ok) {
+          throw new Error(`Failed to load plans from backend. Status: ${res.status}`);
+        }
+        const data = await res.json();
+        const plans = data.plans || [];
 
         const recentPlansSection = document.getElementById('recentPlansSection');
         const recentPlansList = document.getElementById('recentPlansList');
@@ -368,7 +366,7 @@
           recentPlansSection.style.display = 'none';
         }
       } catch (err) {
-        console.error('Failed to load recent plans from Firestore:', err);
+        console.error('Failed to load recent plans:', err);
       }
     }
 
@@ -527,30 +525,34 @@
           throw new Error('Invalid response from AI plan generator.');
         }
 
-        // Save generated plan to Firebase NoSQL (Firestore)
-        if (!isFirebaseReady()) {
-          throw new Error('Firebase SDK is not ready.');
-        }
-
-        const firestoreDb = firebase.firestore();
-        const planRef = firestoreDb.collection('users').doc(uid).collection('plans').doc();
+        // Save generated plan to Firebase NoSQL (Firestore via Backend API)
         const planData = {
-          id: planRef.id,
-          userId: uid,
+          user_id: uid,
           name: goalName,
           target_distance_km: goalDistance,
           duration_weeks: planDuration,
           overview: data.overview,
-          weeks: data.weeks,
-          createdAt: new Date().toISOString()
+          weeks: data.weeks
         };
 
-        await planRef.set(planData);
+        const saveRes = await fetch('/api/plans', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify(planData)
+        });
+
+        if (!saveRes.ok) {
+          const errBody = await saveRes.json().catch(() => ({}));
+          throw new Error(errBody.error || `Failed to save plan. Status: ${saveRes.status}`);
+        }
+
+        const savedData = await saveRes.json();
+        const savedPlan = savedData.plan;
 
         // Render the plan
-        renderPlanDetails(planData);
+        renderPlanDetails(savedPlan);
 
-        // Refresh plans list from Firestore
+        // Refresh plans list
         loadRecentPlans();
 
       } catch (err) {

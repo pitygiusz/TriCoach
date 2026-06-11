@@ -576,6 +576,77 @@ app.get('/posts/:postId/comments', async (req: Request, res: Response) => {
   }
 });
 
+// Create a plan
+app.post('/plans', async (req: Request, res: Response) => {
+  try {
+    const { user_id, name, target_distance_km, duration_weeks, overview, weeks } = req.body;
+
+    if (!user_id || !name || !target_distance_km || !duration_weeks || !weeks) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    const planRef = db.collection('users').doc(user_id).collection('plans').doc();
+    const planData = {
+      id: planRef.id,
+      userId: user_id,
+      name,
+      target_distance_km,
+      duration_weeks,
+      overview,
+      weeks,
+      createdAt: new Date().toISOString(),
+    };
+
+    await planRef.set(planData);
+
+    res.status(201).json({
+      message: 'Training plan created successfully',
+      plan: planData,
+    });
+  } catch (error: any) {
+    console.error('Create plan error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
+// Get user's plans
+app.get('/plans/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const snapshot = await db.collection('users').doc(userId).collection('plans')
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const plans = snapshot.docs.map(doc => doc.data());
+
+    res.status(200).json({
+      total: plans.length,
+      plans,
+    });
+  } catch (error: any) {
+    console.error('Get plans error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
+// Get specific plan
+app.get('/plans/:userId/:planId', async (req: Request, res: Response) => {
+  try {
+    const { userId, planId } = req.params;
+    const doc = await db.collection('users').doc(userId).collection('plans').doc(planId).get();
+    if (!doc.exists) {
+      res.status(404).json({ error: 'Plan not found' });
+      return;
+    }
+    res.status(200).json(doc.data());
+  } catch (error: any) {
+    console.error('Get specific plan error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
 app.listen(Number(port), () => {
   console.log(` social service (admin sdk) running on port ${port}`);
 });
