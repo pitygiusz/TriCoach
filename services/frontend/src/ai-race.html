@@ -29,6 +29,20 @@
         </div>
       </header>
 
+      <!-- Recent Simulations Section -->
+      <section id="recentSimulationsSection" class="post-card" style="margin-bottom: 16px; display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <h3 style="margin: 0;">Your Saved Simulations</h3>
+          <button id="createNewSimulationBtn" class="action-pill" style="font-weight: bold; padding: 6px 12px; font-size: 0.85rem; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; display: none;">
+            ➕ New Simulation
+          </button>
+        </div>
+        <p style="color: var(--muted); margin-bottom: 12px; font-size: 0.9rem;">Select a saved prediction to view details, or run a new simulation below.</p>
+        <div id="recentSimulationsList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;">
+          <!-- Simulation items will be rendered here -->
+        </div>
+      </section>
+
       <section class="post-card" style="margin-bottom: 8px;">
         <h3>AI Race Simulator</h3>
         <p style="color: var(--muted); margin-bottom: 20px;">
@@ -80,6 +94,114 @@
     const runAiSimulationBtn = document.getElementById('runAiSimulationBtn');
     const aiResultArea = document.getElementById('aiResultArea');
 
+    // ─── Recent Simulations Loading & Selection (NoSQL / Firestore) ───────────
+    async function loadRecentSimulations() {
+      const uid = getCurrentUserId();
+      if (!uid) return;
+
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(`/api/race/simulations/${uid}`, {
+          headers: authHeaders
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to load simulations. Status: ${res.status}`);
+        }
+        const data = await res.json();
+        const simulations = data.simulations || [];
+
+        const recentSimulationsSection = document.getElementById('recentSimulationsSection');
+        const recentSimulationsList = document.getElementById('recentSimulationsList');
+
+        if (simulations.length > 0) {
+          recentSimulationsSection.style.display = 'block';
+          recentSimulationsList.innerHTML = simulations.map(sim => {
+            const dateStr = sim.createdAt ? new Date(sim.createdAt).toLocaleDateString(undefined, { dateStyle: 'short' }) : 'Saved';
+            return `
+              <div class="simulation-item-card" data-sim-id="${sim.id}" onclick="selectSimulation(${JSON.stringify(sim).replace(/"/g, '&quot;')})" style="padding: 14px; background: var(--surface-strong); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s; min-height: 80px;">
+                <div>
+                  <strong style="display: block; color: var(--text); font-size: 0.95rem; margin-bottom: 4px;">${sim.race_type.toUpperCase()} Prediction</strong>
+                  <span style="color: var(--muted); font-size: 0.85rem;">Time: ${sim.prediction.formatted_time || (sim.prediction.total_time_minutes + 'm')} (${dateStr})</span>
+                </div>
+                <span style="font-size: 0.8rem; margin-top: 8px; color: var(--primary); display: flex; align-items: center; gap: 4px; font-weight: 500;">
+                  ⚡ Click to view details
+                </span>
+              </div>
+            `;
+          }).join('');
+        } else {
+          recentSimulationsSection.style.display = 'none';
+        }
+      } catch (err) {
+        console.error('Failed to load simulations:', err);
+      }
+    }
+
+    window.selectSimulation = function selectSimulation(sim) {
+      // Highlight selected card
+      document.querySelectorAll('.simulation-item-card').forEach(card => {
+        if (card.getAttribute('data-sim-id') === sim.id) {
+          card.style.borderColor = 'var(--primary)';
+          card.style.background = 'var(--surface)';
+        } else {
+          card.style.borderColor = 'var(--border)';
+          card.style.background = 'var(--surface-strong)';
+        }
+      });
+
+      // Show create new button
+      document.getElementById('createNewSimulationBtn').style.display = 'inline-block';
+
+      // Update form select field
+      raceTypeSelect.value = sim.race_type;
+
+      // Render simulation details in the result area
+      renderSimulationDetails(sim.race_type, sim.prediction, sim.distances);
+    };
+
+    window.createNewSimulation = function createNewSimulation() {
+      raceTypeSelect.value = 'olympic';
+      document.getElementById('createNewSimulationBtn').style.display = 'none';
+
+      document.querySelectorAll('.simulation-item-card').forEach(card => {
+        card.style.borderColor = 'var(--border)';
+        card.style.background = 'var(--surface-strong)';
+      });
+
+      aiResultArea.innerHTML = `
+        <div class="empty-state">Select a race type and run the simulation.</div>
+      `;
+    };
+
+    document.getElementById('createNewSimulationBtn').addEventListener('click', createNewSimulation);
+
+    function renderSimulationDetails(raceType, pred, dist) {
+      aiResultArea.innerHTML = `
+        <article class="post-card" style="border-left: 5px solid var(--primary);">
+          <header>
+            <div style="font-size: 2.5rem; margin-right: 12px;">🏆</div>
+            <div class="post-author">
+              <strong>Simulation Success</strong>
+              <span>Target: ${raceType.toUpperCase()}</span>
+            </div>
+          </header>
+          
+          <h2 style="font-size: 2.2rem; color: var(--text); margin-bottom: 12px;">
+            Predicted Time: <span style="color: var(--primary);">${pred.formatted_time || (pred.total_time_minutes + ' mins')}</span>
+          </h2>
+
+          <p style="color: var(--muted); margin-bottom: 20px; font-size: 0.95rem;">
+            Distance Details: Swim ${dist.swim}km · Bike ${dist.bike}km · Run ${dist.run}km
+          </p>
+
+          <div style="background: var(--surface-strong); border-radius: 16px; padding: 18px; line-height: 1.8;">
+            <strong style="color: var(--primary); display: block; margin-bottom: 8px;">📋 AI Coach Analysis:</strong>
+            <p style="margin: 0; font-size: 1.05rem;">${pred.ai_analysis}</p>
+          </div>
+        </article>
+      `;
+    }
+
     // ─── Run AI Simulation ────────────────────────────────────────────────────
     runAiSimulationBtn.addEventListener('click', async () => {
       const uid = getCurrentUserId();
@@ -120,30 +242,26 @@
         const pred = data.ai_prediction;
         const dist = data.distances;
 
-        aiResultArea.innerHTML = `
-          <article class="post-card" style="border-left: 5px solid var(--primary);">
-            <header>
-              <div style="font-size: 2.5rem; margin-right: 12px;">🏆</div>
-              <div class="post-author">
-                <strong>Simulation Success</strong>
-                <span>Target: ${data.race_type.toUpperCase()}</span>
-              </div>
-            </header>
-            
-            <h2 style="font-size: 2.2rem; color: var(--text); margin-bottom: 12px;">
-              Predicted Time: <span style="color: var(--primary);">${pred.formatted_time || (pred.total_time_minutes + ' mins')}</span>
-            </h2>
+        renderSimulationDetails(raceType, pred, dist);
 
-            <p style="color: var(--muted); margin-bottom: 20px; font-size: 0.95rem;">
-              Distance Details: Swim ${dist.swim}km · Bike ${dist.bike}km · Run ${dist.run}km
-            </p>
+        // Save generated simulation to Firebase NoSQL (Firestore via API)
+        const simData = {
+          user_id: uid,
+          race_type: raceType,
+          prediction: pred,
+          distances: dist
+        };
 
-            <div style="background: var(--surface-strong); border-radius: 16px; padding: 18px; line-height: 1.8;">
-              <strong style="color: var(--primary); display: block; margin-bottom: 8px;">📋 AI Coach Analysis:</strong>
-              <p style="margin: 0; font-size: 1.05rem;">${pred.ai_analysis}</p>
-            </div>
-          </article>
-        `;
+        const saveRes = await fetch('/api/race/simulations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify(simData)
+        });
+
+        if (saveRes.ok) {
+          loadRecentSimulations();
+        }
+
       } catch (err) {
         aiResultArea.innerHTML = `
           <div class="error-state">
@@ -166,9 +284,11 @@
           window.location.replace('login.html');
         }
         updateProfileSidebar();
+        loadRecentSimulations();
       });
     } else {
       updateProfileSidebar();
+      loadRecentSimulations();
     }
   </script>
 </body>

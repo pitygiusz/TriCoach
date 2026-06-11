@@ -575,7 +575,7 @@ async function fetchFriendsList(uid) {
       li.style.cursor = 'pointer';
       li.style.padding = '6px 0';
       li.style.overflow = 'hidden'; // Ensures the flex child doesn't overflow container
-      li.onclick = () => window.location.href = `profile.html?user=${friend.username}`;
+      li.onclick = () => window.location.href = `profile.html?uid=${friend.uid}`;
 
       const friendAvatar = friend.profilePicture || `https://i.pravatar.cc/40?u=${encodeURIComponent(friend.uid)}`;
 

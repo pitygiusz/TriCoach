@@ -208,7 +208,7 @@
         li.style.gap = '10px';
         li.style.cursor = 'pointer';
         li.style.padding = '4px 0';
-        li.onclick = () => window.location.href = `profile.html?user=${friend.username}`;
+        li.onclick = () => window.location.href = `profile.html?uid=${friend.uid}`;
 
         const friendAvatar = friend.profilePicture || `https://i.pravatar.cc/40?u=${encodeURIComponent(friend.uid)}`;
 
@@ -263,15 +263,7 @@
 
     const profileAuthButtons = document.getElementById('profileAuthButtons');
     if (profileAuthButtons) {
-      if (uid) {
-        profileAuthButtons.innerHTML = `
-          <button onclick="logoutUser()" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🚪 Logout</button>
-        `;
-      } else {
-        profileAuthButtons.innerHTML = `
-          <button onclick="window.location.href='index.html'" style="flex: 1; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--gold); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🔑 Log In</button>
-        `;
-      }
+      profileAuthButtons.innerHTML = '';
     }
 
     if (uid) {

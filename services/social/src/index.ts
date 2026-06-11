@@ -647,6 +647,59 @@ app.get('/plans/:userId/:planId', async (req: Request, res: Response) => {
   }
 });
 
+// Create a simulation
+app.post('/simulations', async (req: Request, res: Response) => {
+  try {
+    const { user_id, race_type, prediction, distances } = req.body;
+
+    if (!user_id || !race_type || !prediction || !distances) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    const simRef = db.collection('users').doc(user_id).collection('simulations').doc();
+    const simData = {
+      id: simRef.id,
+      userId: user_id,
+      race_type,
+      prediction,
+      distances,
+      createdAt: new Date().toISOString(),
+    };
+
+    await simRef.set(simData);
+
+    res.status(201).json({
+      message: 'Simulation saved successfully',
+      simulation: simData,
+    });
+  } catch (error: any) {
+    console.error('Create simulation error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
+// Get user's simulations
+app.get('/simulations/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const snapshot = await db.collection('users').doc(userId).collection('simulations')
+      .orderBy('createdAt', 'desc')
+      .get();
+
+    const simulations = snapshot.docs.map(doc => doc.data());
+
+    res.status(200).json({
+      total: simulations.length,
+      simulations,
+    });
+  } catch (error: any) {
+    console.error('Get simulations error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
 app.listen(Number(port), () => {
   console.log(` social service (admin sdk) running on port ${port}`);
 });
