@@ -45,7 +45,16 @@
       margin-bottom: 12px;
     }
 
+    /* Wrap the follow button immediately when the sidebar hides on mobile screens */
     @media (max-width: 640px) {
+      .friends-search-row {
+        flex-direction: column;
+      }
+      .friends-search-row input,
+      .friends-search-row button {
+        width: 100%;
+      }
+
       /* Sliding sidebar correctly sliding in from the right edge */
       .sidebar {
         position: fixed;
@@ -98,18 +107,6 @@
         object-fit: cover;
       }
     }
-
-    @media (max-width: 340px) {
-      .friends-search-row {
-        flex-direction: column;
-      }
-      .friends-search-row input {
-        width: 100%;
-      }
-      .friends-search-row button {
-        width: 100%;
-      }
-    }
   </style>
 </head>
 <body>
@@ -126,7 +123,7 @@
                 </button>
             </header>
             
-            <div style="display: flex; flex-direction: column; gap: 20px; padding: 40px 30px; width: 100%;">
+            <div style="display: flex; flex-direction: column; gap: 20px; padding: 40px 30px 15px 30px; width: 100%;">
                 
                 <div style="display: flex; width: 100%; align-items: flex-start; gap: 20px;">
                     
@@ -176,14 +173,16 @@
 
                 <div class="action-bar" style="justify-content: center; gap: 12px; align-items: center;" id="profileActionBar">
                     <div class="action-pill"><strong id="postCount">0</strong> Posts</div>
-                    <div class="action-pill"><strong id="followingCount">0</strong> Following</div>
-                    <div class="action-pill"><strong id="followersCount">0</strong> Followers</div>
+                    <div class="action-pill" style="cursor: pointer;" onclick="openUserListModal('following')"><strong id="followingCount">0</strong> Following</div>
+                    <div class="action-pill" style="cursor: pointer;" onclick="openUserListModal('followers')"><strong id="followersCount">0</strong> Followers</div>
                     <button id="profileFollowBtn" class="action-pill active" style="display: none; margin: 0;"></button>
                 </div>
             </div>
+
+            <div style="height: 1px; background-color: var(--accent, #f97316); margin: 0 30px; opacity: 0.4;"></div>
             
-            <main class="feed" style="padding: 20px;">
-                <h3 style="margin-bottom: 15px;">User's Posts</h3>
+            <main class="feed" style="padding: 20px 30px;">
+                <h3 style="margin-bottom: 15px;">User Posts</h3>
                 <div class="posts-container" id="userPosts">
                     <div class="empty-state">Loading posts...</div>
                 </div>
@@ -275,7 +274,24 @@
       </div>
     </div>
 
+    <div id="userListModal" class="modal-overlay hidden">
+      <div class="modal-content" style="max-width: 400px;">
+        <header class="modal-header">
+          <h2 id="userListModalTitle">Users</h2>
+          <button onclick="closeUserListModal()" class="menu-close" aria-label="Close">×</button>
+        </header>
+        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+          <ul id="userListModalUl" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
+            </ul>
+        </div>
+      </div>
+    </div>
+
     <script>
+      // Global trackers for follow lists
+      window.__currentFollowingIds = [];
+      window.__currentFollowerIds = [];
+
       // -----------------------------
       // FIREBASE & API INITIALIZATION
       // -----------------------------
@@ -497,7 +513,7 @@
                     const friendAvatar = friend.profilePicture || `https://i.pravatar.cc/40?u=${encodeURIComponent(friend.uid)}`;
                     return `<li style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${friend.uid}'">
                       <img src="${friendAvatar}" alt="${friend.username}" style="width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
-                      <span class="truncate-text" style="color: var(--text); font-weight: 500;">@${friend.username}</span>
+                      <span class="truncate-text" style="color: var(--text); font-weight: 500;">${friend.username}</span>
                     </li>`;
                   }).join('');
                 } else {
@@ -512,25 +528,94 @@
         try {
           const followingRes = await fetch(`/api/following/${uid}`);
           const followersRes = await fetch(`/api/followers/${uid}`);
-          
-          let followingCount = 0;
-          let followersCount = 0;
 
           if (followingRes.ok) {
             const data = await followingRes.json();
-            followingCount = (data.following || []).length;
+            window.__currentFollowingIds = data.following || [];
+            document.getElementById('followingCount').textContent = window.__currentFollowingIds.length;
           }
           
           if (followersRes.ok) {
             const data = await followersRes.json();
-            followersCount = (data.followers || []).length;
+            window.__currentFollowerIds = data.followers || [];
+            document.getElementById('followersCount').textContent = window.__currentFollowerIds.length;
           }
 
-          document.getElementById('followingCount').textContent = followingCount;
-          document.getElementById('followersCount').textContent = followersCount;
         } catch (err) {
           console.error('Error loading follow details:', err);
         }
+      }
+
+      // -----------------------------
+      // POPUP LISTS FOR FOLLOWERS/FOLLOWING
+      // -----------------------------
+      window.openUserListModal = async function(type) {
+        const modal = document.getElementById('userListModal');
+        const titleEl = document.getElementById('userListModalTitle');
+        const ulEl = document.getElementById('userListModalUl');
+        
+        modal.classList.remove('hidden');
+        titleEl.textContent = type === 'following' ? 'Following' : 'Followers';
+        ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">Loading profiles...</li>';
+
+        const list = type === 'following' ? window.__currentFollowingIds : window.__currentFollowerIds;
+        
+        if (!list || list.length === 0) {
+            ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">No users found.</li>';
+            return;
+        }
+
+        try {
+            // Extract the user IDs from the lists safely depending on backend structure
+            const uids = list.map(item => item.followingId || item.followerId || item.uid || item.id).filter(Boolean);
+            
+            // Fetch profile data individually for mapping visual cards
+            const userHtmlPromises = uids.map(async (uid) => {
+                try {
+                    const res = await fetch(`/api/users/${uid}/profile`);
+                    if (!res.ok) return null;
+                    const u = await res.json();
+                    
+                    const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Athlete';
+                    const handle = u.username ? '@' + u.username : '@' + uid.substring(0,8);
+                    const avatar = u.profilePicture || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid)}`;
+                    
+                    return `
+                        <li style="display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); cursor: pointer; transition: background 0.2s;" onclick="window.location.href='profile.html?uid=${uid}'" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--surface-strong)'">
+                            <img src="${avatar}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
+                            <div style="flex: 1; min-width: 0;">
+                                <strong style="display: block; font-size: 0.95rem; color: var(--text);" class="truncate-text">${name}</strong>
+                                <span style="display: block; font-size: 0.85rem; color: var(--muted);" class="truncate-text">${handle}</span>
+                            </div>
+                        </li>
+                    `;
+                } catch (e) { return null; }
+            });
+
+            const htmls = await Promise.all(userHtmlPromises);
+            const validHtmls = htmls.filter(Boolean);
+            
+            if (validHtmls.length > 0) {
+                ulEl.innerHTML = validHtmls.join('');
+            } else {
+                ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">Could not load details for these users.</li>';
+            }
+
+        } catch (err) {
+            ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">Error loading users.</li>';
+        }
+      };
+
+      window.closeUserListModal = function() {
+        document.getElementById('userListModal').classList.add('hidden');
+      };
+
+      // Close modal on outside click
+      const userListModalEl = document.getElementById('userListModal');
+      if (userListModalEl) {
+        userListModalEl.addEventListener('click', (e) => {
+          if (e.target === userListModalEl) closeUserListModal();
+        });
       }
 
       // -----------------------------
