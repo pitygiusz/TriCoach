@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TriCoach - Achievements</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+
+  <style>
+    .achievements-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .achievement-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: var(--shadow);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .achievement-card.locked {
+      opacity: 0.6;
+      background: rgba(31, 41, 51, 0.5);
+    }
+
+    .achievement-card.unlocked {
+      border-color: var(--primary);
+      box-shadow: 0 0 15px rgba(249, 115, 22, 0.15);
+    }
+
+    .achievement-card.unlocked::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 40px;
+      height: 40px;
+      background: var(--primary);
+      clip-path: polygon(100% 0, 0 0, 100% 100%);
+    }
+
+    .badge-icon {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      display: inline-block;
+    }
+
+    .achievement-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0 0 6px;
+    }
+
+    .achievement-desc {
+      font-size: 0.9rem;
+      color: var(--muted);
+      margin: 0 0 16px;
+      line-height: 1.4;
+    }
+
+    .achievement-status {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-unlocked {
+      color: #10b981;
+    }
+
+    .status-locked {
+      color: var(--muted);
+    }
+
+    .progress-bar-container {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      height: 6px;
+      width: 100%;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 999px;
+      width: 0%;
+      transition: width 0.5s ease-out;
+    }
+
+    .category-header {
+      margin-top: 32px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 8px;
+    }
+
+    .category-header h2 {
+      margin: 0;
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .stats-banner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 20px;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      text-align: center;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .stats-banner-item strong {
+      display: block;
+      font-size: 2rem;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .stats-banner-item span {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="main-area">
+      <header class="topbar">
+        <button onclick="window.location.href='index.html'" class="hamburger" aria-label="Go back">←</button>
+        <div class="title-group">
+          <span class="app-label">TriCoach</span>
+          <h1>My Achievements</h1>
+        </div>
+      </header>
+
+      <!-- Stats Banner -->
+      <div class="stats-banner">
+        <div class="stats-banner-item">
+          <strong id="unlockedCount">0/15</strong>
+          <span>Unlocked</span>
+        </div>
+        <div class="stats-banner-item">
+          <strong id="runProgress">0%</strong>
+          <span>Running Progress</span>
+        </div>
+        <div class="stats-banner-item">
+          <strong id="bikeProgress">0%</strong>
+          <span>Cycling Progress</span>
+        </div>
+        <div class="stats-banner-item">
+          <strong id="swimProgress">0%</strong>
+          <span>Swimming Progress</span>
+        </div>
+      </div>
+
+      <!-- Swim Achievements -->
+      <div class="category-header">
+        <span style="font-size: 1.5rem;">🏊</span>
+        <h2>Swimming Goals</h2>
+      </div>
+      <div id="swimGrid" class="achievements-grid"></div>
+
+      <!-- Bike Achievements -->
+      <div class="category-header">
+        <span style="font-size: 1.5rem;">🚴</span>
+        <h2>Cycling Goals</h2>
+      </div>
+      <div id="bikeGrid" class="achievements-grid"></div>
+
+      <!-- Run Achievements -->
+      <div class="category-header">
+        <span style="font-size: 1.5rem;">🏃</span>
+        <h2>Running Goals</h2>
+      </div>
+      <div id="runGrid" class="achievements-grid"></div>
+    </div>
+
+    <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
+    <aside class="sidebar" id="sidebarHid"></aside>
+  </div>
+
+  <script src="shell.js"></script>
+  <script>
+    try {
+      if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+        const config = window.__FIREBASE_CONFIG__;
+        if (config && config.apiKey) {
+          firebase.initializeApp(config);
+        } else {
+          console.warn('🔥 Firebase config missing or incomplete');
+        }
+      }
+    } catch (e) {
+      console.warn('🔥 Firebase init error:', e.message);
+    }
+
+    // ─── Achievements definitions & calculation ──────────────────────────────
+    const ACHIEVEMENT_DEFINITIONS = [
+      // SWIM
+      { id: 'swim_500m', type: 'swim', target: 0.5, title: 'Swim 500m', description: 'Log a swim of 0.5 km or more', icon: '🏊' },
+      { id: 'swim_1k', type: 'swim', target: 1.0, title: 'Swim 1K', description: 'Log a swim of 1 km or more', icon: '🏊' },
+      { id: 'swim_1_5k', type: 'swim', target: 1.5, title: 'Olympic Swim', description: 'Log a swim of 1.5 km or more', icon: '🏊' },
+      { id: 'swim_1_9k', type: 'swim', target: 1.9, title: 'Half Ironman Swim', description: 'Log a swim of 1.9 km or more', icon: '🎖️' },
+      { id: 'swim_3_8k', type: 'swim', target: 3.8, title: 'Ironman Swim', description: 'Log a swim of 3.8 km or more', icon: '🏆' },
+
+      // BIKE
+      { id: 'bike_10k', type: 'ride', target: 10.0, title: 'Bike 10K', description: 'Log a ride of 10 km or more', icon: '🚴' },
+      { id: 'bike_20k', type: 'ride', target: 20.0, title: 'Bike 20K', description: 'Log a ride of 20 km or more', icon: '🚴' },
+      { id: 'bike_40k', type: 'ride', target: 40.0, title: 'Bike 40K', description: 'Log a ride of 40 km or more', icon: '🚴' },
+      { id: 'bike_90k', type: 'ride', target: 90.0, title: 'Half Ironman Ride', description: 'Log a ride of 90 km or more', icon: '🎖️' },
+      { id: 'bike_180k', type: 'ride', target: 180.0, title: 'Ironman Ride', description: 'Log a ride of 180 km or more', icon: '🏆' },
+
+      // RUN
+      { id: 'run_1k', type: 'run', target: 1.0, title: 'Run 1K', description: 'Log a run of 1 km or more', icon: '🏃' },
+      { id: 'run_5k', type: 'run', target: 5.0, title: 'Run 5K', description: 'Log a run of 5 km or more', icon: '🏃' },
+      { id: 'run_10k', type: 'run', target: 10.0, title: 'Run 10K', description: 'Log a run of 10 km or more', icon: '🏃' },
+      { id: 'run_21k', type: 'run', target: 21.0, title: 'Half Marathon', description: 'Log a run of 21 km or more', icon: '🎖️' },
+      { id: 'run_42k', type: 'run', target: 42.0, title: 'Marathon', description: 'Log a run of 42 km or more', icon: '🏆' }
+    ];
+
+    async function loadAchievements() {
+      const uid = getCurrentUserId();
+      if (!uid) return;
+
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(`/api/workouts/${uid}?limit=500`, {
+          headers: authHeaders
+        });
+        if (!res.ok) throw new Error('Failed to load workouts');
+        
+        const data = await res.json();
+        const workouts = data.workouts || [];
+
+        // Group workouts by type and find best distance
+        const bestDistances = {
+          swim: 0,
+          ride: 0,
+          run: 0
+        };
+
+        // Date of achievement unlock
+        const unlockDates = {};
+
+        workouts.forEach(w => {
+          const type = w.type.toLowerCase();
+          const dist = parseFloat(w.distance_km) || 0;
+          
+          let category = '';
+          if (type === 'swim') category = 'swim';
+          else if (type === 'ride' || type === 'bike' || type === 'cycling') category = 'ride';
+          else if (type === 'run') category = 'run';
+
+          if (category) {
+            if (dist > bestDistances[category]) {
+              bestDistances[category] = dist;
+            }
+
+            // Find all achievements that are unlocked by this workout and record the earliest unlock date
+            ACHIEVEMENT_DEFINITIONS.forEach(ach => {
+              if (ach.type === category && dist >= ach.target) {
+                const wDate = new Date(w.timestamp);
+                if (!unlockDates[ach.id] || wDate < new Date(unlockDates[ach.id])) {
+                  unlockDates[ach.id] = w.timestamp;
+                }
+              }
+            });
+          }
+        });
+
+        // Render grids
+        renderCategoryGrid('swimGrid', 'swim', bestDistances.swim, unlockDates);
+        renderCategoryGrid('bikeGrid', 'ride', bestDistances.ride, unlockDates);
+        renderCategoryGrid('runGrid', 'run', bestDistances.run, unlockDates);
+
+        // Update stats banner
+        const totalAchievements = ACHIEVEMENT_DEFINITIONS.length;
+        const unlockedCount = Object.keys(unlockDates).length;
+        document.getElementById('unlockedCount').textContent = `${unlockedCount}/${totalAchievements}`;
+
+        const swimAchTotal = ACHIEVEMENT_DEFINITIONS.filter(a => a.type === 'swim').length;
+        const swimAchUnlocked = ACHIEVEMENT_DEFINITIONS.filter(a => a.type === 'swim' && unlockDates[a.id]).length;
+        document.getElementById('swimProgress').textContent = `${Math.round((swimAchUnlocked / swimAchTotal) * 100)}%`;
+
+        const bikeAchTotal = ACHIEVEMENT_DEFINITIONS.filter(a => a.type === 'ride').length;
+        const bikeAchUnlocked = ACHIEVEMENT_DEFINITIONS.filter(a => a.type === 'ride' && unlockDates[a.id]).length;
+        document.getElementById('bikeProgress').textContent = `${Math.round((bikeAchUnlocked / bikeAchTotal) * 100)}%`;
+
+        const runAchTotal = ACHIEVEMENT_DEFINITIONS.filter(a => a.type === 'run').length;
+        const runAchUnlocked = ACHIEVEMENT_DEFINITIONS.filter(a => a.type === 'run' && unlockDates[a.id]).length;
+        document.getElementById('runProgress').textContent = `${Math.round((runAchUnlocked / runAchTotal) * 100)}%`;
+
+      } catch (err) {
+        console.error('Error calculating achievements:', err);
+      }
+    }
+
+    function renderCategoryGrid(gridId, category, bestDistance, unlockDates) {
+      const grid = document.getElementById(gridId);
+      if (!grid) return;
+
+      const categoryAchievements = ACHIEVEMENT_DEFINITIONS.filter(ach => ach.type === category);
+
+      grid.innerHTML = categoryAchievements.map(ach => {
+        const isUnlocked = !!unlockDates[ach.id];
+        const unlockDate = isUnlocked ? new Date(unlockDates[ach.id]).toLocaleDateString() : '';
+        const progressPercentage = isUnlocked ? 100 : Math.min(100, (bestDistance / ach.target) * 100);
+        
+        let statusHtml = '';
+        if (isUnlocked) {
+          statusHtml = `<span class="achievement-status status-unlocked">✅ Unlocked on ${unlockDate}</span>`;
+        } else {
+          statusHtml = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span class="achievement-status status-locked">🔒 Locked</span>
+              <span style="font-size:0.8rem; color:var(--muted);">${bestDistance.toFixed(2)} / ${ach.target} km</span>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar" style="width: ${progressPercentage}%"></div>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="achievement-card ${isUnlocked ? 'unlocked' : 'locked'}">
+            <div>
+              <span class="badge-icon">${ach.icon}</span>
+              <h3 class="achievement-title">${ach.title}</h3>
+              <p class="achievement-desc">${ach.description}</p>
+            </div>
+            <div>
+              ${statusHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ─── Bootstrap ────────────────────────────────────────────────────────────
+    if (isFirebaseReady()) {
+      firebase.auth().onAuthStateChanged(function(user) {
+        if (user) {
+          sessionStorage.setItem('firebaseUid', user.uid);
+          sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
+          sessionStorage.setItem('firebaseEmail', user.email);
+        } else {
+          sessionStorage.clear();
+          window.location.replace('login.html');
+        }
+        updateProfileSidebar();
+        loadAchievements();
+      });
+    } else {
+      updateProfileSidebar();
+      loadAchievements();
+    }
+  </script>
+</body>
+</html>
