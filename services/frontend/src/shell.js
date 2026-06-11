@@ -2,6 +2,7 @@
 (function() {
   // 1. Inject sidebar HTML when DOM is ready
   document.addEventListener('DOMContentLoaded', () => {
+    injectSidebarStyles();
     const sidebar = document.getElementById('sidebarHid');
     if (sidebar) {
       sidebar.innerHTML = `
@@ -57,9 +58,8 @@
       `;
     }
 
-    // Set up the hamburger/toggle button for mobile if it exists on the page
-    const toggleBtn = document.getElementById('toggle');
-    const overlay = document.getElementById('overlay');
+    // Set up the hamburger/toggle button for mobile, creating it if it doesn't exist on the page
+    const { toggleBtn, overlay } = ensureSidebarToggle();
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => {
         const sidebarEl = document.getElementById('sidebarHid');
@@ -93,7 +93,92 @@
     }
   });
 
-  // 2. Define Shared Helper Functions on Window
+  // 1b. Ensure responsive sidebar styles + toggle/overlay exist on every page using shell.js
+  function injectSidebarStyles() {
+    if (document.getElementById('shellSidebarStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'shellSidebarStyles';
+    style.textContent = `
+      @media (max-width: 640px) {
+        .sidebar {
+          position: fixed;
+          top: 0;
+          right: -100%;
+          left: auto;
+          width: 280px;
+          height: 100vh;
+          z-index: 1000;
+          transition: right 0.3s ease;
+          background-color: var(--surface, #1e1e1e);
+          box-shadow: -2px 0 10px rgba(0,0,0,0.5);
+          overflow-y: auto;
+        }
+        .sidebar.open {
+          right: 0;
+        }
+        .overlay {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.5);
+          z-index: 999;
+          display: none;
+        }
+        .overlay.visible {
+          display: block;
+        }
+        .toggle-btn {
+          position: fixed !important;
+          bottom: 24px;
+          right: 24px;
+          z-index: 1001;
+          width: 56px;
+          height: 56px;
+          border-radius: 50%;
+          padding: 0;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+          border: 2px solid var(--accent, #f97316);
+          background: var(--surface);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+        }
+        .toggle-btn img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureSidebarToggle() {
+    let overlay = document.getElementById('overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'overlay';
+      overlay.className = 'overlay';
+      document.body.appendChild(overlay);
+    }
+
+    let toggleBtn = document.getElementById('toggle');
+    if (!toggleBtn) {
+      const topbar = document.querySelector('.topbar');
+      if (topbar) {
+        toggleBtn = document.createElement('button');
+        toggleBtn.id = 'toggle';
+        toggleBtn.className = 'toggle-btn';
+        toggleBtn.setAttribute('aria-label', 'Toggle sidebar');
+        const avatar = sessionStorage.getItem('pgAvatar') || 'https://i.pravatar.cc/48?img=47';
+        toggleBtn.innerHTML = `<img src="${avatar}" alt="Profile" id="toggleAvatar" />`;
+        topbar.appendChild(toggleBtn);
+      }
+    }
+
+    return { toggleBtn, overlay };
+  }
+
   window.isFirebaseReady = function() {
     try {
       return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
@@ -247,6 +332,9 @@
     }
 
     const avatar = avatarUrl || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
+
+    const toggleAvatar = document.getElementById('toggleAvatar');
+    if (toggleAvatar) toggleAvatar.src = avatar;
 
     const profileCard = document.getElementById('profileCard');
     if (profileCard) {
