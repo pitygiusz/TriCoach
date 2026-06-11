@@ -171,11 +171,12 @@ Total logged workouts: ${stats.total_workouts}.
 The distances for this race are: Swim ${distances.swim}km, Bike ${distances.bike}km, Run ${distances.run}km.
 
 Analyze this data. Take into account fatigue accumulation across disciplines and typical transition times (T1, T2).
+The "ai_analysis" description MUST be concise and contain at most 3 sentences.
 You MUST return the response ONLY as a valid JSON object without any markdown wrapping. Use the exact structure below:
 {
   "total_time_minutes": 150.5,
   "formatted_time": "2h 30m",
-  "ai_analysis": "A brief analysis of why this time is predicted, considering transitions and fatigue."
+  "ai_analysis": "A brief analysis of why this time is predicted, considering transitions and fatigue. Limit this to at most 3 sentences."
 }`;
 
     // Request prediction from OpenRouter (using Gemini Flash via OpenRouter for speed and low cost)

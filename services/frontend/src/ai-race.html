@@ -114,14 +114,18 @@
         const recentSimulationsList = document.getElementById('recentSimulationsList');
 
         if (simulations.length > 0) {
+          window.recentSimulations = simulations;
           recentSimulationsSection.style.display = 'block';
-          recentSimulationsList.innerHTML = simulations.map(sim => {
+          recentSimulationsList.innerHTML = simulations.map((sim, index) => {
             const dateStr = sim.createdAt ? new Date(sim.createdAt).toLocaleDateString(undefined, { dateStyle: 'short' }) : 'Saved';
+            const prediction = sim.prediction || {};
+            const formattedTime = prediction.formatted_time || (prediction.total_time_minutes ? prediction.total_time_minutes + 'm' : 'N/A');
+            const raceType = sim.race_type || 'olympic';
             return `
-              <div class="simulation-item-card" data-sim-id="${sim.id}" onclick="selectSimulation(${JSON.stringify(sim).replace(/"/g, '&quot;')})" style="padding: 14px; background: var(--surface-strong); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s; min-height: 80px;">
+              <div class="simulation-item-card" data-sim-id="${sim.id}" onclick="selectSimulationByIndex(${index})" style="padding: 14px; background: var(--surface-strong); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; justify-content: space-between; transition: all 0.2s; min-height: 80px;">
                 <div>
-                  <strong style="display: block; color: var(--text); font-size: 0.95rem; margin-bottom: 4px;">${sim.race_type.toUpperCase()} Prediction</strong>
-                  <span style="color: var(--muted); font-size: 0.85rem;">Time: ${sim.prediction.formatted_time || (sim.prediction.total_time_minutes + 'm')} (${dateStr})</span>
+                  <strong style="display: block; color: var(--text); font-size: 0.95rem; margin-bottom: 4px;">${raceType.toUpperCase()} Prediction</strong>
+                  <span style="color: var(--muted); font-size: 0.85rem;">Time: ${formattedTime} (${dateStr})</span>
                 </div>
                 <span style="font-size: 0.8rem; margin-top: 8px; color: var(--primary); display: flex; align-items: center; gap: 4px; font-weight: 500;">
                   ⚡ Click to view details
@@ -138,6 +142,7 @@
     }
 
     window.selectSimulation = function selectSimulation(sim) {
+      if (!sim) return;
       // Highlight selected card
       document.querySelectorAll('.simulation-item-card').forEach(card => {
         if (card.getAttribute('data-sim-id') === sim.id) {
@@ -159,6 +164,12 @@
       renderSimulationDetails(sim.race_type, sim.prediction, sim.distances);
     };
 
+    window.selectSimulationByIndex = function selectSimulationByIndex(index) {
+      if (window.recentSimulations && window.recentSimulations[index]) {
+        window.selectSimulation(window.recentSimulations[index]);
+      }
+    };
+
     window.createNewSimulation = function createNewSimulation() {
       raceTypeSelect.value = 'olympic';
       document.getElementById('createNewSimulationBtn').style.display = 'none';
@@ -176,27 +187,35 @@
     document.getElementById('createNewSimulationBtn').addEventListener('click', createNewSimulation);
 
     function renderSimulationDetails(raceType, pred, dist) {
+      const p = pred || {};
+      const d = dist || {};
+      const formattedTime = p.formatted_time || (p.total_time_minutes ? p.total_time_minutes + ' mins' : 'N/A');
+      const swimDist = d.swim !== undefined ? d.swim : 'N/A';
+      const bikeDist = d.bike !== undefined ? d.bike : 'N/A';
+      const runDist = d.run !== undefined ? d.run : 'N/A';
+      const aiAnalysis = p.ai_analysis || 'No analysis available.';
+
       aiResultArea.innerHTML = `
         <article class="post-card" style="border-left: 5px solid var(--primary);">
           <header>
             <div style="font-size: 2.5rem; margin-right: 12px;">🏆</div>
             <div class="post-author">
               <strong>Simulation Success</strong>
-              <span>Target: ${raceType.toUpperCase()}</span>
+              <span>Target: ${(raceType || 'olympic').toUpperCase()}</span>
             </div>
           </header>
           
           <h2 style="font-size: 2.2rem; color: var(--text); margin-bottom: 12px;">
-            Predicted Time: <span style="color: var(--primary);">${pred.formatted_time || (pred.total_time_minutes + ' mins')}</span>
+            Predicted Time: <span style="color: var(--primary);">${formattedTime}</span>
           </h2>
 
           <p style="color: var(--muted); margin-bottom: 20px; font-size: 0.95rem;">
-            Distance Details: Swim ${dist.swim}km · Bike ${dist.bike}km · Run ${dist.run}km
+            Distance Details: Swim ${swimDist}km · Bike ${bikeDist}km · Run ${runDist}km
           </p>
 
           <div style="background: var(--surface-strong); border-radius: 16px; padding: 18px; line-height: 1.8;">
             <strong style="color: var(--primary); display: block; margin-bottom: 8px;">📋 AI Coach Analysis:</strong>
-            <p style="margin: 0; font-size: 1.05rem;">${pred.ai_analysis}</p>
+            <p style="margin: 0; font-size: 1.05rem;">${aiAnalysis}</p>
           </div>
         </article>
       `;
