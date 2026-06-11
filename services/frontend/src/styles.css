@@ -283,6 +283,12 @@ button {
   border-radius: 18px;
 }
 
+#openCreateTrainingBtn {
+  border-radius: 18px;
+  background: #090714;
+  color: #ffffff;
+}
+
 .feed {
   display: grid;
 }
