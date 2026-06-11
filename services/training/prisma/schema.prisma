@@ -39,6 +39,8 @@ model User {
   age              Int?
   weight           Float?
   experienceLevel  Int      @default(1)
+  bio              String?
+  profilePicture   String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

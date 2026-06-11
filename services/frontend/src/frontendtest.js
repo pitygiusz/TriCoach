@@ -483,8 +483,6 @@ async function updateProfileSidebar() {
   const uid = sessionStorage.getItem('firebaseUid') || document.body.dataset.uid;
   let name = sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
   
-  const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
-
   // Grab live database info if logged in to avoid old session tokens
   if (uid && !sessionStorage.getItem('sidebarNameLoaded')) {
     try {
@@ -494,9 +492,12 @@ async function updateProfileSidebar() {
         name = `${uData.firstName} ${uData.lastName}`;
         sessionStorage.setItem('firebaseDisplayName', name);
         sessionStorage.setItem('sidebarNameLoaded', 'true');
+        sessionStorage.setItem('pgAvatar', uData.profilePicture || '');
       }
     } catch(e){}
   }
+
+  const avatar = sessionStorage.getItem('pgAvatar') || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
   const profileCard = document.getElementById('profileCard');
   if (profileCard) {

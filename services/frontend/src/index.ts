@@ -45,9 +45,15 @@ app.all('/api/*', async (req: Request, res: Response) => {
   const target = `${gatewayUrl}${req.path}${qs}`;
 
   try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (req.headers.authorization) {
+      headers['Authorization'] = req.headers.authorization;
+    }
     const opts: RequestInit = {
       method: req.method,
-      headers: { 'Content-Type': 'application/json' },
+      headers,
     };
     if (['POST', 'PUT', 'PATCH'].includes(req.method) && req.body) {
       opts.body = JSON.stringify(req.body);

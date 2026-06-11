@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
   <style>
     /* Added some utility classes for the text truncation */
     .truncate-text {
@@ -36,7 +37,11 @@
             <div class="sidebar-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 40px 20px;" id="profileInfo">
                 
                 <div style="display: flex; align-items: center; gap: 20px; width: 100%; max-width: 500px; justify-content: flex-start; text-align: left;">
-                    <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" alt="Profile" style="width: 100px; height: 100px; border-radius: 999px; object-fit: cover; border: 3px solid var(--primary); flex-shrink: 0;" />
+                    <div id="avatarContainer" style="position: relative; border-radius: 999px; overflow: hidden; width: 100px; height: 100px; border: 3px solid var(--primary); flex-shrink: 0; cursor: pointer;">
+                        <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" alt="Profile" style="width: 100%; height: 100%; object-fit: cover;" />
+                        <div id="avatarOverlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; text-align: center; pointer-events: none;">Change Photo</div>
+                        <input type="file" id="avatarFileInput" accept="image/*" style="display: none;" />
+                    </div>
                     
                     <div style="flex: 1; min-width: 0;">
                         <div id="profileNameDisplay" style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
@@ -328,7 +333,7 @@
         const pgFullName = [pgFirstName, pgLastName].filter(Boolean).join(' ');
         const name = pgFullName || sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
         const displayUsername = pgUsername ? '@' + pgUsername : (uid ? '@' + uid.substring(0, 8) : 'Not logged in');
-        const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
+        const avatar = sessionStorage.getItem('pgAvatar') || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
         if (sidebarProfileCard) {
           sidebarProfileCard.innerHTML = `
@@ -533,7 +538,7 @@
             
             document.getElementById('profileName').textContent = fullName || profileData.username || 'Athlete';
             document.getElementById('profileUsernameDisplay').textContent = '@' + (profileData.username || 'athlete');
-            document.getElementById('profileAvatar').src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+            document.getElementById('profileAvatar').src = profileData.profilePicture || `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
             
             // Bio
             document.getElementById('profileBioText').textContent = profileData.bio || 'Triathlon enthusiast sharing training progress.';
@@ -556,6 +561,7 @@
               sessionStorage.setItem('pgFirstName', profileData.firstName || '');
               sessionStorage.setItem('pgLastName', profileData.lastName || '');
               sessionStorage.setItem('pgUsername', profileData.username || '');
+              sessionStorage.setItem('pgAvatar', profileData.profilePicture || '');
               updateProfileSidebar();
             }
           }
@@ -587,6 +593,71 @@
         }
 
         updateProfileSidebar();
+      }
+
+      // Setup avatar upload listeners
+      const avatarContainer = document.getElementById('avatarContainer');
+      const avatarOverlay = document.getElementById('avatarOverlay');
+      const avatarFileInput = document.getElementById('avatarFileInput');
+
+      if (avatarContainer && avatarOverlay && avatarFileInput) {
+        avatarContainer.addEventListener('mouseenter', () => {
+          const sessionUid = sessionStorage.getItem('firebaseUid');
+          const urlParams = new URLSearchParams(window.location.search);
+          const targetUid = urlParams.get('uid') || sessionUid;
+          if (sessionUid && targetUid === sessionUid) {
+            avatarOverlay.style.display = 'flex';
+          }
+        });
+        avatarContainer.addEventListener('mouseleave', () => {
+          avatarOverlay.style.display = 'none';
+        });
+        avatarContainer.addEventListener('click', () => {
+          const sessionUid = sessionStorage.getItem('firebaseUid');
+          const urlParams = new URLSearchParams(window.location.search);
+          const targetUid = urlParams.get('uid') || sessionUid;
+          if (sessionUid && targetUid === sessionUid) {
+            avatarFileInput.click();
+          }
+        });
+
+        avatarFileInput.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const sessionUid = sessionStorage.getItem('firebaseUid');
+          if (!sessionUid) return;
+
+          try {
+            avatarOverlay.textContent = 'Uploading...';
+            avatarOverlay.style.display = 'flex';
+
+            // 1. Initialize storage and upload
+            if (!isFirebaseReady()) {
+              throw new Error('Firebase is not ready/initialized.');
+            }
+            const storage = firebase.storage();
+            const storageRef = storage.ref();
+            const fileRef = storageRef.child(`avatars/${sessionUid}/${Date.now()}_${file.name}`);
+            
+            await fileRef.put(file);
+            const downloadUrl = await fileRef.getDownloadURL();
+
+            // 2. Save profile picture URL in backend
+            await updateProfileData(sessionUid, { profilePicture: downloadUrl }, () => {
+              document.getElementById('profileAvatar').src = downloadUrl;
+              sessionStorage.setItem('pgAvatar', downloadUrl);
+              updateProfileSidebar();
+              alert('Profile picture updated successfully!');
+            });
+          } catch (err) {
+            alert(`Failed to upload image: ${err.message}`);
+          } finally {
+            avatarOverlay.textContent = 'Change Photo';
+            avatarOverlay.style.display = 'none';
+            avatarFileInput.value = '';
+          }
+        });
       }
 
       window.logoutUser = function logoutUser() {

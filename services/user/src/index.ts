@@ -255,7 +255,7 @@ app.get('/users/:userId/profile', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const result = await db.query(
-      'SELECT id, username, email, "firstName", "lastName", age, weight, "experienceLevel" FROM "User" WHERE id = $1',
+      'SELECT id, username, email, "firstName", "lastName", age, weight, "experienceLevel", bio, "profilePicture" FROM "User" WHERE id = $1',
       [userId.toLowerCase()]
     );
 
@@ -274,20 +274,22 @@ app.get('/users/:userId/profile', async (req: Request, res: Response) => {
       age: dbUser.age,
       weight: dbUser.weight,
       experienceLevel: dbUser.experienceLevel,
+      bio: dbUser.bio,
+      profilePicture: dbUser.profilePicture,
     });
   } catch (error: any) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Update profile name params
+// Update profile name, bio, and other params
 app.put('/users/:userId/profile', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const { firstName, lastName } = req.body;
+    const { firstName, lastName, age, weight, experienceLevel, bio, profilePicture } = req.body;
 
     const currentProfileRes = await db.query(
-      'SELECT "firstName", "lastName" FROM "User" WHERE id = $1',
+      'SELECT "firstName", "lastName", age, weight, "experienceLevel", bio, "profilePicture" FROM "User" WHERE id = $1',
       [userId.toLowerCase()]
     );
 
@@ -297,20 +299,38 @@ app.put('/users/:userId/profile', async (req: Request, res: Response) => {
     }
 
     const current = currentProfileRes.rows[0];
-    const finalFirstName = firstName || current.firstName;
-    const finalLastName = lastName || current.lastName;
+    const finalFirstName = firstName !== undefined ? firstName : current.firstName;
+    const finalLastName = lastName !== undefined ? lastName : current.lastName;
+    const finalAge = age !== undefined ? (age ? parseInt(age, 10) : null) : current.age;
+    const finalWeight = weight !== undefined ? (weight ? parseFloat(weight) : null) : current.weight;
+    const finalExperienceLevel = experienceLevel !== undefined ? parseInt(experienceLevel, 10) : current.experienceLevel;
+    const finalBio = bio !== undefined ? bio : current.bio;
+    const finalProfilePicture = profilePicture !== undefined ? profilePicture : current.profilePicture;
 
     const updateRes = await db.query(
       `UPDATE "User" 
-       SET "firstName" = $1, "lastName" = $2, "updatedAt" = NOW() 
-       WHERE id = $3 
-       RETURNING id, username, "firstName", "lastName"`,
-      [finalFirstName, finalLastName, userId.toLowerCase()]
+       SET "firstName" = $1, "lastName" = $2, "age" = $3, "weight" = $4, "experienceLevel" = $5, "bio" = $6, "profilePicture" = $7, "updatedAt" = NOW() 
+       WHERE id = $8 
+       RETURNING id, username, "firstName", "lastName", age, weight, "experienceLevel", bio, "profilePicture"`,
+      [
+        finalFirstName,
+        finalLastName,
+        finalAge,
+        finalWeight,
+        finalExperienceLevel,
+        finalBio,
+        finalProfilePicture,
+        userId.toLowerCase()
+      ]
     );
 
-    await auth.updateUser(userId, {
-      displayName: `${finalFirstName} ${finalLastName}`,
-    });
+    try {
+      await auth.updateUser(userId, {
+        displayName: `${finalFirstName} ${finalLastName}`,
+      });
+    } catch (firebaseError: any) {
+      console.warn('⚠️ Failed to update displayName in Firebase auth:', firebaseError.message);
+    }
 
     const updatedUser = updateRes.rows[0];
     res.status(200).json({
@@ -320,6 +340,11 @@ app.put('/users/:userId/profile', async (req: Request, res: Response) => {
         username: updatedUser.username,
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
+        age: updatedUser.age,
+        weight: updatedUser.weight,
+        experienceLevel: updatedUser.experienceLevel,
+        bio: updatedUser.bio,
+        profilePicture: updatedUser.profilePicture,
       },
     });
   } catch (error: any) {

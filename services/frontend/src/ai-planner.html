@@ -188,7 +188,7 @@
     async function updateProfileSidebar() {
       const uid = sessionStorage.getItem('firebaseUid');
       const name = sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
-      const avatar = `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
+      const avatar = sessionStorage.getItem('pgAvatar') || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
       if (profileCard) {
         profileCard.innerHTML = `
