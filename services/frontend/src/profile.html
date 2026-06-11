@@ -13,13 +13,24 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
   <style>
-    /* Added some utility classes for the text truncation */
+    /* Utility class for the text truncation */
     .truncate-text {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       display: block;
       max-width: 150px;
+    }
+
+    /* Light card theme for Info and Bio */
+    .light-info-card {
+      background: #f4f5f7;
+      color: #000;
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid rgba(0,0,0,0.1);
+      text-align: left;
+      position: relative;
     }
   </style>
 </head>
@@ -34,104 +45,97 @@
                 </div>
             </header>
             
-            <div class="sidebar-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 40px 20px;" id="profileInfo">
+            <div class="sidebar-card" style="display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 40px 20px; width: 100%; max-width: 600px; margin: 0 auto;">
                 
-                <div style="display: flex; align-items: center; gap: 20px; width: 100%; max-width: 500px; justify-content: flex-start; text-align: left;">
-                    <div id="avatarContainer" style="position: relative; border-radius: 999px; overflow: hidden; width: 100px; height: 100px; border: 3px solid var(--primary); flex-shrink: 0; cursor: pointer;">
-                        <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" alt="Profile" style="width: 100%; height: 100%; object-fit: cover;" />
-                        <div id="avatarOverlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; text-align: center; pointer-events: none;">Change Photo</div>
-                        <input type="file" id="avatarFileInput" accept="image/*" style="display: none;" />
-                    </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 24px; width: 100%; justify-content: space-between; align-items: flex-start;">
                     
-                    <div style="flex: 1; min-width: 0;">
-                        <div id="profileNameDisplay" style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                          <h2 id="profileName" style="margin: 0; font-size: 1.6rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Loading...</h2>
-                          <button id="profileEditBtn" onclick="toggleNameEdit(true)" style="display: none; background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted);" title="Edit name">✏️</button>
+                    <div style="display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 12px; flex: 1; min-width: 200px;">
+                        
+                        <div id="avatarContainer" style="position: relative; border-radius: 999px; overflow: hidden; width: 100px; height: 100px; border: 3px solid var(--primary); flex-shrink: 0; cursor: pointer;">
+                            <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" alt="Profile" style="width: 100%; height: 100%; object-fit: cover;" />
+                            <div id="avatarOverlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; text-align: center; pointer-events: none;">Change Photo</div>
+                            <input type="file" id="avatarFileInput" accept="image/*" style="display: none;" />
                         </div>
                         
-                        <div id="profileNameEdit" style="display: none; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
-                          <input type="text" id="editFirstName" placeholder="First" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 100px;" />
-                          <input type="text" id="editLastName" placeholder="Last" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 100px;" />
-                          <button onclick="saveProfileName()" class="action-pill active" style="padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;">Save</button>
-                          <button onclick="toggleNameEdit(false)" class="action-pill" style="padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer;">Cancel</button>
+                        <div style="width: 100%;">
+                            <div id="profileNameDisplay" style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                              <h2 id="profileName" style="margin: 0; font-size: 1.6rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px;">Loading...</h2>
+                              <button id="profileEditBtn" onclick="toggleNameEdit(true)" style="display: none; background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted);" title="Edit name">✏️</button>
+                            </div>
+                            
+                            <div id="profileNameEdit" style="display: none; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                              <input type="text" id="editFirstName" placeholder="First" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 100px;" />
+                              <input type="text" id="editLastName" placeholder="Last" style="padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; width: 100px;" />
+                              <button onclick="saveProfileName()" class="action-pill active" style="padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;">Save</button>
+                              <button onclick="toggleNameEdit(false)" class="action-pill" style="padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer;">Cancel</button>
+                            </div>
+                            
+                            <span id="profileUsernameDisplay" style="color: var(--muted); font-size: 1.1rem; display: block;" class="truncate-text">@loading</span>
                         </div>
+                    </div>
+
+                    <div id="infoBox" class="light-info-card" style="flex: 1.2; min-width: 240px;">
+                        <h3 style="margin: 0 0 12px 0; color: #111; font-size: 1.05rem;">Info</h3>
+                        <button id="infoEditBtn" onclick="toggleInfoEdit(true)" style="display: none; position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer; font-size: 1rem; color: #555;" title="Edit info">✏️</button>
                         
-                        <span id="profileUsernameDisplay" style="color: var(--muted); font-size: 1.1rem; display: block;" class="truncate-text">@loading</span>
+                        <div id="infoDisplayView" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 0.95rem;">
+                            <div>
+                                <strong style="color: #555; display:block; font-size:0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Age</strong> 
+                                <span id="userDetailAge" style="color: #000; font-weight: 600;">N/A</span>
+                            </div>
+                            <div>
+                                <strong style="color: #555; display:block; font-size:0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Weight</strong> 
+                                <span id="userDetailWeight" style="color: #000; font-weight: 600;">N/A</span> <span style="color:#000; font-size:0.85rem;">kg</span>
+                            </div>
+                            <div>
+                                <strong style="color: #555; display:block; font-size:0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">Exp</strong> 
+                                <span id="userDetailExp" style="color: #000; font-weight: 600;">N/A</span>
+                            </div>
+                        </div>
+
+                        <div id="infoEditView" style="display: none; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: end;">
+                            <div>
+                                <label style="color:#555; font-size:0.8rem; display:block; margin-bottom:4px;">Age</label>
+                                <input type="number" id="editAge" style="width:100%; padding: 6px; border-radius: 6px; border: 1px solid #ccc; background: #fff; color: #000;" />
+                            </div>
+                            <div>
+                                <label style="color:#555; font-size:0.8rem; display:block; margin-bottom:4px;">Wt (kg)</label>
+                                <input type="number" id="editWeight" style="width:100%; padding: 6px; border-radius: 6px; border: 1px solid #ccc; background: #fff; color: #000;" />
+                            </div>
+                            <div>
+                                <label style="color:#555; font-size:0.8rem; display:block; margin-bottom:4px;">Exp</label>
+                                <select id="editExp" style="width:100%; padding: 6px; border-radius: 6px; border: 1px solid #ccc; background: #fff; color: #000;">
+                                    <option value="1">Beg</option>
+                                    <option value="2">Int</option>
+                                    <option value="3">Adv</option>
+                                </select>
+                            </div>
+                            <div style="grid-column: span 3; display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+                                <button onclick="saveProfileInfo()" class="action-pill active" style="padding: 6px 14px; font-size: 0.9rem; border: none; border-radius: 8px; cursor: pointer;">Save</button>
+                                <button onclick="toggleInfoEdit(false)" class="action-pill" style="padding: 6px 14px; font-size: 0.9rem; border: 1px solid #ccc; background: transparent; color: #333; border-radius: 8px; cursor: pointer;">Cancel</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div style="width: 100%; max-width: 500px; background: var(--surface-strong); padding: 16px; border-radius: 12px; border: 1px solid var(--border); text-align: left; position: relative;">
+                <div class="light-info-card" style="width: 100%;">
                     <div id="bioDisplayView">
-                        <p id="profileBioText" style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: var(--text);">Loading bio...</p>
-                        <button id="bioEditBtn" onclick="toggleBioEdit(true)" style="display: none; position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted);" title="Edit bio">✏️</button>
+                        <p id="profileBioText" style="margin: 0; font-size: 0.95rem; line-height: 1.6; color: #000;">Loading bio...</p>
+                        <button id="bioEditBtn" onclick="toggleBioEdit(true)" style="display: none; position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer; font-size: 1rem; color: #555;" title="Edit bio">✏️</button>
                     </div>
                     <div id="bioEditView" style="display: none; flex-direction: column; gap: 8px;">
-                        <textarea id="editBioInput" rows="3" placeholder="Tell us about your triathlon journey..." style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-family: inherit; resize: vertical;"></textarea>
+                        <textarea id="editBioInput" rows="3" placeholder="Tell us about your triathlon journey..." style="width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #000; font-family: inherit; resize: vertical;"></textarea>
                         <div style="display: flex; gap: 8px; justify-content: flex-end;">
                             <button onclick="saveProfileBio()" class="action-pill active" style="padding: 6px 14px; font-size: 0.9rem; border: none; border-radius: 8px; cursor: pointer;">Save</button>
-                            <button onclick="toggleBioEdit(false)" class="action-pill" style="padding: 6px 14px; font-size: 0.9rem; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 8px; cursor: pointer;">Cancel</button>
+                            <button onclick="toggleBioEdit(false)" class="action-pill" style="padding: 6px 14px; font-size: 0.9rem; border: 1px solid #ccc; background: transparent; color: #333; border-radius: 8px; cursor: pointer;">Cancel</button>
                         </div>
                     </div>
                 </div>
 
-                <div id="infoBox" style="width: 100%; max-width: 500px; background: var(--surface-strong); padding: 16px; border-radius: 12px; border: 1px solid var(--border); text-align: left; position: relative;">
-                    <h3 style="margin: 0 0 12px 0; color: var(--primary); font-size: 1.05rem;">Info</h3>
-                    <button id="infoEditBtn" onclick="toggleInfoEdit(true)" style="display: none; position: absolute; top: 12px; right: 12px; background: none; border: none; cursor: pointer; font-size: 1rem; color: var(--muted);" title="Edit info">✏️</button>
-                    
-                    <div id="infoDisplayView" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 0.95rem;">
-                        <div>
-                            <strong style="color:var(--muted); display:block; font-size:0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Age</strong> 
-                            <span id="userDetailAge" style="color: var(--text); font-weight: 500;">N/A</span>
-                        </div>
-                        <div>
-                            <strong style="color:var(--muted); display:block; font-size:0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Weight</strong> 
-                            <span id="userDetailWeight" style="color: var(--text); font-weight: 500;">N/A</span> kg
-                        </div>
-                        <div>
-                            <strong style="color:var(--muted); display:block; font-size:0.8rem; text-transform: uppercase; letter-spacing: 0.5px;">Experience</strong> 
-                            <span id="userDetailExp" style="color: var(--text); font-weight: 500;">N/A</span>
-                        </div>
-                    </div>
-
-                    <div id="infoEditView" style="display: none; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: end;">
-                        <div>
-                            <label style="color:var(--muted); font-size:0.8rem; display:block; margin-bottom:4px;">Age</label>
-                            <input type="number" id="editAge" style="width:100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
-                        </div>
-                        <div>
-                            <label style="color:var(--muted); font-size:0.8rem; display:block; margin-bottom:4px;">Weight (kg)</label>
-                            <input type="number" id="editWeight" style="width:100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);" />
-                        </div>
-                        <div>
-                            <label style="color:var(--muted); font-size:0.8rem; display:block; margin-bottom:4px;">Experience</label>
-                            <select id="editExp" style="width:100%; padding: 6px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text);">
-                                <option value="1">Beginner</option>
-                                <option value="2">Intermediate</option>
-                                <option value="3">Advanced</option>
-                            </select>
-                        </div>
-                        <div style="grid-column: span 3; display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
-                            <button onclick="saveProfileInfo()" class="action-pill active" style="padding: 6px 14px; font-size: 0.9rem; border: none; border-radius: 8px; cursor: pointer;">Save</button>
-                            <button onclick="toggleInfoEdit(false)" class="action-pill" style="padding: 6px 14px; font-size: 0.9rem; border: 1px solid var(--border); background: transparent; color: var(--text); border-radius: 8px; cursor: pointer;">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="action-bar" style="justify-content: center; width: 100%; max-width: 500px; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
+                <div class="action-bar" style="justify-content: center; width: 100%; margin-top: 4px; flex-wrap: wrap; gap: 8px;">
                     <div class="action-pill"><strong id="postCount">0</strong> Posts</div>
                     <div class="action-pill"><strong id="followingCount">0</strong> Following</div>
                     <div class="action-pill"><strong id="followersCount">0</strong> Followers</div>
-                </div>
-
-                <div id="friendsDetailContainer" style="display: none; width: 100%; max-width: 500px; background: var(--bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border); font-size: 0.95rem; text-align: left;">
-                    <div style="margin-bottom: 12px;">
-                        <strong style="color: var(--primary);">Following:</strong>
-                        <div id="followingListNames" style="color: var(--text); margin-top: 4px;">None</div>
-                    </div>
-                    <div>
-                        <strong style="color: var(--primary);">Followed by:</strong>
-                        <div id="followersListNames" style="color: var(--text); margin-top: 4px;">None</div>
-                    </div>
                 </div>
 
                 <button id="profileFollowBtn" class="action-pill active" style="margin-top: 10px; display: none;"></button>
@@ -324,6 +328,14 @@
         btn.style.display = 'inline-block';
       }
 
+      // New function to trigger the hidden file input from anywhere
+      window.triggerAvatarUpload = function() {
+        const input = document.getElementById('avatarFileInput');
+        if (input) {
+            input.click();
+        }
+      };
+
       async function updateProfileSidebar() {
         const uid = sessionStorage.getItem('firebaseUid');
         const pgFirstName = sessionStorage.getItem('pgFirstName');
@@ -350,7 +362,7 @@
         if (profileAuthButtons) {
           if (uid) {
             profileAuthButtons.innerHTML = `
-              <button onclick="alert('Change Profile Picture functionality to be added')" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px dashed var(--primary); background: transparent; color: var(--primary); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🖼️ Change Picture</button>
+              <button onclick="triggerAvatarUpload()" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px dashed var(--primary); background: transparent; color: var(--primary); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🖼️ Change Picture</button>
               <button onclick="logoutUser()" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500;">🚪 Logout</button>
             `;
           } else {
@@ -387,34 +399,21 @@
           const followingRes = await fetch(`/api/following/${uid}`);
           const followersRes = await fetch(`/api/followers/${uid}`);
           
-          let followingNames = 'None';
-          let followersNames = 'None';
           let followingCount = 0;
           let followersCount = 0;
 
           if (followingRes.ok) {
             const data = await followingRes.json();
-            const following = data.following || [];
-            followingCount = following.length;
-            if (followingCount > 0) {
-              followingNames = following.map(f => '@' + f.username).join(', ');
-            }
+            followingCount = (data.following || []).length;
           }
           
           if (followersRes.ok) {
             const data = await followersRes.json();
-            const followers = data.followers || [];
-            followersCount = followers.length;
-            if (followersCount > 0) {
-              followersNames = followers.map(f => '@' + f.username).join(', ');
-            }
+            followersCount = (data.followers || []).length;
           }
 
           document.getElementById('followingCount').textContent = followingCount;
           document.getElementById('followersCount').textContent = followersCount;
-          document.getElementById('followingListNames').textContent = followingNames;
-          document.getElementById('followersListNames').textContent = followersNames;
-          document.getElementById('friendsDetailContainer').style.display = 'block';
         } catch (err) {
           console.error('Error loading follow details:', err);
         }
@@ -471,8 +470,8 @@
         await updateProfileData(sessionUid, { age, weight, experienceLevel }, () => {
           document.getElementById('userDetailAge').textContent = age || 'N/A';
           document.getElementById('userDetailWeight').textContent = weight || 'N/A';
-          const expMap = { 1: 'Beginner', 2: 'Intermediate', 3: 'Advanced' };
-          document.getElementById('userDetailExp').textContent = expMap[experienceLevel] || 'Beginner';
+          const expMap = { 1: 'Beg', 2: 'Int', 3: 'Adv' };
+          document.getElementById('userDetailExp').textContent = expMap[experienceLevel] || 'Beg';
           toggleInfoEdit(false);
         });
       };
@@ -547,8 +546,8 @@
             // Info Details
             document.getElementById('userDetailAge').textContent = profileData.age || 'N/A';
             document.getElementById('userDetailWeight').textContent = profileData.weight || 'N/A';
-            const expMap = { 1: 'Beginner', 2: 'Intermediate', 3: 'Advanced' };
-            document.getElementById('userDetailExp').textContent = expMap[profileData.experienceLevel] || 'Beginner';
+            const expMap = { 1: 'Beg', 2: 'Int', 3: 'Adv' };
+            document.getElementById('userDetailExp').textContent = expMap[profileData.experienceLevel] || 'Beg';
 
             // Pre-fill Edit Inputs
             if(document.getElementById('editFirstName')) document.getElementById('editFirstName').value = profileData.firstName || '';
@@ -632,7 +631,6 @@
             avatarOverlay.textContent = 'Uploading...';
             avatarOverlay.style.display = 'flex';
 
-            // 1. Initialize storage and upload
             if (!isFirebaseReady()) {
               throw new Error('Firebase is not ready/initialized.');
             }
@@ -643,7 +641,6 @@
             await fileRef.put(file);
             const downloadUrl = await fileRef.getDownloadURL();
 
-            // 2. Save profile picture URL in backend
             await updateProfileData(sessionUid, { profilePicture: downloadUrl }, () => {
               document.getElementById('profileAvatar').src = downloadUrl;
               sessionStorage.setItem('pgAvatar', downloadUrl);
