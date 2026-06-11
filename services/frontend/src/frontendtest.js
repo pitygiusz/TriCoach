@@ -244,7 +244,7 @@ async function makeApiRequest(method, endpoint, data = null) {
 function createPostCard(post) {
   const card = document.createElement('article');
   card.className = 'post-card';
-  const author = post.username || post.userId || 'Anonymous';
+  const author = post.username && post.username !== 'Anonymous' ? post.username : (post.userId || 'Anonymous');
   
   // Format likedBy list
   let likedByText = '';
@@ -254,6 +254,33 @@ function createPostCard(post) {
       ❤️ Liked by: ${names.join(', ')}
     </div>`;
   }
+
+  // Check if current user liked it
+  const currentUid = getCurrentUserId();
+  const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => {
+    if (typeof like === 'object' && like !== null) {
+      return like.uid === currentUid;
+    }
+    return like === currentUid;
+  });
+
+  // Render training stats inline if present
+  let statsHtml = '';
+  if (post.trainingDetails) {
+    const type = post.trainingDetails.type || 'Workout';
+    const dur = post.trainingDetails.duration_minutes || post.trainingDetails.duration || 0;
+    const dist = post.trainingDetails.distance_km || post.trainingDetails.distance;
+    const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
+    statsHtml = `
+      <div class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
+        <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
+        <span style="font-size: 0.95rem; color: var(--text);">🏃 ${type} · ⏱️ ${dur} mins${distanceText}</span>
+      </div>
+    `;
+  }
+
+  const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
+  const likeStyle = hasLiked ? 'background-color: var(--accent); color: white; border: 1px solid var(--accent);' : 'background-color: var(--surface-strong); color: var(--text); border: 1px solid var(--border);';
 
   card.innerHTML = `
     <header>
@@ -265,11 +292,12 @@ function createPostCard(post) {
     </header>
     <h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>
     <p>${post.content || ''}</p>
+    ${statsHtml}
     <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
-      <button onclick="likePost('${post.id}')" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; background-color: var(--surface-strong); color: var(--text); border: 1px solid var(--border);">
+      <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
         ❤️ <span class="like-count">${post.likes || 0}</span>
       </button>
-      ${post.trainingId ? '<span>Training attached</span>' : ''}
+      ${post.trainingId ? '<span style="font-size: 0.85rem; color: var(--muted);">Training attached</span>' : ''}
     </div>
     ${likedByText}
   `;
@@ -285,6 +313,17 @@ window.likePost = async function likePost(postId) {
     loadPosts();
   } catch (err) {
     alert(`Could not like post: ${err.message}`);
+  }
+};
+
+window.unlikePost = async function unlikePost(postId) {
+  try {
+    await makeApiRequest('POST', `/api/posts/${postId}/unlike`, {
+      user_id: getCurrentUserId(),
+    });
+    loadPosts();
+  } catch (err) {
+    alert(`Could not unlike post: ${err.message}`);
   }
 };
 
@@ -325,6 +364,8 @@ async function loadPosts() {
 }
 
 // ─── Workouts dropdown ────────────────────────────────────────────────────────
+let loadedWorkoutsList = [];
+
 async function fetchWorkouts() {
   workoutSelect.innerHTML = '<option value="">Loading…</option>';
   try {
@@ -333,8 +374,10 @@ async function fetchWorkouts() {
 
     if (!result.workouts?.length) {
       workoutSelect.innerHTML = '<option value="">No trainings logged yet</option>';
+      loadedWorkoutsList = [];
       return;
     }
+    loadedWorkoutsList = result.workouts;
     result.workouts.forEach(w => {
       const opt = document.createElement('option');
       opt.value = w.id;

@@ -21,7 +21,7 @@ app.get('/', (req: Request, res: Response) => {
 // Create a post
 app.post('/posts', async (req: Request, res: Response) => {
   try {
-    const { user_id, username, content, training_id } = req.body;
+    const { user_id, username, content, training_id, training_details } = req.body;
 
     if (!user_id || !content) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -32,6 +32,7 @@ app.post('/posts', async (req: Request, res: Response) => {
       userId: user_id,
       username: username || 'Anonymous',
       trainingId: training_id || null,
+      trainingDetails: training_details || null,
       content,
       likes: 0,
       likedBy: [] as any[],
@@ -65,6 +66,7 @@ app.get('/posts', async (req: Request, res: Response) => {
         userId: data.userId,
         username: data.username || 'Anonymous',
         trainingId: data.trainingId || null,
+        trainingDetails: data.trainingDetails || null,
         content: data.content,
         likes: data.likes || 0,
         likedBy: data.likedBy || [],
@@ -168,6 +170,51 @@ app.post('/posts/:postId/like', async (req: Request, res: Response) => {
     res.status(200).json({ message: 'Post liked successfully' });
   } catch (error: any) {
     console.error('Like post error:', error);
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
+  }
+});
+
+// Unlike a post
+app.post('/posts/:postId/unlike', async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    const { user_id } = req.body;
+
+    if (!user_id) {
+      res.status(400).json({ error: 'User ID required' });
+      return;
+    }
+
+    const postRef = db.collection('posts').doc(postId);
+    const postDoc = await postRef.get();
+    if (!postDoc.exists) {
+      res.status(404).json({ error: 'Post not found' });
+      return;
+    }
+    const postData = postDoc.data() || {};
+    const likedBy = postData.likedBy || [];
+
+    // Find the like element to remove
+    const likeToRemove = likedBy.find((like: any) => {
+      if (typeof like === 'object' && like !== null) {
+        return like.uid === user_id;
+      }
+      return like === user_id;
+    });
+
+    if (!likeToRemove) {
+      res.status(400).json({ error: 'You have not liked this post yet' });
+      return;
+    }
+
+    await postRef.update({
+      likes: admin.firestore.FieldValue.increment(-1),
+      likedBy: admin.firestore.FieldValue.arrayRemove(likeToRemove),
+    });
+
+    res.status(200).json({ message: 'Post unliked successfully' });
+  } catch (error: any) {
+    console.error('Unlike post error:', error);
     res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });

@@ -190,7 +190,14 @@ app.post('/api/posts/:postId/like', async (req: Request, res: Response) => {
   try {
     const r = await axios.post(`${SERVICES.social}/posts/${req.params.postId}/like`, req.body);
     res.status(r.status).json(r.data);
-  } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
+  } catch (e: any) { res.status(e.response?.status || 500).json(e.response?.data || { error: e.message }); }
+});
+
+app.post('/api/posts/:postId/unlike', async (req: Request, res: Response) => {
+  try {
+    const r = await axios.post(`${SERVICES.social}/posts/${req.params.postId}/unlike`, req.body);
+    res.status(r.status).json(r.data);
+  } catch (e: any) { res.status(e.response?.status || 500).json(e.response?.data || { error: e.message }); }
 });
 
 app.post('/api/follow', async (req: Request, res: Response) => {
