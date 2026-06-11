@@ -255,7 +255,7 @@ app.get('/users/:userId/profile', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const result = await db.query(
-      'SELECT id, username, email, "firstName", "lastName" FROM "User" WHERE id = $1',
+      'SELECT id, username, email, "firstName", "lastName", age, weight, "experienceLevel" FROM "User" WHERE id = $1',
       [userId.toLowerCase()]
     );
 
@@ -271,6 +271,9 @@ app.get('/users/:userId/profile', async (req: Request, res: Response) => {
       email: dbUser.email,
       firstName: dbUser.firstName,
       lastName: dbUser.lastName,
+      age: dbUser.age,
+      weight: dbUser.weight,
+      experienceLevel: dbUser.experienceLevel,
     });
   } catch (error: any) {
     res.status(500).json({ error: 'Internal server error' });

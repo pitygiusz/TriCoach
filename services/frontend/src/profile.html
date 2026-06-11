@@ -38,6 +38,21 @@
                     </div>
                     <span id="profileEmail" style="color: var(--muted); font-size: 1.1rem;">@loading</span>
                 </div>
+
+                <!-- Display user details from user table -->
+                <div id="userDetailsBox" style="width: 100%; max-width: 500px; background: var(--surface-strong); padding: 20px; border-radius: 16px; border: 1px solid var(--border); margin-top: 10px; font-size: 0.95rem; text-align: left; display: flex; flex-direction: column; gap: 10px;">
+                    <h3 style="margin: 0 0 4px 0; color: var(--primary); font-size: 1.1rem;">User Details</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div><strong>Username:</strong> <span id="userDetailUsername" style="color: var(--text);">N/A</span></div>
+                        <div><strong>Email:</strong> <span id="userDetailEmail" style="color: var(--text);">N/A</span></div>
+                        <div><strong>First Name:</strong> <span id="userDetailFirstName" style="color: var(--text);">N/A</span></div>
+                        <div><strong>Last Name:</strong> <span id="userDetailLastName" style="color: var(--text);">N/A</span></div>
+                        <div><strong>Age:</strong> <span id="userDetailAge" style="color: var(--text);">N/A</span></div>
+                        <div><strong>Weight:</strong> <span id="userDetailWeight" style="color: var(--text);">N/A</span> kg</div>
+                        <div style="grid-column: span 2;"><strong>Experience Level:</strong> <span id="userDetailExp" style="color: var(--text);">N/A</span></div>
+                    </div>
+                </div>
+
                 <p style="margin: 0; max-width: 500px; line-height: 1.6;">Triathlon enthusiast sharing training progress.</p>
                 
                 <div class="action-bar" style="justify-content: center; width: 100%; margin-top: 10px; flex-wrap: wrap; gap: 8px;">
@@ -511,6 +526,17 @@
             profileName.textContent = fullName || profileData.username || 'Athlete';
             profileEmail.textContent = '@' + (profileData.email ? profileData.email.split('@')[0] : 'athlete');
             profileAvatar.src = `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+
+            // Populate user details fields
+            document.getElementById('userDetailUsername').textContent = profileData.username || 'N/A';
+            document.getElementById('userDetailEmail').textContent = profileData.email || 'N/A';
+            document.getElementById('userDetailFirstName').textContent = profileData.firstName || 'N/A';
+            document.getElementById('userDetailLastName').textContent = profileData.lastName || 'N/A';
+            document.getElementById('userDetailAge').textContent = profileData.age || 'N/A';
+            document.getElementById('userDetailWeight').textContent = profileData.weight || 'N/A';
+
+            const expMap = { 1: 'Beginner', 2: 'Intermediate', 3: 'Advanced' };
+            document.getElementById('userDetailExp').textContent = expMap[profileData.experienceLevel] || profileData.experienceLevel || 'Beginner';
 
             const editFirstName = document.getElementById('editFirstName');
             const editLastName = document.getElementById('editLastName');
