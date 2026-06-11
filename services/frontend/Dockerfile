@@ -24,6 +24,7 @@ COPY --from=build /app/dist ./dist
 COPY --from=build /app/src/*.html ./dist/
 COPY --from=build /app/src/*.css ./dist/
 COPY --from=build /app/src/*.js ./dist/
+COPY --from=build /app/src/*.ico ./dist/
 
 EXPOSE 8080
 CMD ["node", "dist/index.js"]
