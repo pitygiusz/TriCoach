@@ -239,8 +239,20 @@ function createPostCard(post) {
       <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
         ❤️ <span class="like-count">${post.likes || 0}</span>
       </button>
+      <button onclick="toggleComments('${post.id}')" class="comments-toggle-btn">
+        💬 <span class="comment-label">Comment</span>
+      </button>
     </div>
     ${likedByText}
+    <div id="comments-container-${post.id}" class="comments-container hidden">
+      <div id="comment-list-${post.id}" class="comment-list">
+        <div class="empty-state" style="padding:12px;">Loading comments...</div>
+      </div>
+      <div class="comment-input-area">
+        <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
+        <button class="comment-submit-btn" onclick="submitComment('${post.id}')">Post</button>
+      </div>
+    </div>
   `;
   return card;
 }
@@ -614,6 +626,84 @@ submitTrainingBtn.addEventListener('click', async () => {
     alert(`Could not save training: ${err.message}`);
   }
 });
+
+// ─── Comments Toggle and AJAX Logic ───────────────────────────────────────────
+window.toggleComments = async function toggleComments(postId) {
+  const container = document.getElementById(`comments-container-${postId}`);
+  if (!container) return;
+
+  const isHidden = container.classList.toggle('hidden');
+  if (!isHidden) {
+    await loadComments(postId);
+  }
+};
+
+window.loadComments = async function loadComments(postId) {
+  const listContainer = document.getElementById(`comment-list-${postId}`);
+  if (!listContainer) return;
+
+  listContainer.innerHTML = '<div class="empty-state" style="padding:12px;">Loading comments...</div>';
+
+  try {
+    const res = await fetch(`/api/posts/${postId}/comments`);
+    if (!res.ok) throw new Error(`Status: ${res.status}`);
+    const comments = await res.json();
+
+    if (!Array.isArray(comments) || comments.length === 0) {
+      listContainer.innerHTML = '<div class="empty-state" style="padding:12px;">No comments yet — start the conversation!</div>';
+      return;
+    }
+
+    listContainer.innerHTML = '';
+    comments.forEach(comment => {
+      const card = document.createElement('div');
+      card.className = 'comment-card';
+      const author = comment.username || 'Anonymous';
+      const timeAgo = formatTimeAgo(comment.createdAt);
+      
+      card.innerHTML = `
+        <img class="avatar" src="https://i.pravatar.cc/32?u=${encodeURIComponent(comment.userId)}" alt="${author}" />
+        <div class="comment-content-wrap">
+          <div class="comment-header">
+            <strong>${author}</strong>
+            <span>${timeAgo}</span>
+          </div>
+          <p>${comment.content || ''}</p>
+        </div>
+      `;
+      listContainer.appendChild(card);
+    });
+    
+    // Auto-scroll to the bottom of the list
+    listContainer.scrollTop = listContainer.scrollHeight;
+  } catch (err) {
+    console.error('Error loading comments:', err);
+    listContainer.innerHTML = '<div class="empty-state" style="padding:12px;color:red;">Failed to load comments</div>';
+  }
+};
+
+window.submitComment = async function submitComment(postId) {
+  const input = document.getElementById(`comment-input-${postId}`);
+  if (!input) return;
+
+  const content = input.value.trim();
+  if (!content) {
+    alert('Please enter a comment!');
+    return;
+  }
+
+  try {
+    await makeApiRequest('POST', `/api/posts/${postId}/comments`, {
+      user_id: getCurrentUserId(),
+      username: getCurrentDisplayName(),
+      content
+    });
+    input.value = '';
+    await loadComments(postId);
+  } catch (err) {
+    alert(`Could not post comment: ${err.message}`);
+  }
+};
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadPosts();

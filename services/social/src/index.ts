@@ -439,6 +439,106 @@ app.get('/following/:userId', async (req: Request, res: Response) => {
   }
 });
 
+// Create a comment
+app.post('/posts/:postId/comments', async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    const { user_id, username, content } = req.body;
+
+    if (!user_id || !content) {
+      res.status(400).json({ error: 'Missing required fields: user_id, content' });
+      return;
+    }
+
+    const postRef = db.collection('posts').doc(postId);
+    const postDoc = await postRef.get();
+    if (!postDoc.exists) {
+      res.status(404).json({ error: 'Post not found' });
+      return;
+    }
+
+    const commentData = {
+      userId: user_id,
+      username: username || 'Anonymous',
+      content,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    const docRef = await postRef.collection('comments').add(commentData);
+
+    res.status(201).json({
+      message: 'Comment created successfully',
+      comment: {
+        id: docRef.id,
+        ...commentData,
+        createdAt: new Date().toISOString(),
+      },
+    });
+  } catch (error: any) {
+    console.error('Create comment error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
+// Get comments for a post
+app.get('/posts/:postId/comments', async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+
+    const postRef = db.collection('posts').doc(postId);
+    const postDoc = await postRef.get();
+    if (!postDoc.exists) {
+      res.status(404).json({ error: 'Post not found' });
+      return;
+    }
+
+    const commentsSnapshot = await postRef.collection('comments').orderBy('createdAt', 'asc').get();
+    const rawComments = commentsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        userId: data.userId,
+        username: data.username || 'Anonymous',
+        content: data.content,
+        createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
+      };
+    });
+
+    // Populate usernames from Firebase Auth
+    const userIds = Array.from(new Set(rawComments.map(c => c.userId).filter(Boolean)));
+    const userMap: Record<string, string> = {};
+    if (userIds.length > 0) {
+      try {
+        const usersResult = await admin.auth().getUsers(userIds.map(uid => ({ uid })));
+        usersResult.users.forEach(userRecord => {
+          if (userRecord.displayName) {
+            userMap[userRecord.uid] = userRecord.displayName;
+          }
+        });
+      } catch (authErr) {
+        console.error('Error fetching users from Firebase:', authErr);
+      }
+    }
+
+    const populatedComments = rawComments.map(comment => {
+      let username = comment.username;
+      if (comment.userId && userMap[comment.userId]) {
+        username = userMap[comment.userId];
+      }
+      return {
+        ...comment,
+        username,
+      };
+    });
+
+    res.status(200).json(populatedComments);
+  } catch (error: any) {
+    console.error('Get comments error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
 app.listen(Number(port), () => {
   console.log(` social service (admin sdk) running on port ${port}`);
 });
+
