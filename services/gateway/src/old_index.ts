@@ -41,6 +41,16 @@ app.post('/api/users/login', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
+app.get('/api/users/resolve-email', async (req: Request, res: Response) => {
+  try {
+    // Note: We use { params: req.query } to pass the ?username= parameter forward
+    const r = await axios.get(`${SERVICES.user}/users/resolve-email`, { params: req.query });
+    res.status(r.status).json(r.data);
+  } catch (e: any) { 
+    res.status(e.response?.status || 500).json(e.response?.data || { error: e.message }); 
+  }
+});
+
 app.get('/api/users/by-username/:username', async (req: Request, res: Response) => {
   try {
     const r = await axios.get(`${SERVICES.user}/users/by-username/${req.params.username}`);
@@ -50,14 +60,14 @@ app.get('/api/users/by-username/:username', async (req: Request, res: Response) 
 
 app.get('/api/users/:userId/profile', async (req: Request, res: Response) => {
   try {
-    const r = await axios.get(`${SERVICES.user}/profile/${req.params.userId}`);
+    const r = await axios.get(`${SERVICES.user}/users/${req.params.userId}/profile`);
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
 app.put('/api/users/:userId/profile', async (req: Request, res: Response) => {
   try {
-    const r = await axios.put(`${SERVICES.user}/profile/${req.params.userId}`, req.body);
+    const r = await axios.put(`${SERVICES.user}/users/${req.params.userId}/profile`, req.body);
     res.status(r.status).json(r.data);
   } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });

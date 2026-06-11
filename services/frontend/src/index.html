@@ -7,6 +7,37 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>TriCoach - Feed</title>
   <link rel="stylesheet" href="styles.css" />
+  
+  <style>
+    @media (max-width: 640px) {
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 280px;
+        height: 100vh;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        background-color: var(--surface, #1e1e1e);
+        box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+        overflow-y: auto;
+      }
+      .sidebar.open {
+        left: 0;
+      }
+      .overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+        display: none;
+      }
+      .overlay.visible {
+        display: block;
+      }
+    }
+  </style>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -18,12 +49,9 @@
 <body>
   <div class="app-shell">
 
-    <!-- ── Main content ─────────────────────────────────────────────────── -->
     <div class="main-area">
 
       <header class="topbar">
-        <!-- <button id="hamburgerBtn" class="hamburger" aria-label="Open menu">&#9776;</button> -->
-
         <button class="toggle-btn" id="toggle" aria-label="Toggle sidebar">
           <img src="https://i.pravatar.cc/48?img=47" alt="Profile" />
         </button>
@@ -38,13 +66,11 @@
         <button id="openCreateTrainingBtn" class="action-pill active">
           <div>
             <strong>Log a training</strong>
-            <!-- <span></span> -->
-          </div>
+            </div>
         </button>
 
       </header>
 
-      <!-- Slide-out menu -->
       <div id="menuPanel" class="menu-panel hidden" aria-hidden="true">
         <div class="menu-content">
           <h2>Menu</h2>
@@ -58,7 +84,6 @@
         </div>
       </div>
 
-      <!-- Post feed -->
       <main class="feed">
         <div id="postsContainer" class="posts-container">
           <div class="empty-state">Loading posts…</div>
@@ -67,7 +92,6 @@
 
     </div>
 
-    <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
     <aside class="sidebar" id="sidebarHid">
       <div class="sidebar-card" id="profileSidebarCard">
         <h2>Profile</h2>
@@ -124,10 +148,8 @@
 
   </div>
 
-  <!-- Overlay — tapping it closes the sidebar on mobile -->
   <div id="overlay" class="overlay"></div>
 
-  <!-- ── Create Post modal ─────────────────────────────────────────────────── -->
   <div id="createPostModal" class="modal-overlay hidden">
     <div class="modal-content">
       <header class="modal-header">
@@ -149,7 +171,6 @@
     </div>
   </div>
 
-  <!-- ── Log Training modal ────────────────────────────────────────────────── -->
   <div id="createTrainingModal" class="modal-overlay hidden">
     <div class="modal-content">
       <header class="modal-header">
