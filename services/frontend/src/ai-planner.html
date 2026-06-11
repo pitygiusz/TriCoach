@@ -124,7 +124,7 @@
           throw new Error(`Failed to load plans from backend. Status: ${res.status}`);
         }
         const data = await res.json();
-        const plans = data.plans || [];
+        const plans = (data.plans || []).slice(0, 3);
 
         const recentPlansSection = document.getElementById('recentPlansSection');
         const recentPlansList = document.getElementById('recentPlansList');

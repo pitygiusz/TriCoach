@@ -108,7 +108,7 @@
           throw new Error(`Failed to load simulations. Status: ${res.status}`);
         }
         const data = await res.json();
-        const simulations = data.simulations || [];
+        const simulations = (data.simulations || []).slice(0, 3);
 
         const recentSimulationsSection = document.getElementById('recentSimulationsSection');
         const recentSimulationsList = document.getElementById('recentSimulationsList');
