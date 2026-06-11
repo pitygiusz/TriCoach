@@ -110,10 +110,48 @@ async function populatePostsMetadata(posts: any[]) {
         }
       }
 
+      // 3. Fetch Comments for this post
+      let comments: any[] = [];
+      try {
+        const commentsSnapshot = await db.collection('posts').doc(post.id).collection('comments').orderBy('createdAt', 'asc').get();
+        const rawComments = commentsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            userId: data.userId,
+            username: data.username || 'Anonymous',
+            content: data.content,
+            createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
+          };
+        });
+
+        // Resolve displayNames for commenters
+        const commenterIds = Array.from(new Set(rawComments.map(c => c.userId).filter(Boolean)));
+        const commenterMap: Record<string, string> = {};
+        if (commenterIds.length > 0) {
+          try {
+            const usersResult = await admin.auth().getUsers(commenterIds.map(uid => ({ uid })));
+            usersResult.users.forEach(u => {
+              if (u.displayName) commenterMap[u.uid] = u.displayName;
+            });
+          } catch (authErr) {
+            console.error('Error fetching comment authors from Firebase:', authErr);
+          }
+        }
+
+        comments = rawComments.map(c => ({
+          ...c,
+          username: (c.userId && commenterMap[c.userId]) ? commenterMap[c.userId] : c.username,
+        }));
+      } catch (commentErr) {
+        console.error(`Error fetching comments for post ${post.id}:`, commentErr);
+      }
+
       return {
         ...post,
         username,
         trainingDetails,
+        comments,
       };
     }));
 

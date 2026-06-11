@@ -179,6 +179,9 @@ async function makeApiRequest(method, endpoint, data = null) {
 function createPostCard(post) {
   const card = document.createElement('article');
   card.className = 'post-card';
+  card.id = `post-card-${post.id}`;
+  card.comments = post.comments || [];
+  card.dataset.expanded = "false";
   const author = post.username && post.username !== 'Anonymous' ? post.username : (post.userId || 'Anonymous');
   
   // Format likedBy list
@@ -239,14 +242,13 @@ function createPostCard(post) {
       <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
         ❤️ <span class="like-count">${post.likes || 0}</span>
       </button>
-      <button onclick="toggleComments('${post.id}')" class="comments-toggle-btn">
-        💬 <span class="comment-label">Comment</span>
+      <button onclick="toggleComments('${post.id}')" class="comments-toggle-btn" id="comments-btn-${post.id}">
+        💬 comments (${post.comments ? post.comments.length : 0})
       </button>
     </div>
     ${likedByText}
-    <div id="comments-container-${post.id}" class="comments-container hidden">
+    <div id="comments-container-${post.id}" class="comments-container">
       <div id="comment-list-${post.id}" class="comment-list">
-        <div class="empty-state" style="padding:12px;">Loading comments...</div>
       </div>
       <div class="comment-input-area">
         <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
@@ -332,6 +334,7 @@ function renderPosts(posts) {
   postsContainer.innerHTML = '';
   posts.forEach(p => {
     postsContainer.appendChild(createPostCard(p));
+    renderCommentList(p.id);
     if (p.trainingId && !p.trainingDetails) {
       setTimeout(() => fetchAndRenderAttachedTraining(p.userId, p.trainingId, p.id), 0);
     }
@@ -627,64 +630,75 @@ submitTrainingBtn.addEventListener('click', async () => {
   }
 });
 
-// ─── Comments Toggle and AJAX Logic ───────────────────────────────────────────
-window.toggleComments = async function toggleComments(postId) {
-  const container = document.getElementById(`comments-container-${postId}`);
-  if (!container) return;
+// ─── Comments Toggle and Rendering Logic ──────────────────────────────────────
+window.renderCommentList = function renderCommentList(postId) {
+  const card = document.getElementById(`post-card-${postId}`);
+  const listContainer = document.getElementById(`comment-list-${postId}`);
+  if (!card || !listContainer) return;
 
-  const isHidden = container.classList.toggle('hidden');
-  if (!isHidden) {
-    await loadComments(postId);
+  const comments = card.comments || [];
+  const expanded = card.dataset.expanded === "true";
+
+  if (comments.length === 0) {
+    listContainer.innerHTML = '<div class="empty-state" style="padding:12px;">No comments yet — start the conversation!</div>';
+    return;
+  }
+
+  // Render first 3 comments if collapsed, otherwise render all comments
+  const commentsToRender = expanded ? comments : comments.slice(0, 3);
+
+  listContainer.innerHTML = '';
+  commentsToRender.forEach(comment => {
+    const item = document.createElement('div');
+    item.className = 'comment-card';
+    const author = comment.username || 'Anonymous';
+    const timeAgo = formatTimeAgo(comment.createdAt);
+
+    item.innerHTML = `
+      <img class="avatar" src="https://i.pravatar.cc/32?u=${encodeURIComponent(comment.userId)}" alt="${author}" />
+      <div class="comment-content-wrap">
+        <div class="comment-header">
+          <strong>${author}</strong>
+          <span>${timeAgo}</span>
+        </div>
+        <p>${comment.content || ''}</p>
+      </div>
+    `;
+    listContainer.appendChild(item);
+  });
+
+  // If collapsed and comments > 3, show a subtle hint
+  if (!expanded && comments.length > 3) {
+    const hint = document.createElement('div');
+    hint.className = 'empty-state';
+    hint.style.padding = '8px';
+    hint.style.cursor = 'pointer';
+    hint.style.fontSize = '0.85rem';
+    hint.textContent = `Show ${comments.length - 3} more comments...`;
+    hint.onclick = () => toggleComments(postId);
+    listContainer.appendChild(hint);
+  }
+
+  // Scroll to bottom only if expanded
+  if (expanded) {
+    listContainer.scrollTop = listContainer.scrollHeight;
   }
 };
 
-window.loadComments = async function loadComments(postId) {
-  const listContainer = document.getElementById(`comment-list-${postId}`);
-  if (!listContainer) return;
+window.toggleComments = async function toggleComments(postId) {
+  const card = document.getElementById(`post-card-${postId}`);
+  if (!card) return;
 
-  listContainer.innerHTML = '<div class="empty-state" style="padding:12px;">Loading comments...</div>';
+  const isExpanded = card.dataset.expanded === "true";
+  card.dataset.expanded = isExpanded ? "false" : "true";
 
-  try {
-    const res = await fetch(`/api/posts/${postId}/comments`);
-    if (!res.ok) throw new Error(`Status: ${res.status}`);
-    const comments = await res.json();
-
-    if (!Array.isArray(comments) || comments.length === 0) {
-      listContainer.innerHTML = '<div class="empty-state" style="padding:12px;">No comments yet — start the conversation!</div>';
-      return;
-    }
-
-    listContainer.innerHTML = '';
-    comments.forEach(comment => {
-      const card = document.createElement('div');
-      card.className = 'comment-card';
-      const author = comment.username || 'Anonymous';
-      const timeAgo = formatTimeAgo(comment.createdAt);
-      
-      card.innerHTML = `
-        <img class="avatar" src="https://i.pravatar.cc/32?u=${encodeURIComponent(comment.userId)}" alt="${author}" />
-        <div class="comment-content-wrap">
-          <div class="comment-header">
-            <strong>${author}</strong>
-            <span>${timeAgo}</span>
-          </div>
-          <p>${comment.content || ''}</p>
-        </div>
-      `;
-      listContainer.appendChild(card);
-    });
-    
-    // Auto-scroll to the bottom of the list
-    listContainer.scrollTop = listContainer.scrollHeight;
-  } catch (err) {
-    console.error('Error loading comments:', err);
-    listContainer.innerHTML = '<div class="empty-state" style="padding:12px;color:red;">Failed to load comments</div>';
-  }
+  renderCommentList(postId);
 };
 
 window.submitComment = async function submitComment(postId) {
+  const card = document.getElementById(`post-card-${postId}`);
   const input = document.getElementById(`comment-input-${postId}`);
-  if (!input) return;
+  if (!card || !input) return;
 
   const content = input.value.trim();
   if (!content) {
@@ -693,13 +707,30 @@ window.submitComment = async function submitComment(postId) {
   }
 
   try {
-    await makeApiRequest('POST', `/api/posts/${postId}/comments`, {
+    const res = await makeApiRequest('POST', `/api/posts/${postId}/comments`, {
       user_id: getCurrentUserId(),
       username: getCurrentDisplayName(),
       content
     });
+    
+    const newComment = res.comment;
+    if (newComment) {
+      if (!card.comments) card.comments = [];
+      card.comments.push(newComment);
+      
+      // Auto-expand on new comment so they see their posted comment
+      card.dataset.expanded = "true";
+      
+      // Update button counter
+      const btn = document.getElementById(`comments-btn-${postId}`);
+      if (btn) {
+        btn.innerHTML = `💬 comments (${card.comments.length})`;
+      }
+
+      // Re-render
+      renderCommentList(postId);
+    }
     input.value = '';
-    await loadComments(postId);
   } catch (err) {
     alert(`Could not post comment: ${err.message}`);
   }
