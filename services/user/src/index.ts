@@ -9,6 +9,7 @@ const port = process.env.PORT || '3001';
 // Initialize Firebase Admin SDK
 const firebaseAdmin = admin.initializeApp({
   credential: admin.credential.applicationDefault(),
+  projectId: process.env.FIREBASE_PROJECT_ID || 'tricoach-496512',
 });
 
 const auth = firebaseAdmin.auth();
