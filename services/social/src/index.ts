@@ -106,7 +106,15 @@ app.get('/feed/:userId', async (req: Request, res: Response) => {
       const data = doc.data();
       return {
         id: doc.id,
-        ...data,
+        userId: data.userId,
+        username: data.username || 'Anonymous',
+        trainingId: data.trainingId || null,
+        trainingDetails: data.trainingDetails || null,
+        content: data.content,
+        likes: data.likes || 0,
+        likedBy: data.likedBy || [],
+        createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
+        updatedAt: data.updatedAt ? (data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt) : null,
       };
     });
 

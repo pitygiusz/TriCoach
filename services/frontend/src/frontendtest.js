@@ -297,7 +297,6 @@ function createPostCard(post) {
       <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
         ❤️ <span class="like-count">${post.likes || 0}</span>
       </button>
-      ${post.trainingId ? '<span style="font-size: 0.85rem; color: var(--muted);">Training attached</span>' : ''}
     </div>
     ${likedByText}
   `;
