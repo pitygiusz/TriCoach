@@ -990,6 +990,62 @@ app.get('/simulations/:userId', async (req: Request, res: Response) => {
   }
 });
 
+// Create an AI history analysis
+app.post('/analyses', async (req: Request, res: Response) => {
+  try {
+    const { user_id, analysis } = req.body;
+
+    if (!user_id || !analysis) {
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
+    }
+
+    const analysisRef = db.collection('users').doc(user_id).collection('analyses').doc();
+    const analysisData = {
+      id: analysisRef.id,
+      userId: user_id,
+      analysis,
+      createdAt: new Date().toISOString(),
+    };
+
+    await analysisRef.set(analysisData);
+
+    res.status(201).json({
+      message: 'Analysis saved successfully',
+      analysis: analysisData,
+    });
+  } catch (error: any) {
+    console.error('Create analysis error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
+// Get user's latest AI history analysis
+app.get('/analyses/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const snapshot = await db.collection('users').doc(userId).collection('analyses')
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
+
+    if (snapshot.empty) {
+      res.status(200).json({ analysis: null });
+      return;
+    }
+
+    const latestAnalysis = snapshot.docs[0].data();
+
+    res.status(200).json({
+      analysis: latestAnalysis,
+    });
+  } catch (error: any) {
+    console.error('Get latest analysis error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
 app.listen(Number(port), () => {
   console.log(` social service (admin sdk) running on port ${port}`);
 });

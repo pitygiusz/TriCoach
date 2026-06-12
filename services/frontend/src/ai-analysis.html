@@ -29,7 +29,7 @@
         </div>
       </header>
 
-      <section class="post-card" style="margin-bottom: 8px;">
+      <section id="analysisIntroSection" class="post-card" style="margin-bottom: 8px;">
         <h3>AI History Critique</h3>
         <p style="color: var(--muted); margin-bottom: 20px;">
           Our AI coach analyzes your logged workout consistency, pacing trends, and disciplines distribution over your recent training history, offering professional critiques and actionable advice.
@@ -68,14 +68,129 @@
 
     const runAiAnalysisBtn = document.getElementById('runAiAnalysisBtn');
     const aiResultArea = document.getElementById('aiResultArea');
+    const analysisIntroSection = document.getElementById('analysisIntroSection');
 
-    // ─── Run AI History Analysis ──────────────────────────────────────────────
-    runAiAnalysisBtn.addEventListener('click', async () => {
+    // ─── Load Latest Analysis ─────────────────────────────────────────────────
+    async function loadLatestAnalysis() {
+      const uid = getCurrentUserId();
+      if (!uid) return;
+
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(`/api/analytics/analyses/${uid}`, {
+          headers: authHeaders
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to load analysis. Status: ${res.status}`);
+        }
+        const data = await res.json();
+        
+        if (data.analysis && data.analysis.analysis) {
+          analysisIntroSection.style.display = 'none';
+          renderAnalysisDetails(data.analysis.analysis, data.analysis.createdAt);
+        } else {
+          analysisIntroSection.style.display = 'block';
+          aiResultArea.innerHTML = `
+            <div class="empty-state">Click the button to generate your AI coaching critique.</div>
+          `;
+        }
+      } catch (err) {
+        console.error('Failed to load latest analysis:', err);
+        analysisIntroSection.style.display = 'block';
+        aiResultArea.innerHTML = `
+          <div class="error-state">
+            <p>Failed to load latest analysis</p>
+            <span style="font-size: 0.9rem;">${err.message}</span>
+          </div>
+        `;
+      }
+    }
+
+    function renderAnalysisDetails(analysis, createdAt) {
+      const dateStr = createdAt ? new Date(createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Recent';
+      
+      const keyFindingsHtml = (analysis.key_findings || []).map(f => `
+        <li style="margin-bottom: 12px; font-size: 1.05rem; display: flex; align-items: start; gap: 10px; line-height: 1.5;">
+          <span style="color: var(--primary); font-size: 1.2rem;">✔</span>
+          <span style="color: var(--text);">${f}</span>
+        </li>
+      `).join('');
+
+      const recommendationsHtml = (analysis.recommendations || []).map(r => `
+        <li style="margin-bottom: 12px; font-size: 1.05rem; display: flex; align-items: start; gap: 10px; line-height: 1.5;">
+          <span style="color: var(--gold); font-size: 1.2rem;">⚡</span>
+          <span style="color: var(--text);">${r}</span>
+        </li>
+      `).join('');
+
+      aiResultArea.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
+          <h3 style="margin: 0;">Saved Critique (${dateStr})</h3>
+          <button id="triggerNewAnalysisBtn" class="action-pill active" style="font-weight: bold; padding: 10px 18px; font-size: 0.9rem;">
+            🔄 Generate New Analysis
+          </button>
+        </div>
+
+        <article class="post-card" style="border-left: 5px solid var(--primary); margin-bottom: 16px;">
+          <header>
+            <div style="font-size: 2.5rem; margin-right: 12px;">🧠</div>
+            <div class="post-author">
+              <strong>AI Coaching Critique</strong>
+              <span>Based on ${analysis.total_workouts || 0} workouts analyzed</span>
+            </div>
+          </header>
+          
+          <div style="line-height: 1.8; margin-top: 14px; background: var(--surface-strong); border-radius: 16px; padding: 18px;">
+            <strong style="color: var(--primary); display: block; margin-bottom: 8px; font-size: 1.1rem;">📋 Critique:</strong>
+            <p style="margin: 0; font-size: 1.05rem; white-space: pre-line;">${analysis.coaching_critique || 'No critique text.'}</p>
+          </div>
+        </article>
+
+        <article class="post-card" style="border-left: 5px solid var(--primary); margin-bottom: 16px;">
+          <header>
+            <div style="font-size: 2.5rem; margin-right: 12px;">🔍</div>
+            <div class="post-author">
+              <strong>Key Findings</strong>
+              <span>Observations from recent sessions</span>
+            </div>
+          </header>
+          <ul style="list-style: none; padding: 0; margin: 18px 0 0 0;">
+            ${keyFindingsHtml}
+          </ul>
+        </article>
+
+        <article class="post-card" style="border-left: 5px solid var(--gold); margin-bottom: 16px;">
+          <header>
+            <div style="font-size: 2.5rem; margin-right: 12px;">💡</div>
+            <div class="post-author">
+              <strong>Actionable Recommendations</strong>
+              <span>Suggested steps for next cycles</span>
+            </div>
+          </header>
+          <ul style="list-style: none; padding: 0; margin: 18px 0 0 0;">
+            ${recommendationsHtml}
+          </ul>
+        </article>
+      `;
+
+      document.getElementById('triggerNewAnalysisBtn').addEventListener('click', () => {
+        analysisIntroSection.style.display = 'block';
+        aiResultArea.innerHTML = `
+          <div class="empty-state">Click the button to generate your AI coaching critique.</div>
+        `;
+        analysisIntroSection.scrollIntoView({ behavior: 'smooth' });
+      });
+    }
+
+    // ─── Trigger AI History Analysis ──────────────────────────────────────────
+    async function triggerAnalysisGeneration() {
       const uid = getCurrentUserId();
       if (!uid) {
         window.location.replace('login.html');
         return;
       }
+
+      analysisIntroSection.style.display = 'none';
 
       aiResultArea.innerHTML = `
         <div class="empty-state">
@@ -106,63 +221,23 @@
 
         const analysis = data.analysis;
 
-        const keyFindingsHtml = analysis.key_findings.map(f => `
-          <li style="margin-bottom: 12px; font-size: 1.05rem; display: flex; align-items: start; gap: 10px; line-height: 1.5;">
-            <span style="color: var(--primary); font-size: 1.2rem;">✔</span>
-            <span style="color: var(--text);">${f}</span>
-          </li>
-        `).join('');
+        const saveRes = await fetch('/api/analytics/analyses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({
+            user_id: uid,
+            analysis: analysis
+          })
+        });
 
-        const recommendationsHtml = analysis.recommendations.map(r => `
-          <li style="margin-bottom: 12px; font-size: 1.05rem; display: flex; align-items: start; gap: 10px; line-height: 1.5;">
-            <span style="color: var(--gold); font-size: 1.2rem;">⚡</span>
-            <span style="color: var(--text);">${r}</span>
-          </li>
-        `).join('');
+        if (saveRes.ok) {
+          loadLatestAnalysis();
+        } else {
+          renderAnalysisDetails(analysis, new Date().toISOString());
+        }
 
-        aiResultArea.innerHTML = `
-          <article class="post-card" style="border-left: 5px solid var(--primary); margin-bottom: 16px;">
-            <header>
-              <div style="font-size: 2.5rem; margin-right: 12px;">🧠</div>
-              <div class="post-author">
-                <strong>AI Coaching Critique</strong>
-                <span>Based on ${analysis.total_workouts} workouts analyzed</span>
-              </div>
-            </header>
-            
-            <div style="line-height: 1.8; margin-top: 14px; background: var(--surface-strong); border-radius: 16px; padding: 18px;">
-              <strong style="color: var(--primary); display: block; margin-bottom: 8px; font-size: 1.1rem;">📋 Critique:</strong>
-              <p style="margin: 0; font-size: 1.05rem; white-space: pre-line;">${analysis.coaching_critique}</p>
-            </div>
-          </article>
-
-          <article class="post-card" style="border-left: 5px solid var(--primary); margin-bottom: 16px;">
-            <header>
-              <div style="font-size: 2.5rem; margin-right: 12px;">🔍</div>
-              <div class="post-author">
-                <strong>Key Findings</strong>
-                <span>Observations from recent sessions</span>
-              </div>
-            </header>
-            <ul style="list-style: none; padding: 0; margin: 18px 0 0 0;">
-              ${keyFindingsHtml}
-            </ul>
-          </article>
-
-          <article class="post-card" style="border-left: 5px solid var(--gold); margin-bottom: 16px;">
-            <header>
-              <div style="font-size: 2.5rem; margin-right: 12px;">💡</div>
-              <div class="post-author">
-                <strong>Actionable Recommendations</strong>
-                <span>Suggested steps for next cycles</span>
-              </div>
-            </header>
-            <ul style="list-style: none; padding: 0; margin: 18px 0 0 0;">
-              ${recommendationsHtml}
-            </ul>
-          </article>
-        `;
       } catch (err) {
+        analysisIntroSection.style.display = 'block';
         aiResultArea.innerHTML = `
           <div class="error-state">
             <p>AI Analysis Failed</p>
@@ -170,7 +245,9 @@
           </div>
         `;
       }
-    });
+    }
+
+    runAiAnalysisBtn.addEventListener('click', triggerAnalysisGeneration);
 
     // ─── Bootstrap ────────────────────────────────────────────────────────────
     if (isFirebaseReady()) {
@@ -184,9 +261,11 @@
           window.location.replace('login.html');
         }
         updateProfileSidebar();
+        loadLatestAnalysis();
       });
     } else {
       updateProfileSidebar();
+      loadLatestAnalysis();
     }
   </script>
 </body>
