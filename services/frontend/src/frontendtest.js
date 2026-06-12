@@ -1,4 +1,3 @@
-// frontendtest.js
 // All API calls go to the same origin (port 8080).
 // The frontend server proxies /api/* to the gateway (port 3000) server-side,
 // so the browser never makes a cross-origin request.
@@ -50,6 +49,7 @@ const submitTrainingBtn    = document.getElementById('submitTrainingBtn');
   }
 })();
 
+// ─── Firebase Auth (Compat SDK loaded via <script> tags) ─────────────────────
 function isFirebaseReady() {
   try {
     return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
@@ -181,32 +181,30 @@ function createPostCard(post) {
   card.id = `post-card-${post.id}`;
   card.comments = post.comments || [];
   card.dataset.expanded = "false";
-  
-  // Rich user profiles joined from the backend
-  const authorProfile  = post.authorProfile || {};
-  const authorFullName = authorProfile.fullName || post.username || 'Athlete';
-  const authorHandle   = authorProfile.username || 'athlete';
-  const authorAvatar   = authorProfile.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId || 'default')}`;
-  
-  // Format likedBy list
+
+  // 1. Dynamic Rich Author Data
+  const authorProfile = post.authorProfile || {};
+  const fullName = authorProfile.fullName || post.username || 'Anonymous';
+  const handle = authorProfile.username || 'athlete';
+  const avatar = authorProfile.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}`;
+
+  // 2. Liked By Dynamic Formatting (Removed hardcoded "Liked by:" text)
   let likedByText = '';
   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
-    const names = post.likedBy.map(like => typeof like === 'object' && like !== null ? like.name || like.username : like);
-    likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
-      ❤️ Liked by: ${names.join(', ')}
+    const names = post.likedBy.map(like => typeof like === 'object' ? like.name : 'Someone');
+    likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; padding-top: 8px;">
+      ${names.join(', ')}
     </div>`;
   }
 
-  // Check if current user liked it
+  // 3. Current User Like Check
   const currentUid = getCurrentUserId();
   const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => {
-    if (typeof like === 'object' && like !== null) {
-      return like.uid === currentUid;
-    }
-    return like === currentUid;
+    const uid = typeof like === 'object' ? like.uid : like;
+    return uid === currentUid;
   });
 
-  // Render training stats inline if present
+  // 4. Training Stats HTML
   let statsHtml = '';
   if (post.trainingDetails) {
     const type = post.trainingDetails.type || 'Workout';
@@ -221,45 +219,46 @@ function createPostCard(post) {
       </div>
     `;
   } else if (post.trainingId) {
-    statsHtml = `
-      <div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
-        <span style="font-size: 0.95rem; color: var(--muted);">Loading training details...</span>
-      </div>
-    `;
+    statsHtml = `<div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;"><span style="font-size: 0.95rem; color: var(--muted);">Loading training details...</span></div>`;
   }
 
   const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
   const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
 
+  // 5. New Title and Image Elements
+  const titleHtml = post.title ? `<h3 style="margin-top: 0; margin-bottom: 8px; font-size: 1.25rem;">${post.title}</h3>` : '';
+  const imageHtml = post.imageUrl ? `<img src="${post.imageUrl}" style="width: 100%; border-radius: 8px; margin-bottom: 12px; object-fit: cover; max-height: 500px; border: 1px solid var(--border);" alt="Post upload" />` : '';
+
+  // 6. Delimited, Flex Header HTML
   card.innerHTML = `
-    <header style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 12px;">
-      <a href="profile.html?uid=${post.userId}" style="display: flex; gap: 12px; text-decoration: none; color: inherit; align-items: center;">
-        <img class="avatar" src="${authorAvatar}" alt="${authorFullName}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" />
-        <div style="display: flex; flex-direction: column;">
-          <strong style="font-size: 1rem;">${authorFullName}</strong>
-          <span style="font-size: 0.85rem; color: var(--muted);">@${authorHandle}</span>
+    <header style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--surface-strong); margin-bottom: 12px;">
+      <a href="profile.html?uid=${post.userId}" style="display: flex; gap: 12px; text-decoration: none; color: inherit; align-items: center; cursor: pointer;">
+        <img class="avatar" src="${avatar}" alt="${fullName}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
+        <div class="post-author" style="display: flex; flex-direction: column;">
+          <strong style="font-size: 1rem; color: var(--text);">${fullName}</strong>
+          <span style="font-size: 0.85rem; color: var(--muted);">@${handle}</span>
         </div>
       </a>
-      <span style="font-size: 0.8rem; color: var(--muted);">${formatTimeAgo(post.createdAt)}</span>
+      <span style="font-size: 0.8rem; color: var(--muted); padding-top: 4px;">${formatTimeAgo(post.createdAt)}</span>
     </header>
-    <h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>
-    <p>${post.content || ''}</p>
+    ${titleHtml}
+    <p style="margin-bottom: 12px; line-height: 1.5; font-size: 0.95rem;">${post.content || ''}</p>
+    ${imageHtml}
     ${statsHtml}
-    ${likedByText}
-    <div class="post-meta" style="display: flex; align-items: center; gap: 16px; margin-top: 12px;">
-      <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
+    <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
+      <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; transition: 0.2s; ${likeStyle}">
         ❤️ <span class="like-count">${post.likes || 0}</span>
       </button>
       <button onclick="toggleComments('${post.id}')" class="comments-toggle-btn" id="comments-btn-${post.id}">
         💬 comments (${post.comments ? post.comments.length : 0})
       </button>
     </div>
+    ${likedByText}
     <div id="comments-container-${post.id}" class="comments-container">
+      <div id="comment-list-${post.id}" class="comment-list"></div>
       <div class="comment-input-area">
         <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
         <button class="comment-submit-btn" onclick="submitComment('${post.id}')">Post</button>
-      </div>
-      <div id="comment-list-${post.id}" class="comment-list">
       </div>
     </div>
   `;
@@ -302,7 +301,7 @@ async function fetchAndRenderAttachedTraining(userId, trainingId, postId) {
       }
     }
   } catch (err) {
-    // Fails silently in network / console to ensure the post card remains usable
+    console.error('Error loading attached training details:', err);
     const container = document.getElementById(`workout-details-${postId}`);
     if (container) {
       container.style.display = 'none';
@@ -349,6 +348,7 @@ function renderPosts(posts) {
 }
 
 // ─── Load posts on startup with timeout ───────────────────────────────────────
+// Use a race with AbortController so the UI doesn't hang forever
 async function loadPosts() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
@@ -373,6 +373,7 @@ async function loadPosts() {
     renderPosts(postsArray);
   } catch (err) {
     clearTimeout(timeout);
+    // Show the empty state instead of an error so the page is usable
     postsContainer.innerHTML = '<div class="empty-state">No posts yet — follow some athletes to see updates!</div>';
     console.warn('loadPosts:', err.message);
   }
@@ -389,6 +390,7 @@ window.followUserByUsername = async function followUserByUsername() {
   const currentUid = getCurrentUserId();
 
   try {
+    // 1. Resolve username to UID
     const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username)}`);
     if (!userRes.ok) {
       if (userRes.status === 404) {
@@ -403,6 +405,7 @@ window.followUserByUsername = async function followUserByUsername() {
       return;
     }
 
+    // 2. Send follow request
     await makeApiRequest('POST', '/api/follow', {
       follower_id: currentUid,
       following_id: targetUser.uid,
@@ -411,6 +414,7 @@ window.followUserByUsername = async function followUserByUsername() {
     alert(`Successfully followed @${username}!`);
     if (usernameInput) usernameInput.value = '';
     
+    // Refresh sidebar and feed
     updateProfileSidebar();
     loadPosts();
   } catch (err) {
@@ -485,6 +489,7 @@ async function updateProfileSidebar() {
   let name = sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
   let avatarUrl = sessionStorage.getItem('pgAvatar');
   
+  // Grab live database info if logged in to avoid old session tokens
   if (uid && !sessionStorage.getItem('sidebarNameLoaded')) {
     try {
       const res = await fetch(`/api/users/${uid}/profile`);
@@ -503,6 +508,7 @@ async function updateProfileSidebar() {
 
   const avatar = avatarUrl || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
+  // Update profile card in sidebar
   const profileCard = document.getElementById('profileCard');
   if (profileCard) {
     profileCard.innerHTML = `
@@ -516,12 +522,14 @@ async function updateProfileSidebar() {
     `;
   }
   
+  // Update main page toggle button photo dynamically
   const toggleImg = document.querySelector('#toggle img');
   if (toggleImg) {
     toggleImg.src = avatar;
     toggleImg.alt = name;
   }
 
+  // Load friends
   if (uid) {
     fetchFriendsList(uid);
   }
@@ -533,6 +541,8 @@ async function fetchFriendsList(uid) {
   if (!friendsListEl) return;
 
   try {
+    // Fetch followers and following lists independently via existing API
+    // Using makeApiRequest guarantees auth headers are passed properly
     const [followersData, followingData] = await Promise.all([
       makeApiRequest('GET', `/api/followers/${uid}`).catch(() => []),
       makeApiRequest('GET', `/api/following/${uid}`).catch(() => [])
@@ -544,6 +554,7 @@ async function fetchFriendsList(uid) {
     const followerIds = followers.map(f => f.followerId || f.uid || f.id || f);
     const followingIds = following.map(f => f.followingId || f.uid || f.id || f);
 
+    // Filter to find the overlap (Mutual followers)
     const mutualIds = [...new Set(followingIds.filter(id => followerIds.includes(id)))];
 
     if (mutualIds.length === 0) {
@@ -553,6 +564,7 @@ async function fetchFriendsList(uid) {
 
     friendsListEl.innerHTML = '';
     
+    // Fetch profile data for the mutual IDs to display correct images and usernames
     const profiles = await Promise.all(
       mutualIds.map(friendId => 
         makeApiRequest('GET', `/api/users/${friendId}/profile`)
@@ -561,7 +573,7 @@ async function fetchFriendsList(uid) {
     );
 
     profiles.forEach(friend => {
-      if (friend.username === 'Unknown') return;
+      if (friend.username === 'Unknown') return; // Skip if we failed to load this profile
 
       const li = document.createElement('li');
       li.style.display = 'flex';
@@ -569,7 +581,7 @@ async function fetchFriendsList(uid) {
       li.style.gap = '10px';
       li.style.cursor = 'pointer';
       li.style.padding = '6px 0';
-      li.style.overflow = 'hidden';
+      li.style.overflow = 'hidden'; // Ensures the flex child doesn't overflow container
       li.onclick = () => window.location.href = `profile.html?uid=${friend.uid}`;
 
       const friendAvatar = friend.profilePicture || `https://i.pravatar.cc/40?u=${encodeURIComponent(friend.uid)}`;
@@ -602,38 +614,66 @@ closePostModalBtn.addEventListener('click', () => {
   createPostModal.classList.add('hidden');
 });
 
+const postTitleInput = document.getElementById('postTitleInput');
+const postImageInput = document.getElementById('postImageInput');
+
 submitPostBtn.addEventListener('click', async () => {
+  const title      = postTitleInput.value.trim();
   const content    = postContentInput.value.trim();
   const trainingId = workoutSelect.value || null;
+  const imageFile  = postImageInput.files[0];
 
   if (!content) { alert('Write something first!'); return; }
 
-  let trainingDetails = null;
-  if (trainingId) {
-    const workoutObj = loadedWorkoutsList.find(w => w.id === trainingId);
-    if (workoutObj) {
-      trainingDetails = {
-        type: workoutObj.type,
-        duration_minutes: workoutObj.duration_minutes !== undefined ? workoutObj.duration_minutes : workoutObj.durationMinutes,
-        distance_km: workoutObj.distance_km !== undefined ? workoutObj.distance_km : workoutObj.distanceKm,
-      };
-    }
-  }
+  const originalBtnText = submitPostBtn.textContent;
+  submitPostBtn.textContent = 'Uploading...';
+  submitPostBtn.disabled = true;
 
   try {
+    let imageUrl = null;
+    
+    // If user attached an image, upload to Firebase Storage first!
+    if (imageFile) {
+      if (!isFirebaseReady()) throw new Error("Firebase required for photo uploads.");
+      const sessionUid = getCurrentUserId();
+      const storageRef = firebase.storage().ref().child(`post_images/${sessionUid}/${Date.now()}_${imageFile.name}`);
+      await storageRef.put(imageFile);
+      imageUrl = await storageRef.getDownloadURL();
+    }
+
+    let trainingDetails = null;
+    if (trainingId) {
+      const workoutObj = loadedWorkoutsList.find(w => w.id === trainingId);
+      if (workoutObj) {
+        trainingDetails = {
+          type: workoutObj.type,
+          duration_minutes: workoutObj.duration_minutes !== undefined ? workoutObj.duration_minutes : workoutObj.durationMinutes,
+          distance_km: workoutObj.distance_km !== undefined ? workoutObj.distance_km : workoutObj.distanceKm,
+        };
+      }
+    }
+
     await makeApiRequest('POST', '/api/posts', {
       user_id:          getCurrentUserId(),
       username:         getCurrentDisplayName(),
+      title:            title,
+      imageUrl:         imageUrl,
       content,
       training_id:      trainingId,
       training_details: trainingDetails,
     });
+
+    postTitleInput.value   = '';
     postContentInput.value = '';
+    postImageInput.value   = '';
     workoutSelect.value    = '';
     createPostModal.classList.add('hidden');
     loadPosts();
   } catch (err) {
     alert(`Failed to post: ${err.message}`);
+  } finally {
+    submitPostBtn.textContent = originalBtnText;
+    submitPostBtn.disabled = false;
   }
 });
 
@@ -667,6 +707,7 @@ submitTrainingBtn.addEventListener('click', async () => {
     trainingDistance.value = '';
     createTrainingModal.classList.add('hidden');
 
+    // Silently refresh the workouts dropdown so it's ready when the post modal opens
     await fetchWorkouts();
     alert('Training logged!');
   } catch (err) {
@@ -675,7 +716,6 @@ submitTrainingBtn.addEventListener('click', async () => {
 });
 
 // ─── Comments Toggle and Rendering Logic ──────────────────────────────────────
-window.renderCommentList = window.renderCommentList || function() {};
 window.renderCommentList = function renderCommentList(postId) {
   const card = document.getElementById(`post-card-${postId}`);
   const listContainer = document.getElementById(`comment-list-${postId}`);
@@ -689,6 +729,7 @@ window.renderCommentList = function renderCommentList(postId) {
     return;
   }
 
+  // Render first 3 comments if collapsed, otherwise render all comments
   const commentsToRender = expanded ? comments : comments.slice(0, 3);
 
   listContainer.innerHTML = '';
@@ -711,6 +752,7 @@ window.renderCommentList = function renderCommentList(postId) {
     listContainer.appendChild(item);
   });
 
+  // If collapsed and comments > 3, show a subtle hint
   if (!expanded && comments.length > 3) {
     const hint = document.createElement('div');
     hint.className = 'empty-state';
@@ -722,6 +764,7 @@ window.renderCommentList = function renderCommentList(postId) {
     listContainer.appendChild(hint);
   }
 
+  // Scroll to bottom only if expanded
   if (expanded) {
     listContainer.scrollTop = listContainer.scrollHeight;
   }
@@ -760,13 +803,16 @@ window.submitComment = async function submitComment(postId) {
       if (!card.comments) card.comments = [];
       card.comments.push(newComment);
       
+      // Auto-expand on new comment so they see their posted comment
       card.dataset.expanded = "true";
       
+      // Update button counter
       const btn = document.getElementById(`comments-btn-${postId}`);
       if (btn) {
         btn.innerHTML = `💬 comments (${card.comments.length})`;
       }
 
+      // Re-render
       renderCommentList(postId);
     }
     input.value = '';
