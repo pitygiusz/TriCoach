@@ -182,35 +182,99 @@ app.get('/posts', async (req: Request, res: Response) => {
 });
 
 // Get user's feed
+// Get user's feed (posts from followed users + own posts)
 app.get('/feed/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
     const { limit = 50, offset = 0 } = req.query;
 
+    // Get followed users
     const followingSnapshot = await db.collection('follows').where('followerId', '==', userId).get();
-    const followedUserIds = followingSnapshot.docs.map((doc) => doc.data().followingId);
-    followedUserIds.push(userId); 
 
-    const postsSnapshot = await db.collection('posts').where('userId', 'in', followedUserIds).get();
-    const rawPosts = postsSnapshot.docs.map((doc) => {
+    const followedUserIds = followingSnapshot.docs.map((doc) => doc.data().followingId);
+    followedUserIds.push(userId); // Include own posts
+
+    // --- CHUNK THE USER IDs ARRAY TO AVOID FIRESTORE 'in' LIMIT (MAX 10) ---
+    const chunks: string[][] = [];
+    for (let i = 0; i < followedUserIds.length; i += 10) {
+      chunks.push(followedUserIds.slice(i, i + 10));
+    }
+
+    // Run chunked queries in parallel and flatten the results
+    const postsDocs = await Promise.all(
+      chunks.map(async (chunk) => {
+        const snapshot = await db.collection('posts').where('userId', 'in', chunk).get();
+        return snapshot.docs;
+      })
+    );
+
+    const rawPosts = postsDocs.flatMap(docs => docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
-        ...data,
+        userId: data.userId,
+        username: data.username || 'Anonymous',
+        trainingId: data.trainingId || null,
+        trainingDetails: data.trainingDetails || null,
+        content: data.content,
+        likes: data.likes || 0,
+        likedBy: data.likedBy || [],
         createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
         updatedAt: data.updatedAt ? (data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt) : null,
       };
-    });
+    }));
+    // ------------------------------------------------------------------------
 
     const populatedPosts = await populatePostsMetadata(rawPosts);
-    const sortedPosts = populatedPosts.sort((a: any, b: any) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
+
+    // Sort by date and paginate
+    const sortedPosts = populatedPosts.sort((a: any, b: any) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
     const paginatedPosts = sortedPosts.slice(Number(offset), Number(offset) + Number(limit));
 
-    res.status(200).json({ total: sortedPosts.length, posts: paginatedPosts });
+    res.status(200).json({
+      total: sortedPosts.length,
+      posts: paginatedPosts,
+    });
   } catch (error: any) {
-    res.status(500).json({ error: error.message || error.toString() });
+    console.error('Get feed error:', error);
+    res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
+
+
+// app.get('/feed/:userId', async (req: Request, res: Response) => {
+//   try {
+//     const { userId } = req.params;
+//     const { limit = 50, offset = 0 } = req.query;
+
+//     const followingSnapshot = await db.collection('follows').where('followerId', '==', userId).get();
+//     const followedUserIds = followingSnapshot.docs.map((doc) => doc.data().followingId);
+//     followedUserIds.push(userId); 
+
+//     const postsSnapshot = await db.collection('posts').where('userId', 'in', followedUserIds).get();
+//     const rawPosts = postsSnapshot.docs.map((doc) => {
+//       const data = doc.data();
+//       return {
+//         id: doc.id,
+//         ...data,
+//         createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
+//         updatedAt: data.updatedAt ? (data.updatedAt.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt) : null,
+//       };
+//     });
+
+//     const populatedPosts = await populatePostsMetadata(rawPosts);
+//     const sortedPosts = populatedPosts.sort((a: any, b: any) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
+//     const paginatedPosts = sortedPosts.slice(Number(offset), Number(offset) + Number(limit));
+
+//     res.status(200).json({ total: sortedPosts.length, posts: paginatedPosts });
+//   } catch (error: any) {
+//     res.status(500).json({ error: error.message || error.toString() });
+//   }
+// });
 
 // Like / Unlike / Follow functionality remains exactly the same as your original file
 // ... (Keep the rest of your original routes here untouched)
