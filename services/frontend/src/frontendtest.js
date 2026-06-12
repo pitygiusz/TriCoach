@@ -188,7 +188,7 @@ function createPostCard(post) {
   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
     const names = post.likedBy.map(like => typeof like === 'object' && like !== null ? like.username : like);
     likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
-      ❤️ Liked by: ${names.join(', ')}
+      ❤️: ${names.join(', ')}
     </div>`;
   }
 
@@ -237,6 +237,7 @@ function createPostCard(post) {
     <h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>
     <p>${post.content || ''}</p>
     ${statsHtml}
+    ${likedByText}
     <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
       <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
         ❤️ <span class="like-count">${post.likes || 0}</span>
@@ -245,13 +246,12 @@ function createPostCard(post) {
         💬 comments (${post.comments ? post.comments.length : 0})
       </button>
     </div>
-    ${likedByText}
     <div id="comments-container-${post.id}" class="comments-container">
-      <div id="comment-list-${post.id}" class="comment-list">
-      </div>
       <div class="comment-input-area">
         <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
         <button class="comment-submit-btn" onclick="submitComment('${post.id}')">Post</button>
+      </div>
+      <div id="comment-list-${post.id}" class="comment-list">
       </div>
     </div>
   `;
