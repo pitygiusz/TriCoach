@@ -180,17 +180,27 @@ async function makeApiRequest(method, endpoint, data = null) {
 
 function createPostCard(post) {
   const card = document.createElement('article');
+  let name = 'Athlete'
+  const usid = post.username || post.userId || 'none';
+  const profile = await fetch('/api/users/${usid}/profile');
+    if (res.ok) {
+      const uData = await res.json();
+      name = '${uData.firstName} ${uData.lastName}';
+      if (uData.profilePicture) {
+            sessionStorage.setItem('pgAvatar', uData.profilePicture);
+            pfpc = uData.profilePicture;
+        }
+    }
   card.className = 'post-card';
   card.id = `post-card-${post.id}`;
   card.comments = post.comments || [];
   card.dataset.expanded = "false";
 
   // 1. Separate display name and username seamlessly
-  const displayName = post.displayName || 'Athlete';
-  const username = post.username || post.userId || 'anonymous';
+  const displayName = name || 'Athlete';
   
   // 2. Fetch the live profile picture with a consistent dynamic fallback string
-  const avatarUrl = post.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId || 'default')}`;
+  const avatarUrl = pfpc || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId || 'default')}`;
 
   let likedByText = '';
   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
