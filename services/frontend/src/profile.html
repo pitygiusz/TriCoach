@@ -834,8 +834,7 @@
           const postsRes = await fetch('/api/posts');
           if (postsRes.ok) {
             const posts = await postsRes.json();
-            const loggedInUid = sessionStorage.getItem('firebaseUid');
-            const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === loggedInUid) : [];
+            const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === targetUid) : [];
             document.getElementById('postCount').textContent = userPosts.length;
             const container = document.getElementById('userPosts');
             
@@ -856,11 +855,13 @@
                 card.dataset.expanded = "false";
                 
                 let deleteButtonHtml = '';
-                deleteButtonHtml = `
-                  <button onclick="deletePost('${post.id}')" style="background: transparent; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; padding: 6px 12px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" aria-label="Delete post">
-                    🗑️ Delete
-                  </button>
-                `;
+                if (isOwner) {
+                  deleteButtonHtml = `
+                    <button onclick="deletePost('${post.id}')" style="background: transparent; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; padding: 6px 12px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" aria-label="Delete post">
+                      🗑️ Delete
+                    </button>
+                  `;
+                }
 
                 const usid = post.userId || post.username || 'none';
                 const postDisplayName = post.displayName || 'Athlete';
