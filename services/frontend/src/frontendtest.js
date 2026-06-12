@@ -12,7 +12,7 @@ const toggle              = document.getElementById('toggle');
 const profileBtn          = document.getElementById('profileBtn');
 const overlay             = document.getElementById('overlay');
 
-const defaultAvatar = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%23e2e8f0'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z' fill='%2394a3b8'/></svg>`;
+// const defaultAvatar = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%23e2e8f0'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z' fill='%2394a3b8'/></svg>`;
 
 // Create-post modal
 const createPostModal     = document.getElementById('createPostModal');
@@ -182,18 +182,18 @@ async function makeApiRequest(method, endpoint, data = null) {
 
 async function createPostCard(post) {
   const card = document.createElement('article');
-  let name = 'Athlete'
+  let name = 'Athlete';
   const usid = post.username || post.userId || 'none';
-  const profile = await fetch('/api/users/${usid}/profile');
-    if (profile.ok) {
-      const uData = await profile.json();
-      name = '${uData.firstName} ${uData.lastName}';
+  const res = await fetch(`/api/users/${usid}/profile`);
+    if (res.ok) {
+      const uData = await res.json();
+      name = `${uData.firstName} ${uData.lastName}`;
       if (uData.profilePicture) {
             pfpc = uData.profilePicture;
         }
 
     }
-  card.className = 'post-card';
+  card.className = `post-card`;
   card.id = `post-card-${post.id}`;
   card.comments = post.comments || [];
   card.dataset.expanded = "false";
@@ -202,7 +202,7 @@ async function createPostCard(post) {
   const displayName = name || 'Athlete';
   
   // 2. Fetch the live profile picture with a consistent dynamic fallback string
-  const avatarUrl = pfpc || defaultAvatar}`;
+  const avatarUrl = pfpc || defaultAvatar;
 
   let likedByText = '';
   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
