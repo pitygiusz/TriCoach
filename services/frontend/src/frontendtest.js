@@ -494,13 +494,15 @@ closePostModalBtn.addEventListener('click', () => {
   createPostModal.classList.add('hidden');
 });
 
-function readFileAsDataUrl(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+async function uploadPostImageToStorage(file, userId) {
+  if (typeof firebase === 'undefined' || !firebase.storage) {
+    throw new Error('Firebase Storage is not initialized.');
+  }
+  const storage = firebase.storage();
+  const storageRef = storage.ref();
+  const fileRef = storageRef.child(`posts/${userId}/${Date.now()}_${file.name}`);
+  await fileRef.put(file);
+  return await fileRef.getDownloadURL();
 }
 
 submitPostBtn.addEventListener('click', async () => {
@@ -514,9 +516,13 @@ submitPostBtn.addEventListener('click', async () => {
   let imageUrl = null;
   if (imageFile) {
     try {
-      imageUrl = await readFileAsDataUrl(imageFile);
+      submitPostBtn.disabled = true;
+      submitPostBtn.textContent = 'Uploading...';
+      imageUrl = await uploadPostImageToStorage(imageFile, getCurrentUserId());
     } catch (e) {
-      alert('Could not read the selected image.');
+      alert(`Could not upload image: ${e.message}`);
+      submitPostBtn.disabled = false;
+      submitPostBtn.textContent = 'Post';
       return;
     }
   }
@@ -550,6 +556,9 @@ submitPostBtn.addEventListener('click', async () => {
     loadPosts();
   } catch (err) {
     alert(`Failed to post: ${err.message}`);
+  } finally {
+    submitPostBtn.disabled = false;
+    submitPostBtn.textContent = 'Post';
   }
 });
 
