@@ -183,6 +183,7 @@ async function makeApiRequest(method, endpoint, data = null) {
 function createPostCard(post) {
   const card = document.createElement('article');
   let name = 'Athlete';
+  let pfpc = defaultAvatar;
   const usid = post.username || post.userId || 'none';
   const res = fetch(`/api/users/${usid}/profile`);
     if (res.ok) {
