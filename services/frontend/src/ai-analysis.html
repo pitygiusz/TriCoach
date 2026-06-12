@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
   <meta charset="UTF-8" />
@@ -9,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
+
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 
@@ -32,7 +33,8 @@
       <section id="analysisIntroSection" class="post-card" style="margin-bottom: 8px;">
         <h3>AI History Critique</h3>
         <p style="color: var(--muted); margin-bottom: 20px;">
-          Our AI coach analyzes your logged workout consistency, pacing trends, and disciplines distribution over your recent training history, offering professional critiques and actionable advice.
+          Our AI coach analyzes your logged workout consistency, pacing trends, and disciplines distribution over your
+          recent training history, offering professional critiques and actionable advice.
         </p>
 
         <button id="runAiAnalysisBtn" class="action-pill active" style="width: 100%; font-weight: bold; padding: 14px;">
@@ -79,10 +81,9 @@
         const res = await fetch(`/api/analytics/analyses/${uid}`, {
           headers: authHeaders
         });
-        
+
         if (res.status === 404) {
           console.warn("Analysis endpoint returned 404 (possibly deploying or not found). Falling back to empty state.");
-          analysisIntroSection.style.display = 'block';
           aiResultArea.innerHTML = `
             <div class="empty-state">Click the button to generate your AI coaching critique.</div>
           `;
@@ -93,28 +94,66 @@
           throw new Error(`Failed to load analysis. Status: ${res.status}`);
         }
         const data = await res.json();
-        
+
         if (data.analysis && data.analysis.analysis) {
-          analysisIntroSection.style.display = 'none';
-          renderAnalysisDetails(data.analysis.analysis, data.analysis.createdAt);
+          let analysisObj = data.analysis.analysis;
+          if (typeof analysisObj === 'string') {
+            try {
+              analysisObj = JSON.parse(analysisObj);
+            } catch (e) {
+              console.error("Failed to parse analysis JSON string:", e);
+            }
+          }
+          renderAnalysisDetails(analysisObj, data.analysis.createdAt);
         } else {
-          analysisIntroSection.style.display = 'block';
           aiResultArea.innerHTML = `
             <div class="empty-state">Click the button to generate your AI coaching critique.</div>
           `;
         }
       } catch (err) {
         console.warn('Failed to load latest analysis, falling back to empty state:', err);
-        analysisIntroSection.style.display = 'block';
         aiResultArea.innerHTML = `
           <div class="empty-state">Click the button to generate your AI coaching critique.</div>
         `;
       }
     }
 
-    function renderAnalysisDetails(analysis, createdAt) {
-      const dateStr = createdAt ? new Date(createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'Recent';
-      
+    function renderAnalysisDetails(analysisObj, createdAt) {
+      let analysis = analysisObj;
+      if (typeof analysis === 'string') {
+        try {
+          analysis = JSON.parse(analysisObj);
+        } catch (e) {
+          console.error("Failed to parse analysis string:", e);
+          analysis = {};
+        }
+      }
+      if (!analysis) {
+        analysis = {};
+      }
+
+      let dateStr = 'Recent';
+      if (createdAt) {
+        try {
+          let dateVal;
+          if (typeof createdAt.toDate === 'function') {
+            dateVal = createdAt.toDate();
+          } else if (createdAt.seconds !== undefined) {
+            dateVal = new Date(createdAt.seconds * 1000);
+          } else if (createdAt._seconds !== undefined) {
+            dateVal = new Date(createdAt._seconds * 1000);
+          } else {
+            dateVal = new Date(createdAt);
+          }
+          
+          if (dateVal && !isNaN(dateVal.getTime())) {
+            dateStr = dateVal.toLocaleDateString(undefined, { dateStyle: 'medium' });
+          }
+        } catch (e) {
+          console.warn('Error parsing date:', e);
+        }
+      }
+
       const keyFindingsHtml = (analysis.key_findings || []).map(f => `
         <li style="margin-bottom: 12px; font-size: 1.05rem; display: flex; align-items: start; gap: 10px; line-height: 1.5;">
           <span style="color: var(--primary); font-size: 1.2rem;">✔</span>
@@ -130,11 +169,8 @@
       `).join('');
 
       aiResultArea.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px;">
-          <h3 style="margin: 0;">Saved Critique (${dateStr})</h3>
-          <button id="triggerNewAnalysisBtn" class="action-pill active" style="font-weight: bold; padding: 10px 18px; font-size: 0.9rem;">
-            🔄 Generate New Analysis
-          </button>
+        <div style="margin-bottom: 16px;">
+          <h3 style="margin: 0;">Most Recent Critique (${dateStr})</h3>
         </div>
 
         <article class="post-card" style="border-left: 5px solid var(--primary); margin-bottom: 16px;">
@@ -178,14 +214,6 @@
           </ul>
         </article>
       `;
-
-      document.getElementById('triggerNewAnalysisBtn').addEventListener('click', () => {
-        analysisIntroSection.style.display = 'block';
-        aiResultArea.innerHTML = `
-          <div class="empty-state">Click the button to generate your AI coaching critique.</div>
-        `;
-        analysisIntroSection.scrollIntoView({ behavior: 'smooth' });
-      });
     }
 
     // ─── Trigger AI History Analysis ──────────────────────────────────────────
@@ -195,8 +223,6 @@
         window.location.replace('login.html');
         return;
       }
-
-      analysisIntroSection.style.display = 'none';
 
       aiResultArea.innerHTML = `
         <div class="empty-state">
@@ -225,7 +251,14 @@
           throw new Error('Invalid response from AI history analyzer.');
         }
 
-        const analysis = data.analysis;
+        let analysis = data.analysis;
+        if (typeof analysis === 'string') {
+          try {
+            analysis = JSON.parse(analysis);
+          } catch (e) {
+            console.error("Failed to parse analysis JSON string:", e);
+          }
+        }
 
         const saveRes = await fetch('/api/analytics/analyses', {
           method: 'POST',
@@ -243,7 +276,6 @@
         }
 
       } catch (err) {
-        analysisIntroSection.style.display = 'block';
         aiResultArea.innerHTML = `
           <div class="error-state">
             <p>AI Analysis Failed</p>
@@ -257,7 +289,7 @@
 
     // ─── Bootstrap ────────────────────────────────────────────────────────────
     if (isFirebaseReady()) {
-      firebase.auth().onAuthStateChanged(function(user) {
+      firebase.auth().onAuthStateChanged(function (user) {
         if (user) {
           sessionStorage.setItem('firebaseUid', user.uid);
           sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
@@ -275,4 +307,5 @@
     }
   </script>
 </body>
+
 </html>
