@@ -44,11 +44,11 @@
 
         <div class="sidebar-card" id="friendsSidebarCard">
           <h2>Friends</h2>
-          <div style="margin-bottom: 12px; display: flex; gap: 8px;">
+          <div style="margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
             <input type="text" id="followUsernameInput" placeholder="Username..."
-              style="flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
+              style="flex: 1 1 140px; min-width: 140px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
             <button onclick="followUserByUsername()" class="action-pill active"
-              style="padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer;">Follow</button>
+              style="flex: 1 1 70px; min-width: 70px; padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer; white-space: nowrap;">Follow</button>
           </div>
           <ul id="friendsList"
             style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--muted); font-size: 0.95rem;">
@@ -354,7 +354,22 @@
 
     const profileAuthButtons = document.getElementById('profileAuthButtons');
     if (profileAuthButtons) {
-      profileAuthButtons.innerHTML = '';
+      const isProfilePage = window.location.pathname.includes('profile.html');
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlUid = urlParams.get('uid');
+      const isOwner = isProfilePage && (!urlUid || urlUid === uid);
+
+      if (isOwner) {
+        profileAuthButtons.innerHTML = `
+          <button onclick="window.openUserInfoModal()" class="action-pill active" style="padding: 6px 10px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: none; flex: 1; text-align: center; white-space: nowrap;">📝 Info</button>
+          <button onclick="window.triggerAvatarUpload()" class="action-pill active" style="padding: 6px 10px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: none; flex: 1; text-align: center; white-space: nowrap;">🖼️ Photo</button>
+          <button onclick="window.logoutUser()" class="action-pill" style="padding: 6px 10px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); flex: 1; text-align: center; white-space: nowrap;">🚪 Logout</button>
+        `;
+        profileAuthButtons.style.display = 'flex';
+      } else {
+        profileAuthButtons.innerHTML = '';
+        profileAuthButtons.style.display = 'none';
+      }
     }
 
     if (uid) {
