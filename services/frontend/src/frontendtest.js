@@ -180,28 +180,36 @@ async function makeApiRequest(method, endpoint, data = null) {
 
 // ─── Feed ─────────────────────────────────────────────────────────────────────
 
+async function fetchAndRenderPostAuthor(userId, postId) {
+  try {
+    const res = await makeApiRequest('GET', `/api/users/${userId}/profile`);
+    if (!res) return;
+
+    const nameEl = document.querySelector(`#post-card-${postId} .post-author-name`);
+    const avatarEl = document.querySelector(`#post-card-${postId} .post-avatar-img`);
+
+    if (nameEl && res.firstName && res.lastName) {
+      nameEl.textContent = `${res.firstName} ${res.lastName}`;
+    }
+    if (avatarEl && res.profilePicture) {
+      avatarEl.src = res.profilePicture;
+    }
+  } catch (err) {
+    console.warn(`[Profile Proxy Error] Could not resolve user ${userId} for post ${postId}:`, err.message);
+  }
+}
+
 function createPostCard(post) {
   const card = document.createElement('article');
-  let name = 'Athlete';
-  let pfpc = defaultAvatar;
-  const usid = post.username || post.userId || 'none';
-  const res = makeApiRequest('GET', `/api/users/${usid}/profile`)
-          .catch(() => ({ uid: friendId, username: 'Unknown', profilePicture: null }));
   
-  name = `${res.firstName} ${res.lastName}`;
-  
-  pfpc = res.profilePicture;
+  const usid = post.userId || post.username || 'none';
+  const displayName = post.displayName || 'Athlete';
+  const avatarUrl = post.profilePicture || defaultAvatar;
       
   card.className = `post-card`;
   card.id = `post-card-${post.id}`;
   card.comments = post.comments || [];
   card.dataset.expanded = "false";
-
-  // 1. Separate display name and username seamlessly
-  const displayName = name || 'Athlete';
-  
-  // 2. Fetch the live profile picture with a consistent dynamic fallback string
-  const avatarUrl = pfpc || defaultAvatar;
 
   let likedByText = '';
   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
@@ -247,12 +255,11 @@ function createPostCard(post) {
     ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" style="width:100%; border-radius:8px; margin:10px 0; display:block;" />`
     : '';
 
-  // 3. Render HTML layout with full name stacked over the username tag
   card.innerHTML = `
     <header style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
-      <img class="avatar" src="${avatarUrl}" alt="${displayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
+      <img class="avatar post-avatar-img" src="${avatarUrl}" alt="${displayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
       <div class="post-author" style="display: flex; flex-direction: column; gap: 2px;">
-        <strong style="font-size: 1rem; color: var(--text); line-height: 1.2;">${displayName}</strong>
+        <strong class="post-author-name" style="font-size: 1rem; color: var(--text); line-height: 1.2;">${displayName}</strong>
         <span style="font-size: 0.85rem; color: var(--muted);">@${usid} · ${formatTimeAgo(post.createdAt)}</span>
       </div>
     </header>
@@ -280,93 +287,6 @@ function createPostCard(post) {
   `;
   return card;
 }
-
-// function createPostCard(post) {
-//   const card = document.createElement('article');
-//   card.className = 'post-card';
-//   card.id = `post-card-${post.id}`;
-//   card.comments = post.comments || [];
-//   card.dataset.expanded = "false";
-
-//   const author = post.displayName || post.userId || 'Anonymous';
-//   const avatarUrl = post.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}`;
-
-//   let likedByText = '';
-//   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
-//     const names = post.likedBy.map(like => like.displayName || like.uid);
-//     likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
-//       ❤️: ${names.join(', ')}
-//     </div>`;
-//   }
-
-//   const currentUid = getCurrentUserId();
-//   const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => like.uid === currentUid);
-
-//   // Render training stats inline if present
-//   let statsHtml = '';
-//   if (post.trainingDetails) {
-//     const type = post.trainingDetails.type || 'Workout';
-//     const emoji = getDisciplineEmoji(type);
-//     const dur = post.trainingDetails.duration_minutes || post.trainingDetails.duration || 0;
-//     const dist = post.trainingDetails.distance_km || post.trainingDetails.distance;
-//     const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
-//     statsHtml = `
-//       <div class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
-//         <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
-//         <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
-//       </div>
-//     `;
-//   } else if (post.trainingId) {
-//     statsHtml = `
-//       <div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
-//         <span style="font-size: 0.95rem; color: var(--muted);">Loading training details...</span>
-//       </div>
-//     `;
-//   }
-
-//   const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
-//   const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
-
-//   const titleHtml = post.title
-//     ? `<h3>${post.title}</h3>`
-//     : `<h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>`;
-
-//   const imageHtml = post.imageUrl
-//     ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" style="width:100%; border-radius:8px; margin:10px 0; display:block;" />`
-//     : '';
-
-//   card.innerHTML = `
-//     <header>
-//       <img class="avatar" src="${avatarUrl}" alt="${author}" />
-//       <div class="post-author">
-//         <strong>${author}</strong>
-//         <span>${formatTimeAgo(post.createdAt)}</span>
-//       </div>
-//     </header>
-//     ${titleHtml}
-//     <p>${post.content || ''}</p>
-//     ${imageHtml}
-//     ${statsHtml}
-//     ${likedByText}
-//     <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
-//       <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
-//         ❤️ <span class="like-count">${post.likes || 0}</span>
-//       </button>
-//       <button onclick="toggleComments('${post.id}')" class="comments-toggle-btn" id="comments-btn-${post.id}">
-//         💬 comments (${post.comments ? post.comments.length : 0})
-//       </button>
-//     </div>
-//     <div id="comments-container-${post.id}" class="comments-container">
-//       <div class="comment-input-area">
-//         <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
-//         <button class="comment-submit-btn" onclick="submitComment('${post.id}')">Post</button>
-//       </div>
-//       <div id="comment-list-${post.id}" class="comment-list">
-//       </div>
-//     </div>
-//   `;
-//   return card;
-// }
 
 function getDisciplineEmoji(type) {
   if (!type) return '🏃';
@@ -443,6 +363,14 @@ function renderPosts(posts) {
   posts.forEach(p => {
     postsContainer.appendChild(createPostCard(p));
     renderCommentList(p.id);
+
+    // Dispatch asynchronous user profile resolution
+    const authorId = p.userId || p.username;
+    if (authorId) {
+      setTimeout(() => fetchAndRenderPostAuthor(authorId, p.id), 0);
+    }
+
+    // Existing workouts resolution code
     if (p.trainingId && !p.trainingDetails) {
       setTimeout(() => fetchAndRenderAttachedTraining(p.userId, p.trainingId, p.id), 0);
     }
@@ -775,41 +703,6 @@ submitPostBtn.addEventListener('click', async () => {
   }
 });
 
-// submitPostBtn.addEventListener('click', async () => {
-//   const content    = postContentInput.value.trim();
-//   const trainingId = workoutSelect.value || null;
-
-//   if (!content) { alert('Write something first!'); return; }
-
-//   let trainingDetails = null;
-//   if (trainingId) {
-//     const workoutObj = loadedWorkoutsList.find(w => w.id === trainingId);
-//     if (workoutObj) {
-//       trainingDetails = {
-//         type: workoutObj.type,
-//         duration_minutes: workoutObj.duration_minutes !== undefined ? workoutObj.duration_minutes : workoutObj.durationMinutes,
-//         distance_km: workoutObj.distance_km !== undefined ? workoutObj.distance_km : workoutObj.distanceKm,
-//       };
-//     }
-//   }
-
-//   try {
-//     await makeApiRequest('POST', '/api/posts', {
-//       user_id:          getCurrentUserId(),
-//       username:         getCurrentDisplayName(),
-//       content,
-//       training_id:      trainingId,
-//       training_details: trainingDetails,
-//     });
-//     postContentInput.value = '';
-//     workoutSelect.value    = '';
-//     createPostModal.classList.add('hidden');
-//     loadPosts();
-//   } catch (err) {
-//     alert(`Failed to post: ${err.message}`);
-//   }
-// });
-
 // ─── Training modal ───────────────────────────────────────────────────────────
 openCreateTrainingBtn.addEventListener('click', () => {
   createTrainingModal.classList.remove('hidden');
@@ -949,49 +842,6 @@ window.submitComment = async function submitComment(postId) {
     alert(`Could not post comment: ${err.message}`);
   }
 };
-
-// window.submitComment = async function submitComment(postId) {
-//   const card = document.getElementById(`post-card-${postId}`);
-//   const input = document.getElementById(`comment-input-${postId}`);
-//   if (!card || !input) return;
-
-//   const content = input.value.trim();
-//   if (!content) {
-//     alert('Please enter a comment!');
-//     return;
-//   }
-
-//   try {
-//     const res = await makeApiRequest('POST', `/api/posts/${postId}/comments`, {
-//       user_id: getCurrentUserId(),
-//       username: getCurrentDisplayName(),
-//       content
-//     });
-    
-//     const newComment = res.comment;
-//     if (newComment) {
-//       if (!card.comments) card.comments = [];
-//       card.comments.push(newComment);
-      
-//       // Auto-expand on new comment so they see their posted comment
-//       card.dataset.expanded = "true";
-      
-//       // Update button counter
-//       const btn = document.getElementById(`comments-btn-${postId}`);
-//       if (btn) {
-//         btn.innerHTML = `💬 comments (${card.comments.length})`;
-//       }
-
-//       // Re-render
-//       renderCommentList(postId);
-//     }
-//     input.value = '';
-//   } catch (err) {
-//     alert(`Could not post comment: ${err.message}`);
-//   }
-// };
-
-
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadPosts();
