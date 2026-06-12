@@ -79,18 +79,26 @@ button {
 
 @media (max-width: 640px) {
   .sidebar {
-    z-index: 100;
+    position: fixed;
+    top: 0;
+    right: -100%;
+    left: auto;
     width: 280px;
-    position: absolute;
-    top: 0; bottom: 0;
-    right: 0;            /* anchored to the right */
-    transform: translateX(100%);   /* hidden off-screen */
+    height: 100vh;
+    z-index: 1000;
+    transition: right 0.3s ease;
+    background-color: var(--surface, #1e1e1e);
+    box-shadow: -2px 0 10px rgba(0,0,0,0.5);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    box-sizing: border-box;
+    padding-bottom: 300px;
   }
   .sidebar.open {
-    width: 280px;
-    transform: translateX(0);      /* slides in */
+    right: 0;
   }
-  .toggle-btn { display: flex; position: absolute; top: 16px; right: 16px; z-index: 101; }   /* show the ☰ button */
+  .toggle-btn { display: flex; position: absolute; top: 16px; right: 16px; z-index: 101; }
 }
 
 .sidebar-card {
@@ -638,5 +646,25 @@ button {
     position: absolute !important;
     top: 12px !important;
     right: 12px !important;
+  }
+  .topbar .hamburger {
+    position: absolute !important;
+    top: 12px !important;
+    left: 12px !important;
+    z-index: 101 !important;
+  }
+  .profile-content-container {
+    padding: 24px 12px 15px 12px !important;
+  }
+  .profile-header-row {
+    flex-wrap: wrap !important;
+    gap: 16px !important;
+  }
+  .profile-header-row > div {
+    flex: 1 1 100% !important;
+  }
+  #infoBox {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
   }
 }
