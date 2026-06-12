@@ -70,7 +70,6 @@
     const aiResultArea = document.getElementById('aiResultArea');
     const analysisIntroSection = document.getElementById('analysisIntroSection');
 
-    // ─── Load Latest Analysis ─────────────────────────────────────────────────
     async function loadLatestAnalysis() {
       const uid = getCurrentUserId();
       if (!uid) return;
@@ -80,6 +79,16 @@
         const res = await fetch(`/api/analytics/analyses/${uid}`, {
           headers: authHeaders
         });
+        
+        if (res.status === 404) {
+          console.warn("Analysis endpoint returned 404 (possibly deploying or not found). Falling back to empty state.");
+          analysisIntroSection.style.display = 'block';
+          aiResultArea.innerHTML = `
+            <div class="empty-state">Click the button to generate your AI coaching critique.</div>
+          `;
+          return;
+        }
+
         if (!res.ok) {
           throw new Error(`Failed to load analysis. Status: ${res.status}`);
         }
@@ -95,13 +104,10 @@
           `;
         }
       } catch (err) {
-        console.error('Failed to load latest analysis:', err);
+        console.warn('Failed to load latest analysis, falling back to empty state:', err);
         analysisIntroSection.style.display = 'block';
         aiResultArea.innerHTML = `
-          <div class="error-state">
-            <p>Failed to load latest analysis</p>
-            <span style="font-size: 0.9rem;">${err.message}</span>
-          </div>
+          <div class="empty-state">Click the button to generate your AI coaching critique.</div>
         `;
       }
     }
