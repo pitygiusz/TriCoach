@@ -177,6 +177,7 @@ async function makeApiRequest(method, endpoint, data = null) {
 }
 
 // ─── Feed ─────────────────────────────────────────────────────────────────────
+
 function createPostCard(post) {
   const card = document.createElement('article');
   card.className = 'post-card';
@@ -184,8 +185,12 @@ function createPostCard(post) {
   card.comments = post.comments || [];
   card.dataset.expanded = "false";
 
-  const author = post.displayName || post.userId || 'Anonymous';
-  const avatarUrl = post.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}`;
+  // 1. Separate display name and username seamlessly
+  const displayName = post.displayName || 'Athlete';
+  const username = post.username || post.userId || 'anonymous';
+  
+  // 2. Fetch the live profile picture with a consistent dynamic fallback string
+  const avatarUrl = post.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId || 'default')}`;
 
   let likedByText = '';
   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
@@ -231,12 +236,13 @@ function createPostCard(post) {
     ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" style="width:100%; border-radius:8px; margin:10px 0; display:block;" />`
     : '';
 
+  // 3. Render HTML layout with full name stacked over the username tag
   card.innerHTML = `
-    <header>
-      <img class="avatar" src="${avatarUrl}" alt="${author}" />
-      <div class="post-author">
-        <strong>${author}</strong>
-        <span>${formatTimeAgo(post.createdAt)}</span>
+    <header style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+      <img class="avatar" src="${avatarUrl}" alt="${displayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
+      <div class="post-author" style="display: flex; flex-direction: column; gap: 2px;">
+        <strong style="font-size: 1rem; color: var(--text); line-height: 1.2;">${displayName}</strong>
+        <span style="font-size: 0.85rem; color: var(--muted);">@${username} · ${formatTimeAgo(post.createdAt)}</span>
       </div>
     </header>
     ${titleHtml}
@@ -264,32 +270,26 @@ function createPostCard(post) {
   return card;
 }
 
-
 // function createPostCard(post) {
 //   const card = document.createElement('article');
 //   card.className = 'post-card';
 //   card.id = `post-card-${post.id}`;
 //   card.comments = post.comments || [];
 //   card.dataset.expanded = "false";
-//   const author = post.username && post.username !== 'Anonymous' ? post.username : (post.userId || 'Anonymous');
-  
-//   // Format likedBy list
+
+//   const author = post.displayName || post.userId || 'Anonymous';
+//   const avatarUrl = post.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}`;
+
 //   let likedByText = '';
 //   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
-//     const names = post.likedBy.map(like => typeof like === 'object' && like !== null ? like.username : like);
+//     const names = post.likedBy.map(like => like.displayName || like.uid);
 //     likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
 //       ❤️: ${names.join(', ')}
 //     </div>`;
 //   }
 
-//   // Check if current user liked it
 //   const currentUid = getCurrentUserId();
-//   const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => {
-//     if (typeof like === 'object' && like !== null) {
-//       return like.uid === currentUid;
-//     }
-//     return like === currentUid;
-//   });
+//   const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => like.uid === currentUid);
 
 //   // Render training stats inline if present
 //   let statsHtml = '';
@@ -316,16 +316,25 @@ function createPostCard(post) {
 //   const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
 //   const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
 
+//   const titleHtml = post.title
+//     ? `<h3>${post.title}</h3>`
+//     : `<h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>`;
+
+//   const imageHtml = post.imageUrl
+//     ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" style="width:100%; border-radius:8px; margin:10px 0; display:block;" />`
+//     : '';
+
 //   card.innerHTML = `
 //     <header>
-//       <img class="avatar" src="https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}" alt="${author}" />
+//       <img class="avatar" src="${avatarUrl}" alt="${author}" />
 //       <div class="post-author">
 //         <strong>${author}</strong>
 //         <span>${formatTimeAgo(post.createdAt)}</span>
 //       </div>
 //     </header>
-//     <h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>
+//     ${titleHtml}
 //     <p>${post.content || ''}</p>
+//     ${imageHtml}
 //     ${statsHtml}
 //     ${likedByText}
 //     <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
