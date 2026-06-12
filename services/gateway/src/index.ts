@@ -202,6 +202,14 @@ app.post('/api/posts', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(e.response?.status || 500).json(e.response?.data || { error: e.message }); }
 });
 
+app.delete('/api/posts/:postId', async (req: Request, res: Response) => {
+  try {
+    const r = await axios.delete(`${SERVICES.social}/posts/${req.params.postId}`);
+    res.status(r.status).json(r.data);
+  } catch (e: any) { res.status(e.response?.status || 500).json(e.response?.data || { error: e.message }); }
+});
+
+
 app.get('/api/feed/:userId', async (req: Request, res: Response) => {
   try {
     const r = await axios.get(`${SERVICES.social}/feed/${req.params.userId}`, { params: req.query });

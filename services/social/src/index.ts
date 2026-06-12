@@ -77,6 +77,18 @@ app.post('/posts', async (req: Request, res: Response) => {
   }
 });
 
+app.delete('/posts/:postId', async (req: Request, res: Response) => {
+  try {
+    const { postId } = req.params;
+    await db.collection('posts').doc(postId).delete();
+    res.status(200).json({ message: 'Post deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete post error:', error);
+    res.status(500).json({ error: error.message || error.toString() });
+  }
+});
+
+
 async function populatePostsMetadata(posts: any[]) {
   try {
     const trainingServiceUrl = process.env.TRAINING_SERVICE_URL || 'http://localhost:3002';
