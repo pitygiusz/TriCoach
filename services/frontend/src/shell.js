@@ -18,7 +18,7 @@
               <span>@janedoe</span>
             </div>
           </div>
-          <div id="profileAuthButtons" style="margin-top: 14px; display: flex; gap: 8px;"></div>
+          <div id="profileAuthButtons" style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
 
         <div class="sidebar-card" id="progressSidebarCard">
@@ -63,7 +63,16 @@
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => {
         const sidebarEl = document.getElementById('sidebarHid');
-        if (sidebarEl) sidebarEl.classList.toggle('open');
+        if (sidebarEl) {
+          const isOpen = sidebarEl.classList.toggle('open');
+          if (isOpen) {
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
+          } else {
+            document.documentElement.style.overflow = '';
+            document.body.style.overflow = '';
+          }
+        }
         if (overlay) overlay.classList.toggle('visible');
       });
     }
@@ -71,6 +80,8 @@
       overlay.addEventListener('click', () => {
         const sidebarEl = document.getElementById('sidebarHid');
         if (sidebarEl) sidebarEl.classList.remove('open');
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
         overlay.classList.remove('visible');
       });
     }
@@ -112,6 +123,8 @@
           background-color: var(--surface, #1e1e1e);
           box-shadow: -2px 0 10px rgba(0,0,0,0.5);
           overflow-y: auto;
+          box-sizing: border-box;
+          padding-bottom: 100px;
         }
         .sidebar.open {
           right: 0;
@@ -361,9 +374,9 @@
 
       if (isOwner) {
         profileAuthButtons.innerHTML = `
-          <button onclick="window.openUserInfoModal()" class="action-pill active" style="padding: 6px 10px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: none; flex: 1; text-align: center; white-space: nowrap;">📝 Info</button>
-          <button onclick="window.triggerAvatarUpload()" class="action-pill active" style="padding: 6px 10px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: none; flex: 1; text-align: center; white-space: nowrap;">🖼️ Photo</button>
-          <button onclick="window.logoutUser()" class="action-pill" style="padding: 6px 10px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); flex: 1; text-align: center; white-space: nowrap;">🚪 Logout</button>
+          <button onclick="window.openUserInfoModal()" class="action-pill active" style="padding: 10px 16px; font-size: 0.9rem; font-weight: 500; cursor: pointer; border: none; text-align: center; white-space: nowrap; width: 100%;">📝 Edit Info</button>
+          <button onclick="window.triggerAvatarUpload()" class="action-pill active" style="padding: 10px 16px; font-size: 0.9rem; font-weight: 500; cursor: pointer; border: none; text-align: center; white-space: nowrap; width: 100%;">🖼️ Edit Photo</button>
+          <button onclick="window.logoutUser()" class="action-pill" style="padding: 10px 16px; font-size: 0.9rem; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text); text-align: center; white-space: nowrap; width: 100%;">🚪 Logout</button>
         `;
         profileAuthButtons.style.display = 'flex';
       } else {
