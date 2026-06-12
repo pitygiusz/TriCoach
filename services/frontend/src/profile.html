@@ -432,6 +432,104 @@
       // -----------------------------
       // EDIT PROFILE TOGGLES & SAVES
       // -----------------------------
+      async function makeApiRequest(method, url, body = null) {
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(await getAuthHeaders()),
+        };
+        const options = {
+          method,
+          headers,
+        };
+        if (body) {
+          options.body = JSON.stringify(body);
+        }
+        const response = await fetch(url, options);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Request failed with status ${response.status}`);
+        }
+        return response.json().catch(() => ({}));
+      }
+
+      async function fetchAndRenderPostAuthor(userId, postId) {
+        try {
+          const res = await makeApiRequest('GET', `/api/users/${userId}/profile`);
+          if (!res) return;
+
+          const nameEl = document.querySelector(`#post-card-${postId} .post-author-name`);
+          const avatarEl = document.querySelector(`#post-card-${postId} .post-avatar-img`);
+          const usernameEl = document.querySelector(`#post-card-${postId} .post-author-username`);
+
+          if (nameEl && res.firstName && res.lastName) {
+            nameEl.textContent = `${res.firstName} ${res.lastName}`;
+          }
+          if (avatarEl && res.profilePicture) {
+            avatarEl.src = res.profilePicture;
+          }
+          if (usernameEl && res.username) {
+            const timeAgo = usernameEl.getAttribute('data-time-ago') || '';
+            usernameEl.textContent = `@${res.username}${timeAgo ? ' · ' + timeAgo : ''}`;
+          }
+        } catch (err) {
+          console.warn(`[Profile Proxy Error] Could not resolve user ${userId} for post ${postId}:`, err.message);
+        }
+      }
+
+      async function fetchAndRenderCommentAuthor(userId, postId, commentIndex) {
+        try {
+          const res = await makeApiRequest('GET', `/api/users/${userId}/profile`);
+          if (!res) return;
+
+          const nameEl = document.getElementById(`comment-name-${postId}-${commentIndex}`);
+          const avatarEl = document.getElementById(`comment-avatar-${postId}-${commentIndex}`);
+
+          if (nameEl && res.firstName && res.lastName) {
+            nameEl.textContent = `${res.firstName} ${res.lastName}`;
+          }
+          if (avatarEl && res.profilePicture) {
+            avatarEl.src = res.profilePicture;
+          }
+        } catch (err) {
+          console.warn(`[Profile Proxy Error] Could not resolve user ${userId} for comment ${commentIndex} on post ${postId}:`, err.message);
+        }
+      }
+
+      async function fetchAndRenderAttachedTraining(userId, trainingId, postId) {
+        try {
+          const authHeaders = await getAuthHeaders();
+          const res = await fetch(`/api/workouts/${userId}`, {
+            headers: { 'Content-Type': 'application/json', ...authHeaders }
+          });
+          if (!res.ok) throw new Error(`Status: ${res.status}`);
+          const data = await res.json();
+          const workouts = data.workouts || [];
+          const matchingWorkout = workouts.find(w => w.id === trainingId);
+          const container = document.getElementById(`workout-details-${postId}`);
+          if (container) {
+            if (matchingWorkout) {
+              const type = matchingWorkout.type || 'Workout';
+              const emoji = getDisciplineEmoji(type);
+              const dur = matchingWorkout.duration_minutes || matchingWorkout.duration || 0;
+              const dist = matchingWorkout.distance_km || matchingWorkout.distance;
+              const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
+              container.innerHTML = `
+                <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
+                <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
+              `;
+            } else {
+              container.style.display = 'none';
+            }
+          }
+        } catch (err) {
+          console.error('Error loading attached training details:', err);
+          const container = document.getElementById(`workout-details-${postId}`);
+          if (container) {
+            container.style.display = 'none';
+          }
+        }
+      }
+
       window.deletePost = async function deletePost(postId) {
         if (!confirm('Are you sure you want to delete this post?')) return;
         try {
@@ -445,6 +543,132 @@
           loadUserProfile();
         } catch (err) {
           alert(`Could not delete post: ${err.message}`);
+        }
+      };
+
+      window.likePost = async function likePost(postId) {
+        try {
+          await makeApiRequest('POST', `/api/posts/${postId}/like`, {
+            user_id: getCurrentUserId(),
+          });
+          loadUserProfile();
+        } catch (err) {
+          alert(`Could not like post: ${err.message}`);
+        }
+      };
+
+      window.unlikePost = async function unlikePost(postId) {
+        try {
+          await makeApiRequest('POST', `/api/posts/${postId}/unlike`, {
+            user_id: getCurrentUserId(),
+          });
+          loadUserProfile();
+        } catch (err) {
+          alert(`Could not unlike post: ${err.message}`);
+        }
+      };
+
+      window.renderCommentList = function renderCommentList(postId) {
+        const card = document.getElementById(`post-card-${postId}`);
+        const listContainer = document.getElementById(`comment-list-${postId}`);
+        if (!card || !listContainer) return;
+
+        const comments = card.comments || [];
+        const expanded = card.dataset.expanded === "true";
+
+        if (comments.length === 0) {
+          listContainer.innerHTML = '<div class="empty-state" style="padding:12px;">No comments yet — start the conversation!</div>';
+          return;
+        }
+
+        const commentsToRender = expanded ? comments : comments.slice(0, 3);
+
+        listContainer.innerHTML = '';
+        commentsToRender.forEach((comment, index) => {
+          const item = document.createElement('div');
+          item.className = 'comment-card';
+          
+          const authorId = comment.userId || comment.username;
+          const author = comment.displayName || authorId || 'Anonymous';
+          const avatarUrl = comment.profilePicture || `https://i.pravatar.cc/32?u=${encodeURIComponent(authorId || 'default')}`;
+          const timeAgo = formatTimeAgo(comment.createdAt);
+
+          item.innerHTML = `
+            <img class="avatar" id="comment-avatar-${postId}-${index}" src="${avatarUrl}" alt="${author}" style="cursor: pointer;" onclick="window.location.href='profile.html?uid=${authorId}'" />
+            <div class="comment-content-wrap">
+              <div class="comment-header">
+                <strong id="comment-name-${postId}-${index}" style="cursor: pointer;" onclick="window.location.href='profile.html?uid=${authorId}'">${author}</strong>
+                <span>${timeAgo}</span>
+              </div>
+              <p>${comment.content || ''}</p>
+            </div>
+          `;
+          listContainer.appendChild(item);
+
+          if (authorId) {
+            setTimeout(() => fetchAndRenderCommentAuthor(authorId, postId, index), 0);
+          }
+        });
+
+        if (!expanded && comments.length > 3) {
+          const hint = document.createElement('div');
+          hint.className = 'empty-state';
+          hint.style.padding = '8px';
+          hint.style.cursor = 'pointer';
+          hint.style.fontSize = '0.85rem';
+          hint.textContent = `Show ${comments.length - 3} more comments...`;
+          hint.onclick = () => toggleComments(postId);
+          listContainer.appendChild(hint);
+        }
+
+        if (expanded) {
+          listContainer.scrollTop = listContainer.scrollHeight;
+        }
+      };
+
+      window.toggleComments = async function toggleComments(postId) {
+        const card = document.getElementById(`post-card-${postId}`);
+        if (!card) return;
+
+        const isExpanded = card.dataset.expanded === "true";
+        card.dataset.expanded = isExpanded ? "false" : "true";
+
+        renderCommentList(postId);
+      };
+
+      window.submitComment = async function submitComment(postId) {
+        const card = document.getElementById(`post-card-${postId}`);
+        const input = document.getElementById(`comment-input-${postId}`);
+        if (!card || !input) return;
+
+        const content = input.value.trim();
+        if (!content) {
+          alert('Please enter a comment!');
+          return;
+        }
+
+        try {
+          const res = await makeApiRequest('POST', `/api/posts/${postId}/comments`, {
+            user_id: getCurrentUserId(),
+            content
+          });
+
+          const newComment = res.comment;
+          if (newComment) {
+            if (!card.comments) card.comments = [];
+            card.comments.push(newComment);
+            card.dataset.expanded = "true";
+
+            const btn = document.getElementById(`comments-btn-${postId}`);
+            if (btn) {
+              btn.innerHTML = `💬 comments (${card.comments.length})`;
+            }
+
+            renderCommentList(postId);
+          }
+          input.value = '';
+        } catch (err) {
+          alert(`Could not post comment: ${err.message}`);
         }
       };
 
@@ -610,7 +834,8 @@
           const postsRes = await fetch('/api/posts');
           if (postsRes.ok) {
             const posts = await postsRes.json();
-            const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === targetUid) : [];
+            const loggedInUid = sessionStorage.getItem('firebaseUid');
+            const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === loggedInUid) : [];
             document.getElementById('postCount').textContent = userPosts.length;
             const container = document.getElementById('userPosts');
             
@@ -627,15 +852,19 @@
                 const card = document.createElement('article');
                 card.className = 'post-card';
                 card.id = `post-card-${post.id}`;
+                card.comments = post.comments || [];
+                card.dataset.expanded = "false";
                 
                 let deleteButtonHtml = '';
-                if (isOwner) {
-                  deleteButtonHtml = `
-                    <button onclick="deletePost('${post.id}')" style="background: transparent; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; padding: 6px 12px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" aria-label="Delete post">
-                      🗑️ Delete
-                    </button>
-                  `;
-                }
+                deleteButtonHtml = `
+                  <button onclick="deletePost('${post.id}')" style="background: transparent; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; padding: 6px 12px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" aria-label="Delete post">
+                    🗑️ Delete
+                  </button>
+                `;
+
+                const usid = post.userId || post.username || 'none';
+                const postDisplayName = post.displayName || 'Athlete';
+                const postAvatarUrl = post.profilePicture || `https://i.pravatar.cc/150?u=${encodeURIComponent(usid)}`;
 
                 let statsHtml = '';
                 if (post.trainingDetails) {
@@ -650,23 +879,34 @@
                       <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
                     </div>
                   `;
+                } else if (post.trainingId) {
+                  statsHtml = `
+                    <div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
+                      <span style="font-size: 0.95rem; color: var(--muted);">Loading training details...</span>
+                    </div>
+                  `;
                 }
+
+                const currentUid = getCurrentUserId();
+                const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => like.uid === currentUid);
+                const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
+                const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
 
                 const titleHtml = post.title
                   ? `<h3>${post.title}</h3>`
                   : `<h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>`;
 
                 const imageHtml = post.imageUrl
-                  ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" />`
+                  ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" onclick="window.openImageLightbox('${post.imageUrl}')" />`
                   : '';
 
                 card.innerHTML = `
                   <header style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
-                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${targetUid}'">
-                      <img class="avatar post-avatar-img" src="${avatarUrl}" alt="${displayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
+                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${usid}'">
+                      <img class="avatar post-avatar-img" src="${postAvatarUrl}" alt="${postDisplayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
                       <div class="post-author" style="display: flex; flex-direction: column; gap: 2px;">
-                        <strong class="post-author-name" style="font-size: 1rem; color: var(--text); line-height: 1.2;">${displayName}</strong>
-                        <span class="post-author-username" style="font-size: 0.85rem; color: var(--muted);">@${username} · ${formatTimeAgo(post.createdAt)}</span>
+                        <strong class="post-author-name" style="font-size: 1rem; color: var(--text); line-height: 1.2;">${postDisplayName}</strong>
+                        <span class="post-author-username" style="font-size: 0.85rem; color: var(--muted);" data-time-ago="${formatTimeAgo(post.createdAt)}">@${usid} · ${formatTimeAgo(post.createdAt)}</span>
                       </div>
                     </div>
                     ${deleteButtonHtml}
@@ -675,11 +915,36 @@
                   <p style="margin: 0 0 14px; line-height: 1.7;">${post.content || ''}</p>
                   ${imageHtml}
                   ${statsHtml}
-                  <div class="post-meta" style="margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 8px; display: flex; align-items: center; gap: 16px;">
-                    <span>❤️ ${post.likes || 0} likes</span>
+                  <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
+                    <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
+                      ❤️ <span class="like-count">${post.likes || 0}</span>
+                    </button>
+                    <button onclick="toggleComments('${post.id}')" class="comments-toggle-btn" id="comments-btn-${post.id}">
+                      💬 comments (${post.comments ? post.comments.length : 0})
+                    </button>
+                  </div>
+                  <div id="comments-container-${post.id}" class="comments-container">
+                    <div class="comment-input-area">
+                      <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
+                      <button class="comment-submit-btn" onclick="submitComment('${post.id}')">Post</button>
+                    </div>
+                    <div id="comment-list-${post.id}" class="comment-list">
+                    </div>
                   </div>
                 `;
                 container.appendChild(card);
+                
+                // Load subcomponents
+                renderCommentList(post.id);
+                
+                const authorId = post.userId || post.username;
+                if (authorId) {
+                  setTimeout(() => fetchAndRenderPostAuthor(authorId, post.id), 0);
+                }
+                
+                if (post.trainingId && !post.trainingDetails) {
+                  setTimeout(() => fetchAndRenderAttachedTraining(post.userId, post.trainingId, post.id), 0);
+                }
               });
             }
           }

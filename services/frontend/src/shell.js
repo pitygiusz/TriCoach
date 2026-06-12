@@ -469,3 +469,46 @@
   };
 })();
 
+// Global lightbox popup for images
+window.openImageLightbox = function(imageUrl) {
+  const overlay = document.createElement('div');
+  overlay.className = 'lightbox-overlay';
+
+  const img = document.createElement('img');
+  img.src = imageUrl;
+  img.className = 'lightbox-image';
+  img.alt = 'Enlarged view';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'lightbox-close';
+  closeBtn.innerHTML = '&times;';
+  closeBtn.ariaLabel = 'Close image';
+
+  overlay.appendChild(img);
+  overlay.appendChild(closeBtn);
+  document.body.appendChild(overlay);
+
+  const closeLightbox = () => {
+    overlay.classList.add('lightbox-fadeout');
+    setTimeout(() => {
+      if (overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
+      }
+    }, 200);
+    document.removeEventListener('keydown', handleEsc);
+  };
+
+  const handleEsc = (e) => {
+    if (e.key === 'Escape') closeLightbox();
+  };
+
+  overlay.onclick = (e) => {
+    if (e.target === overlay || e.target === closeBtn) {
+      closeLightbox();
+    }
+  };
+
+  document.addEventListener('keydown', handleEsc);
+};
+
+

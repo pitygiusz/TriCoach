@@ -274,7 +274,7 @@ function createPostCard(post) {
     : `<h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>`;
 
   const imageHtml = post.imageUrl
-    ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" />`
+    ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" onclick="window.openImageLightbox('${post.imageUrl}')" />`
     : '';
 
   card.innerHTML = `
