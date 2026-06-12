@@ -191,9 +191,7 @@ function createPostCard(post) {
   name = `${res.firstName} ${res.lastName}`;
   
   pfpc = res.profilePicture;
-        
-
-    }
+      
   card.className = `post-card`;
   card.id = `post-card-${post.id}`;
   card.comments = post.comments || [];
