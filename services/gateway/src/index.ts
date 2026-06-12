@@ -4,8 +4,8 @@ import cors from 'cors';
 
 const app = express();
 app.use(cors({ origin: true }));
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ limit: '500mb', extended: true }));
 
 const port = process.env.PORT || '3000';
 
