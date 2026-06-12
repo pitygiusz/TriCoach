@@ -180,7 +180,7 @@ async function makeApiRequest(method, endpoint, data = null) {
 
 // ─── Feed ─────────────────────────────────────────────────────────────────────
 
-function createPostCard(post) {
+async function createPostCard(post) {
   const card = document.createElement('article');
   let name = 'Athlete'
   const usid = post.username || post.userId || 'none';
