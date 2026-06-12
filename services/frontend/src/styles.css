@@ -798,3 +798,102 @@ button {
   from { transform: scale(0.95); }
   to { transform: scale(1); }
 }
+
+/* Custom Dialog Modal styles */
+.custom-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  animation: dialogFadeIn 0.2s ease-out;
+}
+
+.custom-dialog-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  width: min(420px, calc(100% - 32px));
+  padding: 24px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  animation: dialogScaleUp 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.custom-dialog-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 24px;
+  cursor: pointer;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.custom-dialog-close:hover {
+  color: var(--text);
+}
+
+.custom-dialog-message {
+  font-size: 1.05rem;
+  line-height: 1.6;
+  color: var(--text);
+  margin-top: 12px;
+}
+
+.custom-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.custom-dialog-btn {
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.custom-dialog-btn-confirm {
+  background: var(--primary);
+  color: white;
+  border: none;
+}
+
+.custom-dialog-btn-confirm:hover {
+  background: #ea580c;
+  transform: translateY(-1px);
+}
+
+.custom-dialog-btn-cancel {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+.custom-dialog-btn-cancel:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+@keyframes dialogFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialogScaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

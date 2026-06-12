@@ -1,5 +1,113 @@
 // shell.js - Shared layout injector for secondary pages
 (function() {
+  // Override native alert with custom popups
+  window.alert = function(message) {
+    const overlay = document.createElement('div');
+    overlay.className = 'custom-dialog-overlay';
+
+    const content = document.createElement('div');
+    content.className = 'custom-dialog-content';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'custom-dialog-close';
+    closeBtn.innerHTML = '&times;';
+    closeBtn.ariaLabel = 'Close dialog';
+
+    const msgEl = document.createElement('div');
+    msgEl.className = 'custom-dialog-message';
+    msgEl.textContent = message;
+
+    const actions = document.createElement('div');
+    actions.className = 'custom-dialog-actions';
+
+    const okBtn = document.createElement('button');
+    okBtn.className = 'custom-dialog-btn custom-dialog-btn-confirm';
+    okBtn.textContent = 'OK';
+
+    actions.appendChild(okBtn);
+    content.appendChild(closeBtn);
+    content.appendChild(msgEl);
+    content.appendChild(actions);
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+
+    let autoDismissTimeout = setTimeout(() => {
+      dismiss();
+    }, 3500);
+
+    function dismiss() {
+      clearTimeout(autoDismissTimeout);
+      overlay.classList.add('lightbox-fadeout');
+      setTimeout(() => {
+        if (overlay.parentNode) {
+          overlay.parentNode.removeChild(overlay);
+        }
+      }, 200);
+    }
+
+    okBtn.onclick = dismiss;
+    closeBtn.onclick = dismiss;
+    overlay.onclick = (e) => {
+      if (e.target === overlay) dismiss();
+    };
+  };
+
+  // Custom async confirm replacing browser's synchronous confirm()
+  window.customConfirm = function(message) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'custom-dialog-overlay';
+
+      const content = document.createElement('div');
+      content.className = 'custom-dialog-content';
+
+      const closeBtn = document.createElement('button');
+      closeBtn.className = 'custom-dialog-close';
+      closeBtn.innerHTML = '&times;';
+      closeBtn.ariaLabel = 'Close dialog';
+
+      const msgEl = document.createElement('div');
+      msgEl.className = 'custom-dialog-message';
+      msgEl.textContent = message;
+
+      const actions = document.createElement('div');
+      actions.className = 'custom-dialog-actions';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'custom-dialog-btn custom-dialog-btn-cancel';
+      cancelBtn.textContent = 'Cancel';
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'custom-dialog-btn custom-dialog-btn-confirm';
+      confirmBtn.textContent = 'Confirm';
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(confirmBtn);
+      content.appendChild(closeBtn);
+      content.appendChild(msgEl);
+      content.appendChild(actions);
+      overlay.appendChild(content);
+      document.body.appendChild(overlay);
+
+      function handleAction(val) {
+        overlay.classList.add('lightbox-fadeout');
+        setTimeout(() => {
+          if (overlay.parentNode) {
+            overlay.parentNode.removeChild(overlay);
+          }
+        }, 200);
+        resolve(val);
+      }
+
+      confirmBtn.onclick = () => handleAction(true);
+      cancelBtn.onclick = () => handleAction(false);
+      closeBtn.onclick = () => handleAction(false);
+      overlay.onclick = (e) => {
+        if (e.target === overlay) handleAction(false);
+      };
+    });
+  };
+
   // 1. Inject sidebar HTML when DOM is ready
   document.addEventListener('DOMContentLoaded', () => {
     injectSidebarStyles();

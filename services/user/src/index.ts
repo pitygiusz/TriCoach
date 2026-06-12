@@ -99,6 +99,11 @@ app.post('/register', async (req: Request, res: Response) => {
       return;
     }
 
+    if (password.length < 6) {
+      res.status(400).json({ error: 'Password must be at least 6 characters long' });
+      return;
+    }
+
     const normalizedUsername = username.toLowerCase();
 
     // Check uniqueness using raw SQL queries

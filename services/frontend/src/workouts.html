@@ -217,7 +217,7 @@
     }
 
     window.deleteWorkout = async function deleteWorkout(workoutId) {
-      if (!confirm('Are you sure you want to delete this workout?')) return;
+      if (!(await window.customConfirm('Are you sure you want to delete this workout?'))) return;
       try {
         const authHeaders = await getAuthHeaders();
         const res = await fetch(`/api/workouts/${workoutId}`, {
