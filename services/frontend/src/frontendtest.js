@@ -185,13 +185,13 @@ function createPostCard(post) {
   let name = 'Athlete';
   let pfpc = defaultAvatar;
   const usid = post.username || post.userId || 'none';
-  const res = fetch(`/api/users/${usid}/profile`);
-    if (res.ok) {
-      const uData = res.json();
-      name = `${uData.firstName} ${uData.lastName}`;
-      if (uData.profilePicture) {
-            pfpc = uData.profilePicture;
-        }
+  const res = makeApiRequest('GET', `/api/users/${usid}/profile`)
+          .catch(() => ({ uid: friendId, username: 'Unknown', profilePicture: null }));
+  
+  name = `${res.firstName} ${res.lastName}`;
+  
+  pfpc = res.profilePicture;
+        
 
     }
   card.className = `post-card`;
