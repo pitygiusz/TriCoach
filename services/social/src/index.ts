@@ -61,7 +61,7 @@ async function populatePostsMetadata(posts: any[]) {
     posts.forEach(p => {
       if (p.userId) uidSet.add(p.userId);
       if (Array.isArray(p.likedBy)) {
-        p.likedBy.forEach(like => {
+        p.likedBy.forEach((like:any) => {
           const uid = typeof like === 'object' && like !== null ? like.uid : like;
           if (uid) uidSet.add(uid);
         });
