@@ -254,7 +254,7 @@ async function createPostCard(post) {
       <img class="avatar" src="${avatarUrl}" alt="${displayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
       <div class="post-author" style="display: flex; flex-direction: column; gap: 2px;">
         <strong style="font-size: 1rem; color: var(--text); line-height: 1.2;">${displayName}</strong>
-        <span style="font-size: 0.85rem; color: var(--muted);">@${username} · ${formatTimeAgo(post.createdAt)}</span>
+        <span style="font-size: 0.85rem; color: var(--muted);">@${usid} · ${formatTimeAgo(post.createdAt)}</span>
       </div>
     </header>
     ${titleHtml}
