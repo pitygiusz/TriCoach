@@ -50,7 +50,6 @@ const submitTrainingBtn    = document.getElementById('submitTrainingBtn');
   }
 })();
 
-// ─── Firebase Auth (Compat SDK loaded via <script> tags) ─────────────────────
 function isFirebaseReady() {
   try {
     return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
@@ -182,13 +181,18 @@ function createPostCard(post) {
   card.id = `post-card-${post.id}`;
   card.comments = post.comments || [];
   card.dataset.expanded = "false";
-  const author = post.username && post.username !== 'Anonymous' ? post.username : (post.userId || 'Anonymous');
+  
+  // Rich user profiles joined from the backend
+  const authorProfile  = post.authorProfile || {};
+  const authorFullName = authorProfile.fullName || post.username || 'Athlete';
+  const authorHandle   = authorProfile.username || 'athlete';
+  const authorAvatar   = authorProfile.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId || 'default')}`;
   
   // Format likedBy list
   let likedByText = '';
   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
-    const names = post.likedBy.map(like => typeof like === 'object' && like !== null ? like.username : like);
-    likedText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
+    const names = post.likedBy.map(like => typeof like === 'object' && like !== null ? like.name || like.username : like);
+    likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
       ❤️ Liked by: ${names.join(', ')}
     </div>`;
   }
@@ -211,14 +215,14 @@ function createPostCard(post) {
     const dist = post.trainingDetails.distance_km || post.trainingDetails.distance;
     const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
     statsHtml = `
-      <div class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px auto; border-radius: 4px; max-width: 90%;">
+      <div class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
         <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
         <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
       </div>
     `;
   } else if (post.trainingId) {
     statsHtml = `
-      <div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px auto; border-radius: 4px; max-width: 90%;">
+      <div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
         <span style="font-size: 0.95rem; color: var(--muted);">Loading training details...</span>
       </div>
     `;
@@ -228,18 +232,21 @@ function createPostCard(post) {
   const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
 
   card.innerHTML = `
-    <header>
-      <img class="avatar" id="post-avatar-${post.id}" src="https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}" alt="${author}" />
-      <div class="post-author">
-        <strong id="post-author-name-${post.id}">${author}</strong>
-        <span>${formatTimeAgo(post.createdAt)}</span>
-      </div>
+    <header style="display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 12px;">
+      <a href="profile.html?uid=${post.userId}" style="display: flex; gap: 12px; text-decoration: none; color: inherit; align-items: center;">
+        <img class="avatar" src="${authorAvatar}" alt="${authorFullName}" style="width: 44px; height: 44px; border-radius: 50%; object-fit: cover;" />
+        <div style="display: flex; flex-direction: column;">
+          <strong style="font-size: 1rem;">${authorFullName}</strong>
+          <span style="font-size: 0.85rem; color: var(--muted);">@${authorHandle}</span>
+        </div>
+      </a>
+      <span style="font-size: 0.8rem; color: var(--muted);">${formatTimeAgo(post.createdAt)}</span>
     </header>
     <h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>
     <p>${post.content || ''}</p>
     ${statsHtml}
-    <hr style="border: 0; border-top: 1px solid var(--border); margin: 16px 0;" />
-    <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
+    ${likedByText}
+    <div class="post-meta" style="display: flex; align-items: center; gap: 16px; margin-top: 12px;">
       <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
         ❤️ <span class="like-count">${post.likes || 0}</span>
       </button>
@@ -247,13 +254,12 @@ function createPostCard(post) {
         💬 comments (${post.comments ? post.comments.length : 0})
       </button>
     </div>
-    ${likedText}
     <div id="comments-container-${post.id}" class="comments-container">
-      <div id="comment-list-${post.id}" class="comment-list">
-      </div>
       <div class="comment-input-area">
         <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
         <button class="comment-submit-btn" onclick="submitComment('${post.id}')">Post</button>
+      </div>
+      <div id="comment-list-${post.id}" class="comment-list">
       </div>
     </div>
   `;
@@ -296,35 +302,11 @@ async function fetchAndRenderAttachedTraining(userId, trainingId, postId) {
       }
     }
   } catch (err) {
-    console.error('Error loading attached training details:', err);
+    // Fails silently in network / console to ensure the post card remains usable
     const container = document.getElementById(`workout-details-${postId}`);
     if (container) {
       container.style.display = 'none';
     }
-  }
-}
-
-// Fetch and render dynamic full name and profile picture based strictly on userId
-async function fetchAndRenderAuthor(userId, postId) {
-  try {
-    const res = await fetch(`/api/users/${userId}/profile`);
-    if (res.ok) {
-      const uData = await res.json();
-      const fullName = `${uData.firstName} ${uData.lastName}`;
-      const avatarUrl = uData.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(userId)}`;
-      
-      const nameEl = document.getElementById(`post-author-name-${postId}`);
-      const avatarEl = document.getElementById(`post-avatar-${postId}`);
-      
-      if (nameEl) nameEl.textContent = fullName;
-      if (avatarEl) {
-        avatarEl.src = avatarUrl;
-        avatarEl.alt = fullName;
-      }
-    }
-  } catch (err) {
-    // Suppresses error noise in dev tools console for orphaned / test entries
-    console.warn(`Could not load profile for user ${userId}`, err);
   }
 }
 
@@ -360,9 +342,6 @@ function renderPosts(posts) {
   posts.forEach(p => {
     postsContainer.appendChild(createPostCard(p));
     renderCommentList(p.id);
-    
-    // Dynamically query user profile and training info asynchronously without blocking the main feed
-    setTimeout(() => fetchAndRenderAuthor(p.userId, p.id), 0);
     if (p.trainingId && !p.trainingDetails) {
       setTimeout(() => fetchAndRenderAttachedTraining(p.userId, p.trainingId, p.id), 0);
     }
@@ -370,7 +349,6 @@ function renderPosts(posts) {
 }
 
 // ─── Load posts on startup with timeout ───────────────────────────────────────
-// Use a race with AbortController so the UI doesn't hang forever
 async function loadPosts() {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
@@ -395,7 +373,6 @@ async function loadPosts() {
     renderPosts(postsArray);
   } catch (err) {
     clearTimeout(timeout);
-    // Show the empty state instead of an error so the page is usable
     postsContainer.innerHTML = '<div class="empty-state">No posts yet — follow some athletes to see updates!</div>';
     console.warn('loadPosts:', err.message);
   }
@@ -412,7 +389,6 @@ window.followUserByUsername = async function followUserByUsername() {
   const currentUid = getCurrentUserId();
 
   try {
-    // 1. Resolve username to UID
     const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username)}`);
     if (!userRes.ok) {
       if (userRes.status === 404) {
@@ -427,7 +403,6 @@ window.followUserByUsername = async function followUserByUsername() {
       return;
     }
 
-    // 2. Send follow request
     await makeApiRequest('POST', '/api/follow', {
       follower_id: currentUid,
       following_id: targetUser.uid,
@@ -436,7 +411,6 @@ window.followUserByUsername = async function followUserByUsername() {
     alert(`Successfully followed @${username}!`);
     if (usernameInput) usernameInput.value = '';
     
-    // Refresh sidebar and feed
     updateProfileSidebar();
     loadPosts();
   } catch (err) {
@@ -511,7 +485,6 @@ async function updateProfileSidebar() {
   let name = sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
   let avatarUrl = sessionStorage.getItem('pgAvatar');
   
-  // Grab live database info if logged in to avoid old session tokens
   if (uid && !sessionStorage.getItem('sidebarNameLoaded')) {
     try {
       const res = await fetch(`/api/users/${uid}/profile`);
@@ -530,7 +503,6 @@ async function updateProfileSidebar() {
 
   const avatar = avatarUrl || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
-  // Update profile card in sidebar
   const profileCard = document.getElementById('profileCard');
   if (profileCard) {
     profileCard.innerHTML = `
@@ -544,14 +516,12 @@ async function updateProfileSidebar() {
     `;
   }
   
-  // Update main page toggle button photo dynamically
   const toggleImg = document.querySelector('#toggle img');
   if (toggleImg) {
     toggleImg.src = avatar;
     toggleImg.alt = name;
   }
 
-  // Load friends
   if (uid) {
     fetchFriendsList(uid);
   }
@@ -563,8 +533,6 @@ async function fetchFriendsList(uid) {
   if (!friendsListEl) return;
 
   try {
-    // Fetch followers and following lists independently via existing API
-    // Using makeApiRequest guarantees auth headers are passed properly
     const [followersData, followingData] = await Promise.all([
       makeApiRequest('GET', `/api/followers/${uid}`).catch(() => []),
       makeApiRequest('GET', `/api/following/${uid}`).catch(() => [])
@@ -576,7 +544,6 @@ async function fetchFriendsList(uid) {
     const followerIds = followers.map(f => f.followerId || f.uid || f.id || f);
     const followingIds = following.map(f => f.followingId || f.uid || f.id || f);
 
-    // Filter to find the overlap (Mutual followers)
     const mutualIds = [...new Set(followingIds.filter(id => followerIds.includes(id)))];
 
     if (mutualIds.length === 0) {
@@ -586,7 +553,6 @@ async function fetchFriendsList(uid) {
 
     friendsListEl.innerHTML = '';
     
-    // Fetch profile data for the mutual IDs to display correct images and usernames
     const profiles = await Promise.all(
       mutualIds.map(friendId => 
         makeApiRequest('GET', `/api/users/${friendId}/profile`)
@@ -595,7 +561,7 @@ async function fetchFriendsList(uid) {
     );
 
     profiles.forEach(friend => {
-      if (friend.username === 'Unknown') return; // Skip if we failed to load this profile
+      if (friend.username === 'Unknown') return;
 
       const li = document.createElement('li');
       li.style.display = 'flex';
@@ -603,7 +569,7 @@ async function fetchFriendsList(uid) {
       li.style.gap = '10px';
       li.style.cursor = 'pointer';
       li.style.padding = '6px 0';
-      li.style.overflow = 'hidden'; // Ensures the flex child doesn't overflow container
+      li.style.overflow = 'hidden';
       li.onclick = () => window.location.href = `profile.html?uid=${friend.uid}`;
 
       const friendAvatar = friend.profilePicture || `https://i.pravatar.cc/40?u=${encodeURIComponent(friend.uid)}`;
@@ -701,7 +667,6 @@ submitTrainingBtn.addEventListener('click', async () => {
     trainingDistance.value = '';
     createTrainingModal.classList.add('hidden');
 
-    // Silently refresh the workouts dropdown so it's ready when the post modal opens
     await fetchWorkouts();
     alert('Training logged!');
   } catch (err) {
@@ -710,6 +675,7 @@ submitTrainingBtn.addEventListener('click', async () => {
 });
 
 // ─── Comments Toggle and Rendering Logic ──────────────────────────────────────
+window.renderCommentList = window.renderCommentList || function() {};
 window.renderCommentList = function renderCommentList(postId) {
   const card = document.getElementById(`post-card-${postId}`);
   const listContainer = document.getElementById(`comment-list-${postId}`);
@@ -723,7 +689,6 @@ window.renderCommentList = function renderCommentList(postId) {
     return;
   }
 
-  // Render first 3 comments if collapsed, otherwise render all comments
   const commentsToRender = expanded ? comments : comments.slice(0, 3);
 
   listContainer.innerHTML = '';
@@ -746,7 +711,6 @@ window.renderCommentList = function renderCommentList(postId) {
     listContainer.appendChild(item);
   });
 
-  // If collapsed and comments > 3, show a subtle hint
   if (!expanded && comments.length > 3) {
     const hint = document.createElement('div');
     hint.className = 'empty-state';
@@ -758,7 +722,6 @@ window.renderCommentList = function renderCommentList(postId) {
     listContainer.appendChild(hint);
   }
 
-  // Scroll to bottom only if expanded
   if (expanded) {
     listContainer.scrollTop = listContainer.scrollHeight;
   }
@@ -797,17 +760,13 @@ window.submitComment = async function submitComment(postId) {
       if (!card.comments) card.comments = [];
       card.comments.push(newComment);
       
-      // Auto-expand on new comment so they see their posted comment
-      card.dataset.embeddings = "true";
       card.dataset.expanded = "true";
       
-      // Update button counter
       const btn = document.getElementById(`comments-btn-${postId}`);
       if (btn) {
         btn.innerHTML = `💬 comments (${card.comments.length})`;
       }
 
-      // Re-render
       renderCommentList(postId);
     }
     input.value = '';
