@@ -182,7 +182,15 @@
         <button id="closePostModalBtn" class="menu-close" aria-label="Close">×</button>
       </header>
       <div class="modal-body">
+        <div class="workout-selector">
+          <label for="postTitleInput">Title (optional)</label>
+          <input id="postTitleInput" type="text" placeholder="Give your post a title" />
+        </div>
         <textarea id="postContentInput" placeholder="How was your training today?"></textarea>
+        <div class="workout-selector">
+          <label for="postImageInput">Attach an image (optional)</label>
+          <input id="postImageInput" type="file" accept="image/*" />
+        </div>
         <div class="workout-selector">
           <label for="workoutSelect">Attach a Training:</label>
           <select id="workoutSelect">

@@ -13,15 +13,39 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
+const userServiceUrl = process.env.USER_SERVICE_URL || 'http://localhost:3001';
+
+// Resolve display name + avatar from Postgres (via user service) for a set of uids
+async function fetchUserProfiles(userIds: string[]) {
+  const uniqueIds = Array.from(new Set(userIds.filter(Boolean)));
+  const profileMap: Record<string, { displayName: string; profilePicture: string | null }> = {};
+
+  await Promise.all(uniqueIds.map(async (uid) => {
+    try {
+      const res = await fetch(`${userServiceUrl}/users/${uid}/profile`);
+      if (res.ok) {
+        const data: any = await res.json();
+        const displayName = [data.firstName, data.lastName].filter(Boolean).join(' ').trim() || uid;
+        profileMap[uid] = { displayName, profilePicture: data.profilePicture || null };
+      } else {
+        profileMap[uid] = { displayName: uid, profilePicture: null };
+      }
+    } catch {
+      profileMap[uid] = { displayName: uid, profilePicture: null };
+    }
+  }));
+
+  return profileMap;
+}
+
 // Health check
 app.get('/', (req: Request, res: Response) => {
   res.status(200).json({ service: 'Social Service (Admin SDK)', status: 'ok' });
 });
 
-// Create a post
 app.post('/posts', async (req: Request, res: Response) => {
   try {
-    const { user_id, username, content, training_id, training_details } = req.body;
+    const { user_id, content, title, image_url, training_id, training_details } = req.body;
 
     if (!user_id || !content) {
       res.status(400).json({ error: 'Missing required fields' });
@@ -30,12 +54,13 @@ app.post('/posts', async (req: Request, res: Response) => {
 
     const postData = {
       userId: user_id,
-      username: username || 'Anonymous',
+      title: title || null,
+      imageUrl: image_url || null,
       trainingId: training_id || null,
       trainingDetails: training_details || null,
       content,
       likes: 0,
-      likedBy: [] as any[],
+      likedBy: [] as string[],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     };
@@ -44,10 +69,7 @@ app.post('/posts', async (req: Request, res: Response) => {
 
     res.status(201).json({
       message: 'Post created successfully',
-      post: {
-        id: docRef.id,
-        ...postData,
-      },
+      post: { id: docRef.id, ...postData },
     });
   } catch (error: any) {
     console.error('Create post error:', error);
@@ -55,44 +77,14 @@ app.post('/posts', async (req: Request, res: Response) => {
   }
 });
 
-// Helper to fetch user profiles and training details for posts
 async function populatePostsMetadata(posts: any[]) {
   try {
-    // 1. Fetch Usernames from Firebase Auth
-    const userIds = Array.from(new Set(posts.map(p => p.userId).filter(Boolean)));
-    const userMap: Record<string, string> = {};
-    
-    if (userIds.length > 0) {
-      try {
-        // Fetch up to 100 users at once (Firebase Admin limit is 100)
-        const identifiers = userIds.map(uid => ({ uid }));
-        const usersResult = await admin.auth().getUsers(identifiers);
-        usersResult.users.forEach(userRecord => {
-          if (userRecord.displayName) {
-            userMap[userRecord.uid] = userRecord.displayName;
-          }
-        });
-      } catch (authErr) {
-        console.error('Error fetching users from Firebase:', authErr);
-      }
-    }
-
-    // 2. Fetch Training Details from Training Service
     const trainingServiceUrl = process.env.TRAINING_SERVICE_URL || 'http://localhost:3002';
-    
-    // Process posts one by one or in parallel
-    const populated = await Promise.all(posts.map(async (post) => {
-      let username = post.username;
-      // Overwrite/fallback to Firebase Auth displayName if available
-      if (post.userId && userMap[post.userId]) {
-        username = userMap[post.userId];
-      }
 
+    const populated = await Promise.all(posts.map(async (post) => {
       let trainingDetails = post.trainingDetails;
-      // Always fetch fresh details from the Training Service if trainingId is present
       if (post.trainingId) {
         try {
-          // Fetch training from training service using the user's workouts API
           const workoutRes = await fetch(`${trainingServiceUrl}/workouts/${post.userId}?limit=200`);
           if (workoutRes.ok) {
             const workoutData = await workoutRes.json();
@@ -110,57 +102,198 @@ async function populatePostsMetadata(posts: any[]) {
         }
       }
 
-      // 3. Fetch Comments for this post
       let comments: any[] = [];
       try {
         const commentsSnapshot = await db.collection('posts').doc(post.id).collection('comments').orderBy('createdAt', 'asc').get();
-        const rawComments = commentsSnapshot.docs.map(doc => {
+        comments = commentsSnapshot.docs.map(doc => {
           const data = doc.data();
           return {
             id: doc.id,
             userId: data.userId,
-            username: data.username || 'Anonymous',
             content: data.content,
             createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
           };
         });
-
-        // Resolve displayNames for commenters
-        const commenterIds = Array.from(new Set(rawComments.map(c => c.userId).filter(Boolean)));
-        const commenterMap: Record<string, string> = {};
-        if (commenterIds.length > 0) {
-          try {
-            const usersResult = await admin.auth().getUsers(commenterIds.map(uid => ({ uid })));
-            usersResult.users.forEach(u => {
-              if (u.displayName) commenterMap[u.uid] = u.displayName;
-            });
-          } catch (authErr) {
-            console.error('Error fetching comment authors from Firebase:', authErr);
-          }
-        }
-
-        comments = rawComments.map(c => ({
-          ...c,
-          username: (c.userId && commenterMap[c.userId]) ? commenterMap[c.userId] : c.username,
-        }));
       } catch (commentErr) {
         console.error(`Error fetching comments for post ${post.id}:`, commentErr);
       }
 
-      return {
-        ...post,
-        username,
-        trainingDetails,
-        comments,
-      };
+      return { ...post, trainingDetails, comments };
     }));
 
-    return populated;
+    // Batch-resolve every uid involved (post authors, commenters, likers)
+    const allUserIds = new Set<string>();
+    populated.forEach(p => {
+      if (p.userId) allUserIds.add(p.userId);
+      (p.likedBy || []).forEach((entry: any) => allUserIds.add(typeof entry === 'string' ? entry : entry.uid));
+      (p.comments || []).forEach((c: any) => allUserIds.add(c.userId));
+    });
+
+    const profileMap = await fetchUserProfiles(Array.from(allUserIds));
+
+    return populated.map(p => ({
+      ...p,
+      displayName: profileMap[p.userId]?.displayName || p.userId,
+      profilePicture: profileMap[p.userId]?.profilePicture || null,
+      likedBy: (p.likedBy || []).map((entry: any) => {
+        const uid = typeof entry === 'string' ? entry : entry.uid;
+        return { uid, displayName: profileMap[uid]?.displayName || uid };
+      }),
+      comments: (p.comments || []).map((c: any) => ({
+        ...c,
+        displayName: profileMap[c.userId]?.displayName || c.userId,
+        profilePicture: profileMap[c.userId]?.profilePicture || null,
+      })),
+    }));
   } catch (err) {
     console.error('Error populating post metadata:', err);
     return posts;
   }
 }
+
+// Create a post DEPRECATED
+// app.post('/posts', async (req: Request, res: Response) => {
+//   try {
+//     const { user_id, username, content, training_id, training_details } = req.body;
+
+//     if (!user_id || !content) {
+//       res.status(400).json({ error: 'Missing required fields' });
+//       return;
+//     }
+
+//     const postData = {
+//       userId: user_id,
+//       username: username || 'Anonymous',
+//       trainingId: training_id || null,
+//       trainingDetails: training_details || null,
+//       content,
+//       likes: 0,
+//       likedBy: [] as any[],
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+//     };
+
+//     const docRef = await db.collection('posts').add(postData);
+
+//     res.status(201).json({
+//       message: 'Post created successfully',
+//       post: {
+//         id: docRef.id,
+//         ...postData,
+//       },
+//     });
+//   } catch (error: any) {
+//     console.error('Create post error:', error);
+//     res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
+//   }
+// });
+
+// Helper to fetch user profiles and training details for posts DEPRECATED
+// async function populatePostsMetadata(posts: any[]) {
+//   try {
+//     // 1. Fetch Usernames from Firebase Auth
+//     const userIds = Array.from(new Set(posts.map(p => p.userId).filter(Boolean)));
+//     const userMap: Record<string, string> = {};
+    
+//     if (userIds.length > 0) {
+//       try {
+//         // Fetch up to 100 users at once (Firebase Admin limit is 100)
+//         const identifiers = userIds.map(uid => ({ uid }));
+//         const usersResult = await admin.auth().getUsers(identifiers);
+//         usersResult.users.forEach(userRecord => {
+//           if (userRecord.displayName) {
+//             userMap[userRecord.uid] = userRecord.displayName;
+//           }
+//         });
+//       } catch (authErr) {
+//         console.error('Error fetching users from Firebase:', authErr);
+//       }
+//     }
+
+//     // 2. Fetch Training Details from Training Service
+//     const trainingServiceUrl = process.env.TRAINING_SERVICE_URL || 'http://localhost:3002';
+    
+//     // Process posts one by one or in parallel
+//     const populated = await Promise.all(posts.map(async (post) => {
+//       let username = post.username;
+//       // Overwrite/fallback to Firebase Auth displayName if available
+//       if (post.userId && userMap[post.userId]) {
+//         username = userMap[post.userId];
+//       }
+
+//       let trainingDetails = post.trainingDetails;
+//       // Always fetch fresh details from the Training Service if trainingId is present
+//       if (post.trainingId) {
+//         try {
+//           // Fetch training from training service using the user's workouts API
+//           const workoutRes = await fetch(`${trainingServiceUrl}/workouts/${post.userId}?limit=200`);
+//           if (workoutRes.ok) {
+//             const workoutData = await workoutRes.json();
+//             const matchingWorkout = workoutData.workouts?.find((w: any) => w.id === post.trainingId);
+//             if (matchingWorkout) {
+//               trainingDetails = {
+//                 type: matchingWorkout.type,
+//                 duration_minutes: matchingWorkout.duration_minutes !== undefined ? matchingWorkout.duration_minutes : matchingWorkout.durationMinutes,
+//                 distance_km: matchingWorkout.distance_km !== undefined ? matchingWorkout.distance_km : matchingWorkout.distanceKm,
+//               };
+//             }
+//           }
+//         } catch (trainErr) {
+//           console.error(`Error fetching training details for ${post.trainingId}:`, trainErr);
+//         }
+//       }
+
+//       // 3. Fetch Comments for this post
+//       let comments: any[] = [];
+//       try {
+//         const commentsSnapshot = await db.collection('posts').doc(post.id).collection('comments').orderBy('createdAt', 'asc').get();
+//         const rawComments = commentsSnapshot.docs.map(doc => {
+//           const data = doc.data();
+//           return {
+//             id: doc.id,
+//             userId: data.userId,
+//             username: data.username || 'Anonymous',
+//             content: data.content,
+//             createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
+//           };
+//         });
+
+//         // Resolve displayNames for commenters
+//         const commenterIds = Array.from(new Set(rawComments.map(c => c.userId).filter(Boolean)));
+//         const commenterMap: Record<string, string> = {};
+//         if (commenterIds.length > 0) {
+//           try {
+//             const usersResult = await admin.auth().getUsers(commenterIds.map(uid => ({ uid })));
+//             usersResult.users.forEach(u => {
+//               if (u.displayName) commenterMap[u.uid] = u.displayName;
+//             });
+//           } catch (authErr) {
+//             console.error('Error fetching comment authors from Firebase:', authErr);
+//           }
+//         }
+
+//         comments = rawComments.map(c => ({
+//           ...c,
+//           username: (c.userId && commenterMap[c.userId]) ? commenterMap[c.userId] : c.username,
+//         }));
+//       } catch (commentErr) {
+//         console.error(`Error fetching comments for post ${post.id}:`, commentErr);
+//       }
+
+//       return {
+//         ...post,
+//         username,
+//         trainingDetails,
+//         comments,
+//       };
+//     }));
+
+//     return populated;
+//   } catch (err) {
+//     console.error('Error populating post metadata:', err);
+//     return posts;
+//   }
+// }
 
 // Get all posts
 app.get('/posts', async (req: Request, res: Response) => {
@@ -216,7 +349,8 @@ app.get('/feed/:userId', async (req: Request, res: Response) => {
       return {
         id: doc.id,
         userId: data.userId,
-        username: data.username || 'Anonymous',
+        title: data.title || null,
+        imageUrl: data.imageUrl || null,
         trainingId: data.trainingId || null,
         trainingDetails: data.trainingDetails || null,
         content: data.content,
@@ -247,11 +381,10 @@ app.get('/feed/:userId', async (req: Request, res: Response) => {
   }
 });
 
-// Like a post
 app.post('/posts/:postId/like', async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
-    const { user_id, username } = req.body;
+    const { user_id } = req.body;
 
     if (!user_id) {
       res.status(400).json({ error: 'User ID required' });
@@ -264,26 +397,19 @@ app.post('/posts/:postId/like', async (req: Request, res: Response) => {
       res.status(404).json({ error: 'Post not found' });
       return;
     }
-    const postData = postDoc.data() || {};
-    const likedBy = postData.likedBy || [];
-    
-    // Check if user already liked the post
-    const alreadyLiked = likedBy.some((like: any) => {
-      if (typeof like === 'object' && like !== null) {
-        return like.uid === user_id;
-      }
-      return like === user_id;
-    });
+    const likedBy: any[] = (postDoc.data() || {}).likedBy || [];
 
+    const alreadyLiked = likedBy.some((like) =>
+      (typeof like === 'object' && like !== null ? like.uid === user_id : like === user_id)
+    );
     if (alreadyLiked) {
       res.status(400).json({ error: 'You have already liked this post' });
       return;
     }
 
-    const newLike = { uid: user_id, username: username || 'Athlete' };
     await postRef.update({
       likes: admin.firestore.FieldValue.increment(1),
-      likedBy: admin.firestore.FieldValue.arrayUnion(newLike),
+      likedBy: admin.firestore.FieldValue.arrayUnion(user_id),
     });
 
     res.status(200).json({ message: 'Post liked successfully' });
@@ -293,7 +419,6 @@ app.post('/posts/:postId/like', async (req: Request, res: Response) => {
   }
 });
 
-// Unlike a post
 app.post('/posts/:postId/unlike', async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
@@ -310,16 +435,11 @@ app.post('/posts/:postId/unlike', async (req: Request, res: Response) => {
       res.status(404).json({ error: 'Post not found' });
       return;
     }
-    const postData = postDoc.data() || {};
-    const likedBy = postData.likedBy || [];
+    const likedBy: any[] = (postDoc.data() || {}).likedBy || [];
 
-    // Find the like element to remove
-    const likeToRemove = likedBy.find((like: any) => {
-      if (typeof like === 'object' && like !== null) {
-        return like.uid === user_id;
-      }
-      return like === user_id;
-    });
+    const likeToRemove = likedBy.find((like) =>
+      (typeof like === 'object' && like !== null ? like.uid === user_id : like === user_id)
+    );
 
     if (!likeToRemove) {
       res.status(400).json({ error: 'You have not liked this post yet' });
@@ -337,6 +457,97 @@ app.post('/posts/:postId/unlike', async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
   }
 });
+
+// Like a post DEPRECATED
+// app.post('/posts/:postId/like', async (req: Request, res: Response) => {
+//   try {
+//     const { postId } = req.params;
+//     const { user_id, username } = req.body;
+
+//     if (!user_id) {
+//       res.status(400).json({ error: 'User ID required' });
+//       return;
+//     }
+
+//     const postRef = db.collection('posts').doc(postId);
+//     const postDoc = await postRef.get();
+//     if (!postDoc.exists) {
+//       res.status(404).json({ error: 'Post not found' });
+//       return;
+//     }
+//     const postData = postDoc.data() || {};
+//     const likedBy = postData.likedBy || [];
+    
+//     // Check if user already liked the post
+//     const alreadyLiked = likedBy.some((like: any) => {
+//       if (typeof like === 'object' && like !== null) {
+//         return like.uid === user_id;
+//       }
+//       return like === user_id;
+//     });
+
+//     if (alreadyLiked) {
+//       res.status(400).json({ error: 'You have already liked this post' });
+//       return;
+//     }
+
+//     const newLike = { uid: user_id, username: username || 'Athlete' };
+//     await postRef.update({
+//       likes: admin.firestore.FieldValue.increment(1),
+//       likedBy: admin.firestore.FieldValue.arrayUnion(newLike),
+//     });
+
+//     res.status(200).json({ message: 'Post liked successfully' });
+//   } catch (error: any) {
+//     console.error('Like post error:', error);
+//     res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
+//   }
+// });
+
+// Unlike a post DEPRECATED
+// app.post('/posts/:postId/unlike', async (req: Request, res: Response) => {
+//   try {
+//     const { postId } = req.params;
+//     const { user_id } = req.body;
+
+//     if (!user_id) {
+//       res.status(400).json({ error: 'User ID required' });
+//       return;
+//     }
+
+//     const postRef = db.collection('posts').doc(postId);
+//     const postDoc = await postRef.get();
+//     if (!postDoc.exists) {
+//       res.status(404).json({ error: 'Post not found' });
+//       return;
+//     }
+//     const postData = postDoc.data() || {};
+//     const likedBy = postData.likedBy || [];
+
+//     // Find the like element to remove
+//     const likeToRemove = likedBy.find((like: any) => {
+//       if (typeof like === 'object' && like !== null) {
+//         return like.uid === user_id;
+//       }
+//       return like === user_id;
+//     });
+
+//     if (!likeToRemove) {
+//       res.status(400).json({ error: 'You have not liked this post yet' });
+//       return;
+//     }
+
+//     await postRef.update({
+//       likes: admin.firestore.FieldValue.increment(-1),
+//       likedBy: admin.firestore.FieldValue.arrayRemove(likeToRemove),
+//     });
+
+//     res.status(200).json({ message: 'Post unliked successfully' });
+//   } catch (error: any) {
+//     console.error('Unlike post error:', error);
+//     res.status(500).json({ error: error.message || error.toString(), stack: error.stack });
+//   }
+// });
 
 // Follow a user
 app.post('/follow', async (req: Request, res: Response) => {
@@ -477,11 +688,10 @@ app.get('/following/:userId', async (req: Request, res: Response) => {
   }
 });
 
-// Create a comment
 app.post('/posts/:postId/comments', async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
-    const { user_id, username, content } = req.body;
+    const { user_id, content } = req.body;
 
     if (!user_id || !content) {
       res.status(400).json({ error: 'Missing required fields: user_id, content' });
@@ -497,12 +707,12 @@ app.post('/posts/:postId/comments', async (req: Request, res: Response) => {
 
     const commentData = {
       userId: user_id,
-      username: username || 'Anonymous',
       content,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     const docRef = await postRef.collection('comments').add(commentData);
+    const profileMap = await fetchUserProfiles([user_id]);
 
     res.status(201).json({
       message: 'Comment created successfully',
@@ -510,6 +720,8 @@ app.post('/posts/:postId/comments', async (req: Request, res: Response) => {
         id: docRef.id,
         ...commentData,
         createdAt: new Date().toISOString(),
+        displayName: profileMap[user_id]?.displayName || user_id,
+        profilePicture: profileMap[user_id]?.profilePicture || null,
       },
     });
   } catch (error: any) {
@@ -518,7 +730,6 @@ app.post('/posts/:postId/comments', async (req: Request, res: Response) => {
   }
 });
 
-// Get comments for a post
 app.get('/posts/:postId/comments', async (req: Request, res: Response) => {
   try {
     const { postId } = req.params;
@@ -536,38 +747,18 @@ app.get('/posts/:postId/comments', async (req: Request, res: Response) => {
       return {
         id: doc.id,
         userId: data.userId,
-        username: data.username || 'Anonymous',
         content: data.content,
         createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
       };
     });
 
-    // Populate usernames from Firebase Auth
-    const userIds = Array.from(new Set(rawComments.map(c => c.userId).filter(Boolean)));
-    const userMap: Record<string, string> = {};
-    if (userIds.length > 0) {
-      try {
-        const usersResult = await admin.auth().getUsers(userIds.map(uid => ({ uid })));
-        usersResult.users.forEach(userRecord => {
-          if (userRecord.displayName) {
-            userMap[userRecord.uid] = userRecord.displayName;
-          }
-        });
-      } catch (authErr) {
-        console.error('Error fetching users from Firebase:', authErr);
-      }
-    }
+    const profileMap = await fetchUserProfiles(rawComments.map(c => c.userId));
 
-    const populatedComments = rawComments.map(comment => {
-      let username = comment.username;
-      if (comment.userId && userMap[comment.userId]) {
-        username = userMap[comment.userId];
-      }
-      return {
-        ...comment,
-        username,
-      };
-    });
+    const populatedComments = rawComments.map(c => ({
+      ...c,
+      displayName: profileMap[c.userId]?.displayName || c.userId,
+      profilePicture: profileMap[c.userId]?.profilePicture || null,
+    }));
 
     res.status(200).json(populatedComments);
   } catch (error: any) {
@@ -575,6 +766,105 @@ app.get('/posts/:postId/comments', async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message || error.toString() });
   }
 });
+
+// Create a comment DEPRECATED
+// app.post('/posts/:postId/comments', async (req: Request, res: Response) => {
+//   try {
+//     const { postId } = req.params;
+//     const { user_id, username, content } = req.body;
+
+//     if (!user_id || !content) {
+//       res.status(400).json({ error: 'Missing required fields: user_id, content' });
+//       return;
+//     }
+
+//     const postRef = db.collection('posts').doc(postId);
+//     const postDoc = await postRef.get();
+//     if (!postDoc.exists) {
+//       res.status(404).json({ error: 'Post not found' });
+//       return;
+//     }
+
+//     const commentData = {
+//       userId: user_id,
+//       username: username || 'Anonymous',
+//       content,
+//       createdAt: admin.firestore.FieldValue.serverTimestamp(),
+//     };
+
+//     const docRef = await postRef.collection('comments').add(commentData);
+
+//     res.status(201).json({
+//       message: 'Comment created successfully',
+//       comment: {
+//         id: docRef.id,
+//         ...commentData,
+//         createdAt: new Date().toISOString(),
+//       },
+//     });
+//   } catch (error: any) {
+//     console.error('Create comment error:', error);
+//     res.status(500).json({ error: error.message || error.toString() });
+//   }
+// });
+
+// Get comments for a post DEPRECATED
+// app.get('/posts/:postId/comments', async (req: Request, res: Response) => {
+//   try {
+//     const { postId } = req.params;
+
+//     const postRef = db.collection('posts').doc(postId);
+//     const postDoc = await postRef.get();
+//     if (!postDoc.exists) {
+//       res.status(404).json({ error: 'Post not found' });
+//       return;
+//     }
+
+//     const commentsSnapshot = await postRef.collection('comments').orderBy('createdAt', 'asc').get();
+//     const rawComments = commentsSnapshot.docs.map(doc => {
+//       const data = doc.data();
+//       return {
+//         id: doc.id,
+//         userId: data.userId,
+//         username: data.username || 'Anonymous',
+//         content: data.content,
+//         createdAt: data.createdAt ? (data.createdAt.toDate ? data.createdAt.toDate().toISOString() : data.createdAt) : null,
+//       };
+//     });
+
+//     // Populate usernames from Firebase Auth
+//     const userIds = Array.from(new Set(rawComments.map(c => c.userId).filter(Boolean)));
+//     const userMap: Record<string, string> = {};
+//     if (userIds.length > 0) {
+//       try {
+//         const usersResult = await admin.auth().getUsers(userIds.map(uid => ({ uid })));
+//         usersResult.users.forEach(userRecord => {
+//           if (userRecord.displayName) {
+//             userMap[userRecord.uid] = userRecord.displayName;
+//           }
+//         });
+//       } catch (authErr) {
+//         console.error('Error fetching users from Firebase:', authErr);
+//       }
+//     }
+
+//     const populatedComments = rawComments.map(comment => {
+//       let username = comment.username;
+//       if (comment.userId && userMap[comment.userId]) {
+//         username = userMap[comment.userId];
+//       }
+//       return {
+//         ...comment,
+//         username,
+//       };
+//     });
+
+//     res.status(200).json(populatedComments);
+//   } catch (error: any) {
+//     console.error('Get comments error:', error);
+//     res.status(500).json({ error: error.message || error.toString() });
+//   }
+// });
 
 // Create a plan
 app.post('/plans', async (req: Request, res: Response) => {

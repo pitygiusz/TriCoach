@@ -19,6 +19,8 @@ const closePostModalBtn   = document.getElementById('closePostModalBtn');
 const workoutSelect       = document.getElementById('workoutSelect');
 const submitPostBtn       = document.getElementById('submitPostBtn');
 const postContentInput    = document.getElementById('postContentInput');
+const postTitleInput      = document.getElementById('postTitleInput');
+const postImageInput      = document.getElementById('postImageInput');
 
 // Create-training modal
 const createTrainingModal  = document.getElementById('createTrainingModal');
@@ -181,25 +183,20 @@ function createPostCard(post) {
   card.id = `post-card-${post.id}`;
   card.comments = post.comments || [];
   card.dataset.expanded = "false";
-  const author = post.username && post.username !== 'Anonymous' ? post.username : (post.userId || 'Anonymous');
-  
-  // Format likedBy list
+
+  const author = post.displayName || post.userId || 'Anonymous';
+  const avatarUrl = post.profilePicture || `https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}`;
+
   let likedByText = '';
   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
-    const names = post.likedBy.map(like => typeof like === 'object' && like !== null ? like.username : like);
+    const names = post.likedBy.map(like => like.displayName || like.uid);
     likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
       ❤️: ${names.join(', ')}
     </div>`;
   }
 
-  // Check if current user liked it
   const currentUid = getCurrentUserId();
-  const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => {
-    if (typeof like === 'object' && like !== null) {
-      return like.uid === currentUid;
-    }
-    return like === currentUid;
-  });
+  const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => like.uid === currentUid);
 
   // Render training stats inline if present
   let statsHtml = '';
@@ -226,16 +223,25 @@ function createPostCard(post) {
   const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
   const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
 
+  const titleHtml = post.title
+    ? `<h3>${post.title}</h3>`
+    : `<h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>`;
+
+  const imageHtml = post.imageUrl
+    ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" style="width:100%; border-radius:8px; margin:10px 0; display:block;" />`
+    : '';
+
   card.innerHTML = `
     <header>
-      <img class="avatar" src="https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}" alt="${author}" />
+      <img class="avatar" src="${avatarUrl}" alt="${author}" />
       <div class="post-author">
         <strong>${author}</strong>
         <span>${formatTimeAgo(post.createdAt)}</span>
       </div>
     </header>
-    <h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>
+    ${titleHtml}
     <p>${post.content || ''}</p>
+    ${imageHtml}
     ${statsHtml}
     ${likedByText}
     <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
@@ -257,6 +263,90 @@ function createPostCard(post) {
   `;
   return card;
 }
+
+
+// function createPostCard(post) {
+//   const card = document.createElement('article');
+//   card.className = 'post-card';
+//   card.id = `post-card-${post.id}`;
+//   card.comments = post.comments || [];
+//   card.dataset.expanded = "false";
+//   const author = post.username && post.username !== 'Anonymous' ? post.username : (post.userId || 'Anonymous');
+  
+//   // Format likedBy list
+//   let likedByText = '';
+//   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
+//     const names = post.likedBy.map(like => typeof like === 'object' && like !== null ? like.username : like);
+//     likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
+//       ❤️: ${names.join(', ')}
+//     </div>`;
+//   }
+
+//   // Check if current user liked it
+//   const currentUid = getCurrentUserId();
+//   const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => {
+//     if (typeof like === 'object' && like !== null) {
+//       return like.uid === currentUid;
+//     }
+//     return like === currentUid;
+//   });
+
+//   // Render training stats inline if present
+//   let statsHtml = '';
+//   if (post.trainingDetails) {
+//     const type = post.trainingDetails.type || 'Workout';
+//     const emoji = getDisciplineEmoji(type);
+//     const dur = post.trainingDetails.duration_minutes || post.trainingDetails.duration || 0;
+//     const dist = post.trainingDetails.distance_km || post.trainingDetails.distance;
+//     const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
+//     statsHtml = `
+//       <div class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
+//         <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
+//         <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
+//       </div>
+//     `;
+//   } else if (post.trainingId) {
+//     statsHtml = `
+//       <div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
+//         <span style="font-size: 0.95rem; color: var(--muted);">Loading training details...</span>
+//       </div>
+//     `;
+//   }
+
+//   const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
+//   const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
+
+//   card.innerHTML = `
+//     <header>
+//       <img class="avatar" src="https://i.pravatar.cc/48?u=${encodeURIComponent(post.userId)}" alt="${author}" />
+//       <div class="post-author">
+//         <strong>${author}</strong>
+//         <span>${formatTimeAgo(post.createdAt)}</span>
+//       </div>
+//     </header>
+//     <h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>
+//     <p>${post.content || ''}</p>
+//     ${statsHtml}
+//     ${likedByText}
+//     <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
+//       <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
+//         ❤️ <span class="like-count">${post.likes || 0}</span>
+//       </button>
+//       <button onclick="toggleComments('${post.id}')" class="comments-toggle-btn" id="comments-btn-${post.id}">
+//         💬 comments (${post.comments ? post.comments.length : 0})
+//       </button>
+//     </div>
+//     <div id="comments-container-${post.id}" class="comments-container">
+//       <div class="comment-input-area">
+//         <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
+//         <button class="comment-submit-btn" onclick="submitComment('${post.id}')">Post</button>
+//       </div>
+//       <div id="comment-list-${post.id}" class="comment-list">
+//       </div>
+//     </div>
+//   `;
+//   return card;
+// }
 
 function getDisciplineEmoji(type) {
   if (!type) return '🏃';
@@ -306,7 +396,6 @@ window.likePost = async function likePost(postId) {
   try {
     await makeApiRequest('POST', `/api/posts/${postId}/like`, {
       user_id: getCurrentUserId(),
-      username: getCurrentDisplayName(),
     });
     loadPosts();
   } catch (err) {
@@ -607,11 +696,32 @@ closePostModalBtn.addEventListener('click', () => {
   createPostModal.classList.add('hidden');
 });
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 submitPostBtn.addEventListener('click', async () => {
   const content    = postContentInput.value.trim();
+  const title      = postTitleInput.value.trim();
   const trainingId = workoutSelect.value || null;
+  const imageFile  = postImageInput.files[0] || null;
 
   if (!content) { alert('Write something first!'); return; }
+
+  let imageUrl = null;
+  if (imageFile) {
+    try {
+      imageUrl = await readFileAsDataUrl(imageFile);
+    } catch (e) {
+      alert('Could not read the selected image.');
+      return;
+    }
+  }
 
   let trainingDetails = null;
   if (trainingId) {
@@ -628,12 +738,15 @@ submitPostBtn.addEventListener('click', async () => {
   try {
     await makeApiRequest('POST', '/api/posts', {
       user_id:          getCurrentUserId(),
-      username:         getCurrentDisplayName(),
       content,
+      title:            title || null,
+      image_url:        imageUrl,
       training_id:      trainingId,
       training_details: trainingDetails,
     });
     postContentInput.value = '';
+    postTitleInput.value   = '';
+    postImageInput.value   = '';
     workoutSelect.value    = '';
     createPostModal.classList.add('hidden');
     loadPosts();
@@ -641,6 +754,41 @@ submitPostBtn.addEventListener('click', async () => {
     alert(`Failed to post: ${err.message}`);
   }
 });
+
+// submitPostBtn.addEventListener('click', async () => {
+//   const content    = postContentInput.value.trim();
+//   const trainingId = workoutSelect.value || null;
+
+//   if (!content) { alert('Write something first!'); return; }
+
+//   let trainingDetails = null;
+//   if (trainingId) {
+//     const workoutObj = loadedWorkoutsList.find(w => w.id === trainingId);
+//     if (workoutObj) {
+//       trainingDetails = {
+//         type: workoutObj.type,
+//         duration_minutes: workoutObj.duration_minutes !== undefined ? workoutObj.duration_minutes : workoutObj.durationMinutes,
+//         distance_km: workoutObj.distance_km !== undefined ? workoutObj.distance_km : workoutObj.distanceKm,
+//       };
+//     }
+//   }
+
+//   try {
+//     await makeApiRequest('POST', '/api/posts', {
+//       user_id:          getCurrentUserId(),
+//       username:         getCurrentDisplayName(),
+//       content,
+//       training_id:      trainingId,
+//       training_details: trainingDetails,
+//     });
+//     postContentInput.value = '';
+//     workoutSelect.value    = '';
+//     createPostModal.classList.add('hidden');
+//     loadPosts();
+//   } catch (err) {
+//     alert(`Failed to post: ${err.message}`);
+//   }
+// });
 
 // ─── Training modal ───────────────────────────────────────────────────────────
 openCreateTrainingBtn.addEventListener('click', () => {
@@ -701,11 +849,12 @@ window.renderCommentList = function renderCommentList(postId) {
   commentsToRender.forEach(comment => {
     const item = document.createElement('div');
     item.className = 'comment-card';
-    const author = comment.username || 'Anonymous';
+    const author = comment.displayName || comment.userId || 'Anonymous';
+    const avatarUrl = comment.profilePicture || `https://i.pravatar.cc/32?u=${encodeURIComponent(comment.userId)}`;
     const timeAgo = formatTimeAgo(comment.createdAt);
 
     item.innerHTML = `
-      <img class="avatar" src="https://i.pravatar.cc/32?u=${encodeURIComponent(comment.userId)}" alt="${author}" />
+      <img class="avatar" src="${avatarUrl}" alt="${author}" />
       <div class="comment-content-wrap">
         <div class="comment-header">
           <strong>${author}</strong>
@@ -759,25 +908,20 @@ window.submitComment = async function submitComment(postId) {
   try {
     const res = await makeApiRequest('POST', `/api/posts/${postId}/comments`, {
       user_id: getCurrentUserId(),
-      username: getCurrentDisplayName(),
       content
     });
-    
+
     const newComment = res.comment;
     if (newComment) {
       if (!card.comments) card.comments = [];
       card.comments.push(newComment);
-      
-      // Auto-expand on new comment so they see their posted comment
       card.dataset.expanded = "true";
-      
-      // Update button counter
+
       const btn = document.getElementById(`comments-btn-${postId}`);
       if (btn) {
         btn.innerHTML = `💬 comments (${card.comments.length})`;
       }
 
-      // Re-render
       renderCommentList(postId);
     }
     input.value = '';
@@ -785,6 +929,49 @@ window.submitComment = async function submitComment(postId) {
     alert(`Could not post comment: ${err.message}`);
   }
 };
+
+// window.submitComment = async function submitComment(postId) {
+//   const card = document.getElementById(`post-card-${postId}`);
+//   const input = document.getElementById(`comment-input-${postId}`);
+//   if (!card || !input) return;
+
+//   const content = input.value.trim();
+//   if (!content) {
+//     alert('Please enter a comment!');
+//     return;
+//   }
+
+//   try {
+//     const res = await makeApiRequest('POST', `/api/posts/${postId}/comments`, {
+//       user_id: getCurrentUserId(),
+//       username: getCurrentDisplayName(),
+//       content
+//     });
+    
+//     const newComment = res.comment;
+//     if (newComment) {
+//       if (!card.comments) card.comments = [];
+//       card.comments.push(newComment);
+      
+//       // Auto-expand on new comment so they see their posted comment
+//       card.dataset.expanded = "true";
+      
+//       // Update button counter
+//       const btn = document.getElementById(`comments-btn-${postId}`);
+//       if (btn) {
+//         btn.innerHTML = `💬 comments (${card.comments.length})`;
+//       }
+
+//       // Re-render
+//       renderCommentList(postId);
+//     }
+//     input.value = '';
+//   } catch (err) {
+//     alert(`Could not post comment: ${err.message}`);
+//   }
+// };
+
+
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadPosts();
