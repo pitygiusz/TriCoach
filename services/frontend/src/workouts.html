@@ -35,6 +35,11 @@
         <button class="action-pill" data-type="ride">🚴 Ride</button>
         <button class="action-pill" data-type="run">🏃 Run</button>
         <button class="action-pill" data-type="other">🏋️ Other</button>
+        <button id="openCreateTrainingBtn" class="action-pill active" style="margin-left: auto;">
+          <div>
+            <strong>Log a training</strong>
+          </div>
+        </button>
       </div>
 
       <main class="feed">
@@ -48,6 +53,38 @@
     <!-- ── Sidebar ───────────────────────────────────────────────────────── -->
     <aside class="sidebar" id="sidebarHid"></aside>
 
+  </div>
+
+  <div id="createTrainingModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2>Log Training</h2>
+        <button id="closeTrainingModalBtn" class="menu-close" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body">
+        <div class="workout-selector">
+          <label for="trainingType">Type</label>
+          <select id="trainingType">
+            <option value="">Select a type</option>
+            <option value="run">Run</option>
+            <option value="ride">Ride</option>
+            <option value="swim">Swim</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="workout-selector">
+          <label for="trainingDuration">Duration (minutes)</label>
+          <input id="trainingDuration" type="number" min="1" placeholder="e.g. 45" />
+        </div>
+        <div class="workout-selector">
+          <label for="trainingDistance">Distance (km)</label>
+          <input id="trainingDistance" type="number" min="0" step="0.01" placeholder="e.g. 5.00" />
+        </div>
+      </div>
+      <footer class="modal-actions">
+        <button id="submitTrainingBtn" class="action-pill active">Save Training</button>
+      </footer>
+    </div>
   </div>
 
   <script src="shell.js"></script>
@@ -67,6 +104,13 @@
 
     // ─── DOM refs ─────────────────────────────────────────────────────────────
     const workoutsContainer = document.getElementById('workoutsContainer');
+    const openCreateTrainingBtn = document.getElementById('openCreateTrainingBtn');
+    const createTrainingModal = document.getElementById('createTrainingModal');
+    const closeTrainingModalBtn = document.getElementById('closeTrainingModalBtn');
+    const submitTrainingBtn = document.getElementById('submitTrainingBtn');
+    const trainingType = document.getElementById('trainingType');
+    const trainingDuration = document.getElementById('trainingDuration');
+    const trainingDistance = document.getElementById('trainingDistance');
 
     let currentFilterType = "";
 
@@ -154,10 +198,57 @@
       }
     };
 
+    // ─── Training modal ───────────────────────────────────────────────────────────
+    openCreateTrainingBtn.addEventListener('click', () => {
+      createTrainingModal.classList.remove('hidden');
+    });
+
+    closeTrainingModalBtn.addEventListener('click', () => {
+      createTrainingModal.classList.add('hidden');
+    });
+
+    submitTrainingBtn.addEventListener('click', async () => {
+      const type     = trainingType.value.trim();
+      const duration = trainingDuration.value.trim();
+      const distance = trainingDistance.value.trim();
+
+      if (!type)              { alert('Select a training type.');                return; }
+      if (!duration || +duration <= 0) { alert('Enter a valid duration (> 0 minutes).'); return; }
+
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch('/api/workouts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify({
+            user_id:          getCurrentUserId(),
+            type,
+            duration_minutes: parseInt(duration, 10),
+            distance_km:      distance ? parseFloat(distance) : null,
+          })
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || `Status: ${res.status}`);
+        }
+
+        trainingType.value     = '';
+        trainingDuration.value = '';
+        trainingDistance.value = '';
+        createTrainingModal.classList.add('hidden');
+
+        alert('Training logged successfully!');
+        loadWorkouts();
+      } catch (err) {
+        alert(`Could not save training: ${err.message}`);
+      }
+    });
+
     // ─── Filter Pill Handling ─────────────────────────────────────────────────
-    document.querySelectorAll('#filterBar .action-pill').forEach(btn => {
+    document.querySelectorAll('#filterBar .action-pill[data-type]').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        document.querySelectorAll('#filterBar .action-pill').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('#filterBar .action-pill[data-type]').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentFilterType = btn.getAttribute('data-type');
         loadWorkouts();
