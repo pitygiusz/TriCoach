@@ -262,6 +262,18 @@
         return;
       }
 
+      // Check if already following
+      const followingRes = await fetch(`/api/following/${currentUid}`);
+      if (followingRes.ok) {
+        const followingData = await followingRes.json();
+        const alreadyFollowing = (followingData.following || []).some(f => f.followingId === targetUser.uid);
+        if (alreadyFollowing) {
+          alert(`You are already following @${username}!`);
+          if (usernameInput) usernameInput.value = '';
+          return;
+        }
+      }
+
       const authHeaders = await window.getAuthHeaders();
       const res = await fetch('/api/follow', {
         method: 'POST',
@@ -392,6 +404,17 @@
 
   window.followUser = async function(followerId, followingId) {
     try {
+      // Check if already following
+      const followingRes = await fetch(`/api/following/${followerId}`);
+      if (followingRes.ok) {
+        const followingData = await followingRes.json();
+        const alreadyFollowing = (followingData.following || []).some(f => f.followingId === followingId);
+        if (alreadyFollowing) {
+          alert('You are already following this user!');
+          return;
+        }
+      }
+
       const authHeaders = await window.getAuthHeaders();
       const res = await fetch('/api/follow', {
         method: 'POST',
