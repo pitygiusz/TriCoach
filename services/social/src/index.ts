@@ -311,13 +311,20 @@ async function populatePostsMetadata(posts: any[]) {
 // Get all posts
 app.get('/posts', async (req: Request, res: Response) => {
   try {
-    const postsSnapshot = await db.collection('posts').get();
+    const { userId } = req.query;
+    let query: admin.firestore.Query = db.collection('posts');
+    if (userId) {
+      query = query.where('userId', '==', userId);
+    }
+    const postsSnapshot = await query.get();
     const rawPosts = postsSnapshot.docs.map((doc) => {
       const data = doc.data();
       return {
         id: doc.id,
         userId: data.userId,
         username: data.username || 'Anonymous',
+        title: data.title || null,
+        imageUrl: data.imageUrl || null,
         trainingId: data.trainingId || null,
         trainingDetails: data.trainingDetails || null,
         content: data.content,

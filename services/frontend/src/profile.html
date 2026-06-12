@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
   <meta charset="UTF-8" />
@@ -13,30 +14,32 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
   <style>
-    .truncate-text { 
-        white-space: nowrap; 
-        overflow: hidden; 
-        text-overflow: ellipsis; 
-        display: block; 
+    .truncate-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
     }
-    .light-info-card { 
-        background: #f4f5f7; 
-        color: #000; 
-        border-radius: 12px; 
-        padding: 16px; 
-        border: 1px solid rgba(0,0,0,0.1); 
+
+    .light-info-card {
+      background: var(--surface-strong);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
     }
+
     #editUserInfoModal input,
     #editUserInfoModal select {
-        width: 100%;
-        box-sizing: border-box;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        background: var(--surface-strong);
-        color: var(--text);
-        font-family: inherit;
-        font-size: 0.95rem;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface-strong);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
     }
 
     .friends-search-row {
@@ -50,6 +53,7 @@
       .friends-search-row {
         flex-direction: column;
       }
+
       .friends-search-row input,
       .friends-search-row button {
         width: 100%;
@@ -66,19 +70,25 @@
         z-index: 1000;
         transition: right 0.3s ease;
         background-color: var(--surface, #1e1e1e);
-        box-shadow: -2px 0 10px rgba(0,0,0,0.5);
+        box-shadow: -2px 0 10px rgba(0, 0, 0, 0.5);
         overflow-y: auto;
       }
+
       .sidebar.open {
         right: 0;
       }
+
       .overlay {
         position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.5);
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
         z-index: 999;
         display: none;
       }
+
       .overlay.visible {
         display: block;
       }
@@ -93,7 +103,7 @@
         height: 56px;
         border-radius: 50%;
         padding: 0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
         border: 2px solid var(--accent, #f97316);
         background: var(--surface);
         display: flex;
@@ -101,6 +111,7 @@
         justify-content: center;
         overflow: hidden;
       }
+
       .toggle-btn img {
         width: 100%;
         height: 100%;
@@ -109,289 +120,309 @@
     }
   </style>
 </head>
+
 <body>
-    <div class="app-shell">
-        <div class="main-area">
-            <header class="topbar">
-                <button onclick="window.location.href='index.html'" class="hamburger" aria-label="Go back">←</button>
-                <div class="title-group">
-                  <span class="app-label">TriCoach</span>
-                  <h1>User Profile</h1>
-                </div>
-                <button class="toggle-btn" id="toggle" aria-label="Toggle sidebar">
-                  <img src="https://i.pravatar.cc/48?img=47" alt="Profile" id="toggleAvatar" />
-                </button>
-            </header>
-            
-            <div class="profile-content-container" style="display: flex; flex-direction: column; gap: 20px; padding: 40px 30px 15px 30px; width: 100%;">
-                
-                <div class="profile-header-row" style="display: flex; width: 100%; align-items: flex-start; gap: 20px;">
-                    
-                    <div style="flex: 9; display: flex; align-items: center; gap: 24px;">
-                        <div id="avatarContainer" style="position: relative; border-radius: 50%; overflow: hidden; width: 110px; height: 110px; border: 3px solid var(--primary); cursor: pointer; flex-shrink: 0;">
-                            <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47" style="width: 100%; height: 100%; object-fit: cover;" />
-                            <div id="avatarOverlay" style="position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; text-align: center; pointer-events: none;">Change Photo</div>
-                            <input type="file" id="avatarFileInput" accept="image/*" style="display: none;" />
-                        </div>
-                        
-                        <div style="width: 100%;">
-                            <div id="profileNameDisplay" style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                                <h2 id="profileName" style="margin: 0; font-size: 1.8rem; color: var(--text); max-width: 300px;" class="truncate-text">Loading...</h2>
-                            </div>
+  <div class="app-shell">
+    <div class="main-area">
+      <header class="topbar">
+        <button onclick="window.location.href='index.html'" class="hamburger" aria-label="Go back">←</button>
+        <div class="title-group">
+          <span class="app-label">TriCoach</span>
+          <h1>User Profile</h1>
+        </div>
+        <button class="toggle-btn" id="toggle" aria-label="Toggle sidebar">
+          <img src="https://i.pravatar.cc/48?img=47" alt="Profile" id="toggleAvatar" />
+        </button>
+      </header>
 
-                            <span id="profileUsernameDisplay" style="color: var(--muted); font-size: 1.2rem; display: block; margin-bottom: 8px;">@loading</span>
-                        </div>
-                    </div>
+      <div class="profile-content-container"
+        style="display: flex; flex-direction: column; gap: 20px; padding: 40px 30px 15px 30px; width: 100%;">
 
-                    <div id="infoBox" class="light-info-card" style="flex: 2; position: relative;">
-                        <div id="infoDisplayView" style="display: flex; flex-direction: column; gap: 10px; text-align: center; align-items: center;">
-                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #555;">Age: <span id="userDetailAge" style="font-weight:800; color:#000;">N/A</span></div>
-                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #555;">Wt: <span id="userDetailWeight" style="font-weight:800; color:#000;">N/A</span>kg</div>
-                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #555;">Exp: <span id="userDetailExp" style="font-weight:800; color:#000;">N/A</span></div>
-                        </div>
-                    </div>
-                </div>
+        <div class="profile-header-row" style="display: flex; width: 100%; align-items: flex-start; gap: 20px;">
 
-                <div class="light-info-card" style="width: 100%; text-align: center; position: relative;">
-                    <div id="bioDisplayView" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                        <p id="profileBioText" style="margin: 0; font-size: 1rem; color: #000;">Loading bio...</p>
-                        <button id="bioEditBtn" onclick="toggleBioEdit(true)" style="display: none; flex-shrink: 0; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #ccc; background: #e2e2e2; cursor: pointer;" title="Edit bio">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 20h9"></path>
-                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    <div id="bioEditView" style="display: none; flex-direction: column; gap: 8px;">
-                        <textarea id="editBioInput" rows="3" placeholder="Tell us about your triathlon journey..." style="width: 100%; box-sizing: border-box; padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #000; font-family: inherit; resize: vertical;"></textarea>
-                        <div style="display: flex; gap: 8px; justify-content: center;">
-                            <button onclick="saveProfileBio()" class="action-pill active" style="padding: 6px 14px; font-size: 0.9rem; border: none; border-radius: 8px; cursor: pointer;">Save</button>
-                            <button onclick="toggleBioEdit(false)" class="action-pill" style="padding: 6px 14px; font-size: 0.9rem; border: 1px solid #ccc; background: transparent; color: #333; border-radius: 8px; cursor: pointer;">Cancel</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="action-bar" style="justify-content: center; gap: 12px; align-items: center;" id="profileActionBar">
-                    <div class="action-pill"><strong id="postCount">0</strong> Posts</div>
-                    <div class="action-pill" style="cursor: pointer;" onclick="openUserListModal('following')"><strong id="followingCount">0</strong> Following</div>
-                    <div class="action-pill" style="cursor: pointer;" onclick="openUserListModal('followers')"><strong id="followersCount">0</strong> Followers</div>
-                    <button id="profileFollowBtn" class="action-pill active" style="display: none; margin: 0;"></button>
-                </div>
+          <div style="flex: 9; display: flex; align-items: center; gap: 24px;">
+            <div id="avatarContainer"
+              style="position: relative; border-radius: 50%; overflow: hidden; width: 110px; height: 110px; border: 3px solid var(--primary); cursor: pointer; flex-shrink: 0;">
+              <img id="profileAvatar" src="https://i.pravatar.cc/150?img=47"
+                style="width: 100%; height: 100%; object-fit: cover;" />
+              <div id="avatarOverlay"
+                style="position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; color: white; font-size: 0.8rem; font-weight: bold; text-align: center; pointer-events: none;">
+                Change Photo</div>
+              <input type="file" id="avatarFileInput" accept="image/*" style="display: none;" />
             </div>
 
-            <div style="height: 1px; background-color: var(--accent, #f97316); margin: 0 30px; opacity: 0.4;"></div>
-            
-            <main class="feed" style="padding: 20px 30px;">
-                <h3 style="margin-bottom: 15px;">User Posts</h3>
-                <div class="posts-container" id="userPosts">
-                    <div class="empty-state">Loading posts...</div>
-                </div>
-            </main>
-        </div>
-        
-        <aside class="sidebar" id="sidebarHid"></aside>
-    </div>
+            <div style="width: 100%;">
+              <div id="profileNameDisplay" style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <h2 id="profileName" style="margin: 0; font-size: 1.8rem; color: var(--text); max-width: 300px;"
+                  class="truncate-text">Loading...</h2>
+              </div>
 
-    <script src="shell.js"></script>
+              <span id="profileUsernameDisplay"
+                style="color: var(--muted); font-size: 1.2rem; display: block; margin-bottom: 8px;">@loading</span>
+            </div>
+          </div>
 
-    <div id="overlay" class="overlay"></div>
-
-    <div id="editUserInfoModal" class="modal-overlay hidden">
-      <div class="modal-content">
-        <header class="modal-header">
-          <h2>Edit User Info</h2>
-          <button id="closeUserInfoModalBtn" class="menu-close" aria-label="Close">×</button>
-        </header>
-        <div class="modal-body">
-          <div class="workout-selector">
-            <label for="modalFirstName">Name</label>
-            <input type="text" id="modalFirstName" placeholder="First name" />
-          </div>
-          <div class="workout-selector">
-            <label for="modalLastName">Surname</label>
-            <input type="text" id="modalLastName" placeholder="Last name" />
-          </div>
-          <div class="workout-selector">
-            <label for="modalAge">Age</label>
-            <input type="number" id="modalAge" min="0" placeholder="e.g. 28" />
-          </div>
-          <div class="workout-selector">
-            <label for="modalWeight">Weight (kg)</label>
-            <input type="number" id="modalWeight" min="0" step="0.1" placeholder="e.g. 70.5" />
-          </div>
-          <div class="workout-selector">
-            <label for="modalExp">Experience Level</label>
-            <select id="modalExp">
-              <option value="1">Beginner</option>
-              <option value="2">Intermediate</option>
-              <option value="3">Advanced</option>
-            </select>
+          <div id="infoBox" class="light-info-card" style="flex: 2; position: relative;">
+            <div id="infoDisplayView"
+              style="display: flex; flex-direction: column; gap: 10px; text-align: center; align-items: center;">
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: #555;">Age: <span id="userDetailAge"
+                  style="font-weight:800; color:#000;">N/A</span></div>
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: #555;">Wt: <span id="userDetailWeight"
+                  style="font-weight:800; color:#000;">N/A</span>kg</div>
+              <div style="font-size: 0.75rem; text-transform: uppercase; color: #555;">Exp: <span id="userDetailExp"
+                  style="font-weight:800; color:#000;">N/A</span></div>
+            </div>
           </div>
         </div>
-        <footer class="modal-actions">
-          <button id="saveUserInfoBtn" class="action-pill active">Save</button>
-        </footer>
-      </div>
-    </div>
 
-    <div id="userListModal" class="modal-overlay hidden">
-      <div class="modal-content" style="max-width: 400px;">
-        <header class="modal-header">
-          <h2 id="userListModalTitle">Users</h2>
-          <button onclick="closeUserListModal()" class="menu-close" aria-label="Close">×</button>
-        </header>
-        <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
-          <ul id="userListModalUl" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
-            </ul>
+        <div class="light-info-card" style="width: 100%; text-align: center; position: relative;">
+          <div id="bioDisplayView" style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+            <p id="profileBioText" style="margin: 0; font-size: 1rem; color: #000;">Loading bio...</p>
+            <button id="bioEditBtn" onclick="toggleBioEdit(true)"
+              style="display: none; flex-shrink: 0; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border-radius: 6px; border: 1px solid #ccc; background: #e2e2e2; cursor: pointer;"
+              title="Edit bio">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path>
+              </svg>
+            </button>
+          </div>
+          <div id="bioEditView" style="display: none; flex-direction: column; gap: 8px;">
+            <textarea id="editBioInput" rows="3" placeholder="Tell us about your triathlon journey..."
+              style="width: 100%; box-sizing: border-box; padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #000; font-family: inherit; resize: vertical;"></textarea>
+            <div style="display: flex; gap: 8px; justify-content: center;">
+              <button onclick="saveProfileBio()" class="action-pill active"
+                style="padding: 6px 14px; font-size: 0.9rem; border: none; border-radius: 8px; cursor: pointer;">Save</button>
+              <button onclick="toggleBioEdit(false)" class="action-pill"
+                style="padding: 6px 14px; font-size: 0.9rem; border: 1px solid #ccc; background: transparent; color: #333; border-radius: 8px; cursor: pointer;">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-bar" style="justify-content: center; gap: 12px; align-items: center;" id="profileActionBar">
+          <div class="action-pill"><strong id="postCount">0</strong> Posts</div>
+          <div class="action-pill" style="cursor: pointer;" onclick="openUserListModal('following')"><strong
+              id="followingCount">0</strong> Following</div>
+          <div class="action-pill" style="cursor: pointer;" onclick="openUserListModal('followers')"><strong
+              id="followersCount">0</strong> Followers</div>
+          <button id="profileFollowBtn" class="action-pill active" style="display: none; margin: 0;"></button>
         </div>
       </div>
+
+      <div style="height: 1px; background-color: var(--accent, #f97316); margin: 0 30px; opacity: 0.4;"></div>
+
+      <main class="feed" style="padding: 20px 30px;">
+        <h3 style="margin-bottom: 15px;">User Posts</h3>
+        <div class="posts-container" id="userPosts">
+          <div class="empty-state">Loading posts...</div>
+        </div>
+      </main>
     </div>
 
-    <script>
-      // Global trackers for follow lists
-      window.__currentFollowingIds = [];
-      window.__currentFollowerIds = [];
+    <aside class="sidebar" id="sidebarHid"></aside>
+  </div>
 
-      function formatTimeAgo(timestamp) {
-        if (!timestamp) return 'Just now';
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffSec = Math.floor(diffMs / 1000);
-        const diffMin = Math.floor(diffSec / 60);
-        const diffHr = Math.floor(diffMin / 60);
-        const diffDays = Math.floor(diffHr / 24);
+  <script src="shell.js"></script>
 
-        if (diffSec < 60) return 'Just now';
-        if (diffMin < 60) return `${diffMin}m ago`;
-        if (diffHr < 24) return `${diffHr}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        return date.toLocaleDateString();
+  <div id="overlay" class="overlay"></div>
+
+  <div id="editUserInfoModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <header class="modal-header">
+        <h2>Edit User Info</h2>
+        <button id="closeUserInfoModalBtn" class="menu-close" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body">
+        <div class="workout-selector">
+          <label for="modalFirstName">Name</label>
+          <input type="text" id="modalFirstName" placeholder="First name" />
+        </div>
+        <div class="workout-selector">
+          <label for="modalLastName">Surname</label>
+          <input type="text" id="modalLastName" placeholder="Last name" />
+        </div>
+        <div class="workout-selector">
+          <label for="modalAge">Age</label>
+          <input type="number" id="modalAge" min="0" placeholder="e.g. 28" />
+        </div>
+        <div class="workout-selector">
+          <label for="modalWeight">Weight (kg)</label>
+          <input type="number" id="modalWeight" min="0" step="0.1" placeholder="e.g. 70.5" />
+        </div>
+        <div class="workout-selector">
+          <label for="modalExp">Experience Level</label>
+          <select id="modalExp">
+            <option value="1">Beginner</option>
+            <option value="2">Intermediate</option>
+            <option value="3">Advanced</option>
+          </select>
+        </div>
+      </div>
+      <footer class="modal-actions">
+        <button id="saveUserInfoBtn" class="action-pill active">Save</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="userListModal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 400px;">
+      <header class="modal-header">
+        <h2 id="userListModalTitle">Users</h2>
+        <button onclick="closeUserListModal()" class="menu-close" aria-label="Close">×</button>
+      </header>
+      <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+        <ul id="userListModalUl" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global trackers for follow lists
+    window.__currentFollowingIds = [];
+    window.__currentFollowerIds = [];
+
+    function formatTimeAgo(timestamp) {
+      if (!timestamp) return 'Just now';
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffSec = Math.floor(diffMs / 1000);
+      const diffMin = Math.floor(diffSec / 60);
+      const diffHr = Math.floor(diffMin / 60);
+      const diffDays = Math.floor(diffHr / 24);
+
+      if (diffSec < 60) return 'Just now';
+      if (diffMin < 60) return `${diffMin}m ago`;
+      if (diffHr < 24) return `${diffHr}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      return date.toLocaleDateString();
+    }
+
+    function getDisciplineEmoji(type) {
+      if (!type) return '🏃';
+      const t = type.toLowerCase();
+      if (t === 'swim' || t === 'swimming') return '🏊';
+      if (t === 'ride' || t === 'bike' || t === 'cycling') return '🚴';
+      if (t === 'run' || t === 'running') return '🏃';
+      return '🏋️';
+    }
+
+    // -----------------------------
+    // FIREBASE & API INITIALIZATION
+    // -----------------------------
+    try {
+      if (typeof firebase !== 'undefined' && !firebase.apps.length) {
+        const config = window.__FIREBASE_CONFIG__;
+        if (config && config.apiKey) {
+          firebase.initializeApp(config);
+        } else {
+          console.warn('🔥 Firebase config missing or incomplete');
+        }
       }
+    } catch (e) {
+      console.warn('🔥 Firebase init error:', e.message);
+    }
 
-      function getDisciplineEmoji(type) {
-        if (!type) return '🏃';
-        const t = type.toLowerCase();
-        if (t === 'swim' || t === 'swimming') return '🏊';
-        if (t === 'ride' || t === 'bike' || t === 'cycling') return '🚴';
-        if (t === 'run' || t === 'running') return '🏃';
-        return '🏋️';
-      }
+    // (Sidebar handles setup via shell.js)
 
-      // -----------------------------
-      // FIREBASE & API INITIALIZATION
-      // -----------------------------
+    function isFirebaseReady() {
       try {
-        if (typeof firebase !== 'undefined' && !firebase.apps.length) {
-          const config = window.__FIREBASE_CONFIG__;
-          if (config && config.apiKey) {
-            firebase.initializeApp(config);
-          } else {
-            console.warn('🔥 Firebase config missing or incomplete');
-          }
-        }
+        return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
       } catch (e) {
-        console.warn('🔥 Firebase init error:', e.message);
+        return false;
       }
+    }
 
-      // (Sidebar handles setup via shell.js)
+    function getCurrentUserId() {
+      return sessionStorage.getItem('firebaseUid') || null;
+    }
 
-      function isFirebaseReady() {
+    async function getAuthHeaders() {
+      if (isFirebaseReady()) {
         try {
-          return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
-        } catch (e) {
-          return false;
+          const user = firebase.auth().currentUser;
+          if (user) {
+            const token = await user.getIdToken();
+            sessionStorage.setItem('firebaseToken', token);
+            sessionStorage.setItem('firebaseUid', user.uid);
+            return { 'Authorization': `Bearer ${token}` };
+          }
+        } catch (e) { }
+      }
+      const token = sessionStorage.getItem('firebaseToken');
+      if (!token) return {};
+      return { 'Authorization': `Bearer ${token}` };
+    }
+
+    // -----------------------------
+    // UI & SIDEBAR UPDATES
+    // -----------------------------
+    window.triggerAvatarUpload = function () {
+      const input = document.getElementById('avatarFileInput');
+      if (input) {
+        input.click();
+      }
+    };
+
+    async function loadFollowDetails(uid) {
+      try {
+        const followingRes = await fetch(`/api/following/${uid}`);
+        const followersRes = await fetch(`/api/followers/${uid}`);
+
+        if (followingRes.ok) {
+          const data = await followingRes.json();
+          window.__currentFollowingIds = data.following || [];
+          document.getElementById('followingCount').textContent = window.__currentFollowingIds.length;
         }
+
+        if (followersRes.ok) {
+          const data = await followersRes.json();
+          window.__currentFollowerIds = data.followers || [];
+          document.getElementById('followersCount').textContent = window.__currentFollowerIds.length;
+        }
+
+      } catch (err) {
+        console.error('Error loading follow details:', err);
+      }
+    }
+
+    // -----------------------------
+    // POPUP LISTS FOR FOLLOWERS/FOLLOWING
+    // -----------------------------
+    window.openUserListModal = async function (type) {
+      const modal = document.getElementById('userListModal');
+      const titleEl = document.getElementById('userListModalTitle');
+      const ulEl = document.getElementById('userListModalUl');
+
+      modal.classList.remove('hidden');
+      titleEl.textContent = type === 'following' ? 'Following' : 'Followers';
+      ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">Loading profiles...</li>';
+
+      const list = type === 'following' ? window.__currentFollowingIds : window.__currentFollowerIds;
+
+      if (!list || list.length === 0) {
+        ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">No users found.</li>';
+        return;
       }
 
-      function getCurrentUserId() {
-        return sessionStorage.getItem('firebaseUid') || null;
-      }
+      try {
+        // Extract the user IDs from the lists safely depending on backend structure
+        const uids = list.map(item => item.followingId || item.followerId || item.uid || item.id).filter(Boolean);
 
-      async function getAuthHeaders() {
-        if (isFirebaseReady()) {
+        // Fetch profile data individually for mapping visual cards
+        const userHtmlPromises = uids.map(async (uid) => {
           try {
-            const user = firebase.auth().currentUser;
-            if (user) {
-              const token = await user.getIdToken();
-              sessionStorage.setItem('firebaseToken', token);
-              sessionStorage.setItem('firebaseUid', user.uid);
-              return { 'Authorization': `Bearer ${token}` };
-            }
-          } catch (e) {}
-        }
-        const token = sessionStorage.getItem('firebaseToken');
-        if (!token) return {};
-        return { 'Authorization': `Bearer ${token}` };
-      }
+            const res = await fetch(`/api/users/${uid}/profile`);
+            if (!res.ok) return null;
+            const u = await res.json();
 
-      // -----------------------------
-      // UI & SIDEBAR UPDATES
-      // -----------------------------
-      window.triggerAvatarUpload = function() {
-        const input = document.getElementById('avatarFileInput');
-        if (input) {
-            input.click();
-        }
-      };
+            const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Athlete';
+            const handle = u.username ? '@' + u.username : '@' + uid.substring(0, 8);
+            const avatar = u.profilePicture || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid)}`;
 
-      async function loadFollowDetails(uid) {
-        try {
-          const followingRes = await fetch(`/api/following/${uid}`);
-          const followersRes = await fetch(`/api/followers/${uid}`);
-
-          if (followingRes.ok) {
-            const data = await followingRes.json();
-            window.__currentFollowingIds = data.following || [];
-            document.getElementById('followingCount').textContent = window.__currentFollowingIds.length;
-          }
-          
-          if (followersRes.ok) {
-            const data = await followersRes.json();
-            window.__currentFollowerIds = data.followers || [];
-            document.getElementById('followersCount').textContent = window.__currentFollowerIds.length;
-          }
-
-        } catch (err) {
-          console.error('Error loading follow details:', err);
-        }
-      }
-
-      // -----------------------------
-      // POPUP LISTS FOR FOLLOWERS/FOLLOWING
-      // -----------------------------
-      window.openUserListModal = async function(type) {
-        const modal = document.getElementById('userListModal');
-        const titleEl = document.getElementById('userListModalTitle');
-        const ulEl = document.getElementById('userListModalUl');
-        
-        modal.classList.remove('hidden');
-        titleEl.textContent = type === 'following' ? 'Following' : 'Followers';
-        ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">Loading profiles...</li>';
-
-        const list = type === 'following' ? window.__currentFollowingIds : window.__currentFollowerIds;
-        
-        if (!list || list.length === 0) {
-            ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">No users found.</li>';
-            return;
-        }
-
-        try {
-            // Extract the user IDs from the lists safely depending on backend structure
-            const uids = list.map(item => item.followingId || item.followerId || item.uid || item.id).filter(Boolean);
-            
-            // Fetch profile data individually for mapping visual cards
-            const userHtmlPromises = uids.map(async (uid) => {
-                try {
-                    const res = await fetch(`/api/users/${uid}/profile`);
-                    if (!res.ok) return null;
-                    const u = await res.json();
-                    
-                    const name = [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'Athlete';
-                    const handle = u.username ? '@' + u.username : '@' + uid.substring(0,8);
-                    const avatar = u.profilePicture || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid)}`;
-                    
-                    return `
+            return `
                         <li style="display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); cursor: pointer; transition: background 0.2s;" onclick="window.location.href='profile.html?uid=${uid}'" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='var(--surface-strong)'">
                             <img src="${avatar}" style="width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
                             <div style="flex: 1; min-width: 0;">
@@ -400,200 +431,200 @@
                             </div>
                         </li>
                     `;
-                } catch (e) { return null; }
-            });
-
-            const htmls = await Promise.all(userHtmlPromises);
-            const validHtmls = htmls.filter(Boolean);
-            
-            if (validHtmls.length > 0) {
-                ulEl.innerHTML = validHtmls.join('');
-            } else {
-                ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">Could not load details for these users.</li>';
-            }
-
-        } catch (err) {
-            ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">Error loading users.</li>';
-        }
-      };
-
-      window.closeUserListModal = function() {
-        document.getElementById('userListModal').classList.add('hidden');
-      };
-
-      // Close modal on outside click
-      const userListModalEl = document.getElementById('userListModal');
-      if (userListModalEl) {
-        userListModalEl.addEventListener('click', (e) => {
-          if (e.target === userListModalEl) closeUserListModal();
+          } catch (e) { return null; }
         });
-      }
 
-      // -----------------------------
-      // EDIT PROFILE TOGGLES & SAVES
-      // -----------------------------
-      async function makeApiRequest(method, url, body = null) {
-        const headers = {
-          'Content-Type': 'application/json',
-          ...(await getAuthHeaders()),
-        };
-        const options = {
-          method,
-          headers,
-        };
-        if (body) {
-          options.body = JSON.stringify(body);
+        const htmls = await Promise.all(userHtmlPromises);
+        const validHtmls = htmls.filter(Boolean);
+
+        if (validHtmls.length > 0) {
+          ulEl.innerHTML = validHtmls.join('');
+        } else {
+          ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">Could not load details for these users.</li>';
         }
-        const response = await fetch(url, options);
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `Request failed with status ${response.status}`);
-        }
-        return response.json().catch(() => ({}));
+
+      } catch (err) {
+        ulEl.innerHTML = '<li style="text-align: center; padding: 20px; color: var(--muted);">Error loading users.</li>';
       }
+    };
 
-      async function fetchAndRenderPostAuthor(userId, postId) {
-        try {
-          const res = await makeApiRequest('GET', `/api/users/${userId}/profile`);
-          if (!res) return;
+    window.closeUserListModal = function () {
+      document.getElementById('userListModal').classList.add('hidden');
+    };
 
-          const nameEl = document.querySelector(`#post-card-${postId} .post-author-name`);
-          const avatarEl = document.querySelector(`#post-card-${postId} .post-avatar-img`);
-          const usernameEl = document.querySelector(`#post-card-${postId} .post-author-username`);
+    // Close modal on outside click
+    const userListModalEl = document.getElementById('userListModal');
+    if (userListModalEl) {
+      userListModalEl.addEventListener('click', (e) => {
+        if (e.target === userListModalEl) closeUserListModal();
+      });
+    }
 
-          if (nameEl && res.firstName && res.lastName) {
-            nameEl.textContent = `${res.firstName} ${res.lastName}`;
-          }
-          if (avatarEl && res.profilePicture) {
-            avatarEl.src = res.profilePicture;
-          }
-          if (usernameEl && res.username) {
-            const timeAgo = usernameEl.getAttribute('data-time-ago') || '';
-            usernameEl.textContent = `@${res.username}${timeAgo ? ' · ' + timeAgo : ''}`;
-          }
-        } catch (err) {
-          console.warn(`[Profile Proxy Error] Could not resolve user ${userId} for post ${postId}:`, err.message);
-        }
+    // -----------------------------
+    // EDIT PROFILE TOGGLES & SAVES
+    // -----------------------------
+    async function makeApiRequest(method, url, body = null) {
+      const headers = {
+        'Content-Type': 'application/json',
+        ...(await getAuthHeaders()),
+      };
+      const options = {
+        method,
+        headers,
+      };
+      if (body) {
+        options.body = JSON.stringify(body);
       }
-
-      async function fetchAndRenderCommentAuthor(userId, postId, commentIndex) {
-        try {
-          const res = await makeApiRequest('GET', `/api/users/${userId}/profile`);
-          if (!res) return;
-
-          const nameEl = document.getElementById(`comment-name-${postId}-${commentIndex}`);
-          const avatarEl = document.getElementById(`comment-avatar-${postId}-${commentIndex}`);
-
-          if (nameEl && res.firstName && res.lastName) {
-            nameEl.textContent = `${res.firstName} ${res.lastName}`;
-          }
-          if (avatarEl && res.profilePicture) {
-            avatarEl.src = res.profilePicture;
-          }
-        } catch (err) {
-          console.warn(`[Profile Proxy Error] Could not resolve user ${userId} for comment ${commentIndex} on post ${postId}:`, err.message);
-        }
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Request failed with status ${response.status}`);
       }
+      return response.json().catch(() => ({}));
+    }
 
-      async function fetchAndRenderAttachedTraining(userId, trainingId, postId) {
-        try {
-          const authHeaders = await getAuthHeaders();
-          const res = await fetch(`/api/workouts/${userId}`, {
-            headers: { 'Content-Type': 'application/json', ...authHeaders }
-          });
-          if (!res.ok) throw new Error(`Status: ${res.status}`);
-          const data = await res.json();
-          const workouts = data.workouts || [];
-          const matchingWorkout = workouts.find(w => w.id === trainingId);
-          const container = document.getElementById(`workout-details-${postId}`);
-          if (container) {
-            if (matchingWorkout) {
-              const type = matchingWorkout.type || 'Workout';
-              const emoji = getDisciplineEmoji(type);
-              const dur = matchingWorkout.duration_minutes || matchingWorkout.duration || 0;
-              const dist = matchingWorkout.distance_km || matchingWorkout.distance;
-              const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
-              container.innerHTML = `
+    async function fetchAndRenderPostAuthor(userId, postId) {
+      try {
+        const res = await makeApiRequest('GET', `/api/users/${userId}/profile`);
+        if (!res) return;
+
+        const nameEl = document.querySelector(`#post-card-${postId} .post-author-name`);
+        const avatarEl = document.querySelector(`#post-card-${postId} .post-avatar-img`);
+        const usernameEl = document.querySelector(`#post-card-${postId} .post-author-username`);
+
+        if (nameEl && res.firstName && res.lastName) {
+          nameEl.textContent = `${res.firstName} ${res.lastName}`;
+        }
+        if (avatarEl && res.profilePicture) {
+          avatarEl.src = res.profilePicture;
+        }
+        if (usernameEl && res.username) {
+          const timeAgo = usernameEl.getAttribute('data-time-ago') || '';
+          usernameEl.textContent = `@${res.username}${timeAgo ? ' · ' + timeAgo : ''}`;
+        }
+      } catch (err) {
+        console.warn(`[Profile Proxy Error] Could not resolve user ${userId} for post ${postId}:`, err.message);
+      }
+    }
+
+    async function fetchAndRenderCommentAuthor(userId, postId, commentIndex) {
+      try {
+        const res = await makeApiRequest('GET', `/api/users/${userId}/profile`);
+        if (!res) return;
+
+        const nameEl = document.getElementById(`comment-name-${postId}-${commentIndex}`);
+        const avatarEl = document.getElementById(`comment-avatar-${postId}-${commentIndex}`);
+
+        if (nameEl && res.firstName && res.lastName) {
+          nameEl.textContent = `${res.firstName} ${res.lastName}`;
+        }
+        if (avatarEl && res.profilePicture) {
+          avatarEl.src = res.profilePicture;
+        }
+      } catch (err) {
+        console.warn(`[Profile Proxy Error] Could not resolve user ${userId} for comment ${commentIndex} on post ${postId}:`, err.message);
+      }
+    }
+
+    async function fetchAndRenderAttachedTraining(userId, trainingId, postId) {
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(`/api/workouts/${userId}`, {
+          headers: { 'Content-Type': 'application/json', ...authHeaders }
+        });
+        if (!res.ok) throw new Error(`Status: ${res.status}`);
+        const data = await res.json();
+        const workouts = data.workouts || [];
+        const matchingWorkout = workouts.find(w => w.id === trainingId);
+        const container = document.getElementById(`workout-details-${postId}`);
+        if (container) {
+          if (matchingWorkout) {
+            const type = matchingWorkout.type || 'Workout';
+            const emoji = getDisciplineEmoji(type);
+            const dur = matchingWorkout.duration_minutes || matchingWorkout.duration || 0;
+            const dist = matchingWorkout.distance_km || matchingWorkout.distance;
+            const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
+            container.innerHTML = `
                 <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
                 <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
               `;
-            } else {
-              container.style.display = 'none';
-            }
-          }
-        } catch (err) {
-          console.error('Error loading attached training details:', err);
-          const container = document.getElementById(`workout-details-${postId}`);
-          if (container) {
+          } else {
             container.style.display = 'none';
           }
         }
+      } catch (err) {
+        console.error('Error loading attached training details:', err);
+        const container = document.getElementById(`workout-details-${postId}`);
+        if (container) {
+          container.style.display = 'none';
+        }
+      }
+    }
+
+    window.deletePost = async function deletePost(postId) {
+      if (!(await window.customConfirm('Are you sure you want to delete this post?'))) return;
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(`/api/posts/${postId}`, {
+          method: 'DELETE',
+          headers: authHeaders
+        });
+        if (!res.ok) throw new Error(`Status: ${res.status}`);
+        alert('Post deleted successfully!');
+        loadUserProfile();
+      } catch (err) {
+        alert(`Could not delete post: ${err.message}`);
+      }
+    };
+
+    window.likePost = async function likePost(postId) {
+      try {
+        await makeApiRequest('POST', `/api/posts/${postId}/like`, {
+          user_id: getCurrentUserId(),
+        });
+        loadUserProfile();
+      } catch (err) {
+        alert(`Could not like post: ${err.message}`);
+      }
+    };
+
+    window.unlikePost = async function unlikePost(postId) {
+      try {
+        await makeApiRequest('POST', `/api/posts/${postId}/unlike`, {
+          user_id: getCurrentUserId(),
+        });
+        loadUserProfile();
+      } catch (err) {
+        alert(`Could not unlike post: ${err.message}`);
+      }
+    };
+
+    window.renderCommentList = function renderCommentList(postId) {
+      const card = document.getElementById(`post-card-${postId}`);
+      const listContainer = document.getElementById(`comment-list-${postId}`);
+      if (!card || !listContainer) return;
+
+      const comments = card.comments || [];
+      const expanded = card.dataset.expanded === "true";
+
+      if (comments.length === 0) {
+        listContainer.innerHTML = '<div class="empty-state" style="padding:12px;">No comments yet — start the conversation!</div>';
+        return;
       }
 
-      window.deletePost = async function deletePost(postId) {
-        if (!(await window.customConfirm('Are you sure you want to delete this post?'))) return;
-        try {
-          const authHeaders = await getAuthHeaders();
-          const res = await fetch(`/api/posts/${postId}`, {
-            method: 'DELETE',
-            headers: authHeaders
-          });
-          if (!res.ok) throw new Error(`Status: ${res.status}`);
-          alert('Post deleted successfully!');
-          loadUserProfile();
-        } catch (err) {
-          alert(`Could not delete post: ${err.message}`);
-        }
-      };
+      const commentsToRender = expanded ? comments : comments.slice(0, 3);
 
-      window.likePost = async function likePost(postId) {
-        try {
-          await makeApiRequest('POST', `/api/posts/${postId}/like`, {
-            user_id: getCurrentUserId(),
-          });
-          loadUserProfile();
-        } catch (err) {
-          alert(`Could not like post: ${err.message}`);
-        }
-      };
+      listContainer.innerHTML = '';
+      commentsToRender.forEach((comment, index) => {
+        const item = document.createElement('div');
+        item.className = 'comment-card';
 
-      window.unlikePost = async function unlikePost(postId) {
-        try {
-          await makeApiRequest('POST', `/api/posts/${postId}/unlike`, {
-            user_id: getCurrentUserId(),
-          });
-          loadUserProfile();
-        } catch (err) {
-          alert(`Could not unlike post: ${err.message}`);
-        }
-      };
+        const authorId = comment.userId || comment.username;
+        const author = comment.displayName || authorId || 'Anonymous';
+        const avatarUrl = comment.profilePicture || `https://i.pravatar.cc/32?u=${encodeURIComponent(authorId || 'default')}`;
+        const timeAgo = formatTimeAgo(comment.createdAt);
 
-      window.renderCommentList = function renderCommentList(postId) {
-        const card = document.getElementById(`post-card-${postId}`);
-        const listContainer = document.getElementById(`comment-list-${postId}`);
-        if (!card || !listContainer) return;
-
-        const comments = card.comments || [];
-        const expanded = card.dataset.expanded === "true";
-
-        if (comments.length === 0) {
-          listContainer.innerHTML = '<div class="empty-state" style="padding:12px;">No comments yet — start the conversation!</div>';
-          return;
-        }
-
-        const commentsToRender = expanded ? comments : comments.slice(0, 3);
-
-        listContainer.innerHTML = '';
-        commentsToRender.forEach((comment, index) => {
-          const item = document.createElement('div');
-          item.className = 'comment-card';
-          
-          const authorId = comment.userId || comment.username;
-          const author = comment.displayName || authorId || 'Anonymous';
-          const avatarUrl = comment.profilePicture || `https://i.pravatar.cc/32?u=${encodeURIComponent(authorId || 'default')}`;
-          const timeAgo = formatTimeAgo(comment.createdAt);
-
-          item.innerHTML = `
+        item.innerHTML = `
             <img class="avatar" id="comment-avatar-${postId}-${index}" src="${avatarUrl}" alt="${author}" style="cursor: pointer;" onclick="window.location.href='profile.html?uid=${authorId}'" />
             <div class="comment-content-wrap">
               <div class="comment-header">
@@ -603,448 +634,461 @@
               <p>${comment.content || ''}</p>
             </div>
           `;
-          listContainer.appendChild(item);
+        listContainer.appendChild(item);
 
-          if (authorId) {
-            setTimeout(() => fetchAndRenderCommentAuthor(authorId, postId, index), 0);
-          }
-        });
-
-        if (!expanded && comments.length > 3) {
-          const hint = document.createElement('div');
-          hint.className = 'empty-state';
-          hint.style.padding = '8px';
-          hint.style.cursor = 'pointer';
-          hint.style.fontSize = '0.85rem';
-          hint.textContent = `Show ${comments.length - 3} more comments...`;
-          hint.onclick = () => toggleComments(postId);
-          listContainer.appendChild(hint);
+        if (authorId) {
+          setTimeout(() => fetchAndRenderCommentAuthor(authorId, postId, index), 0);
         }
+      });
 
-        if (expanded) {
-          listContainer.scrollTop = listContainer.scrollHeight;
-        }
-      };
-
-      window.toggleComments = async function toggleComments(postId) {
-        const card = document.getElementById(`post-card-${postId}`);
-        if (!card) return;
-
-        const isExpanded = card.dataset.expanded === "true";
-        card.dataset.expanded = isExpanded ? "false" : "true";
-
-        renderCommentList(postId);
-      };
-
-      window.submitComment = async function submitComment(postId) {
-        const card = document.getElementById(`post-card-${postId}`);
-        const input = document.getElementById(`comment-input-${postId}`);
-        if (!card || !input) return;
-
-        const content = input.value.trim();
-        if (!content) {
-          alert('Please enter a comment!');
-          return;
-        }
-
-        try {
-          const res = await makeApiRequest('POST', `/api/posts/${postId}/comments`, {
-            user_id: getCurrentUserId(),
-            content
-          });
-
-          const newComment = res.comment;
-          if (newComment) {
-            if (!card.comments) card.comments = [];
-            card.comments.push(newComment);
-            card.dataset.expanded = "true";
-
-            const btn = document.getElementById(`comments-btn-${postId}`);
-            if (btn) {
-              btn.innerHTML = `💬 comments (${card.comments.length})`;
-            }
-
-            renderCommentList(postId);
-          }
-          input.value = '';
-        } catch (err) {
-          alert(`Could not post comment: ${err.message}`);
-        }
-      };
-
-      window.toggleBioEdit = function(show) {
-        document.getElementById('bioDisplayView').style.display = show ? 'none' : 'flex';
-        document.getElementById('bioEditView').style.display = show ? 'flex' : 'none';
-      };
-
-      window.openUserInfoModal = function() {
-        const data = window.__currentProfileData || {};
-        document.getElementById('modalFirstName').value = data.firstName || '';
-        document.getElementById('modalLastName').value = data.lastName || '';
-        document.getElementById('modalAge').value = data.age || '';
-        document.getElementById('modalWeight').value = data.weight || '';
-        document.getElementById('modalExp').value = data.experienceLevel || 1;
-        document.getElementById('editUserInfoModal').classList.remove('hidden');
-      };
-
-      window.closeUserInfoModal = function() {
-        document.getElementById('editUserInfoModal').classList.add('hidden');
-      };
-
-      window.saveProfileBio = async function() {
-        const sessionUid = sessionStorage.getItem('firebaseUid');
-        const bio = document.getElementById('editBioInput').value.trim();
-        await updateProfileData(sessionUid, { bio }, () => {
-          document.getElementById('profileBioText').textContent = bio || 'No bio provided.';
-          toggleBioEdit(false);
-        });
-      };
-
-      window.saveUserInfo = async function() {
-        const sessionUid = sessionStorage.getItem('firebaseUid');
-        const firstName = document.getElementById('modalFirstName').value.trim();
-        const lastName = document.getElementById('modalLastName').value.trim();
-        const age = document.getElementById('modalAge').value;
-        const weight = document.getElementById('modalWeight').value;
-        const experienceLevel = document.getElementById('modalExp').value;
-
-        if (!firstName || !lastName) { alert('Name and surname cannot be empty.'); return; }
-
-        await updateProfileData(sessionUid, { firstName, lastName, age, weight, experienceLevel }, () => {
-          const fullName = firstName + ' ' + lastName;
-          document.getElementById('profileName').textContent = fullName;
-          sessionStorage.setItem('pgFirstName', firstName);
-          sessionStorage.setItem('pgLastName', lastName);
-
-          document.getElementById('userDetailAge').textContent = age || 'N/A';
-          document.getElementById('userDetailWeight').textContent = weight || 'N/A';
-          const expMap = { 1: 'Beg', 2: 'Int', 3: 'Adv' };
-          document.getElementById('userDetailExp').textContent = expMap[experienceLevel] || 'Beg';
-
-          window.__currentProfileData = Object.assign({}, window.__currentProfileData, { firstName, lastName, age, weight, experienceLevel });
-
-          updateProfileSidebar();
-          closeUserInfoModal();
-        });
-      };
-
-      const closeUserInfoModalBtn = document.getElementById('closeUserInfoModalBtn');
-      const saveUserInfoBtn = document.getElementById('saveUserInfoBtn');
-      const editUserInfoModal = document.getElementById('editUserInfoModal');
-      if (closeUserInfoModalBtn) closeUserInfoModalBtn.addEventListener('click', closeUserInfoModal);
-      if (saveUserInfoBtn) saveUserInfoBtn.addEventListener('click', saveUserInfo);
-      if (editUserInfoModal) {
-        editUserInfoModal.addEventListener('click', (e) => {
-          if (e.target === editUserInfoModal) closeUserInfoModal();
-        });
+      if (!expanded && comments.length > 3) {
+        const hint = document.createElement('div');
+        hint.className = 'empty-state';
+        hint.style.padding = '8px';
+        hint.style.cursor = 'pointer';
+        hint.style.fontSize = '0.85rem';
+        hint.textContent = `Show ${comments.length - 3} more comments...`;
+        hint.onclick = () => toggleComments(postId);
+        listContainer.appendChild(hint);
       }
 
-      async function updateProfileData(uid, payload, onSuccess) {
-        if (!uid) return;
-        try {
-          const authHeaders = await getAuthHeaders();
-          const res = await fetch(`/api/users/${uid}/profile`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify(payload)
-          });
-          if (!res.ok) throw new Error(`Status: ${res.status}`);
-          onSuccess();
-        } catch (err) {
-          alert(`Could not update profile: ${err.message}`);
-        }
+      if (expanded) {
+        listContainer.scrollTop = listContainer.scrollHeight;
+      }
+    };
+
+    window.toggleComments = async function toggleComments(postId) {
+      const card = document.getElementById(`post-card-${postId}`);
+      if (!card) return;
+
+      const isExpanded = card.dataset.expanded === "true";
+      card.dataset.expanded = isExpanded ? "false" : "true";
+
+      renderCommentList(postId);
+    };
+
+    window.submitComment = async function submitComment(postId) {
+      const card = document.getElementById(`post-card-${postId}`);
+      const input = document.getElementById(`comment-input-${postId}`);
+      if (!card || !input) return;
+
+      const content = input.value.trim();
+      if (!content) {
+        alert('Please enter a comment!');
+        return;
       }
 
-      // -----------------------------
-      // CORE LOAD & AVATAR UPLOAD
-      // -----------------------------
-      async function loadUserProfile() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlUid = urlParams.get('uid');
-        const sessionUid = sessionStorage.getItem('firebaseUid');
-
-        if (!sessionUid) {
-          window.location.replace('login.html');
-          return;
-        }
-
-        const targetUid = urlUid || sessionUid;
-        const isOwner = sessionUid && targetUid === sessionUid;
-
-        // Toggle Edit Buttons Visibility
-        ['bioEditBtn'].forEach(id => {
-            const el = document.getElementById(id);
-            if(el) el.style.display = isOwner ? 'flex' : 'none';
+      try {
+        const res = await makeApiRequest('POST', `/api/posts/${postId}/comments`, {
+          user_id: getCurrentUserId(),
+          content
         });
 
+        const newComment = res.comment;
+        if (newComment) {
+          if (!card.comments) card.comments = [];
+          card.comments.push(newComment);
+          card.dataset.expanded = "true";
 
-        // Follow Button Logic
-        const followBtn = document.getElementById('profileFollowBtn');
-        if (isOwner) {
-          followBtn.style.display = 'none';
-        } else if (sessionUid) {
-          try {
-            const followingRes = await fetch(`/api/following/${sessionUid}`);
-            if (followingRes.ok) {
-              const data = await followingRes.json();
-              const isFollowing = (data.following || []).some(f => f.followingId === targetUid);
-              updateFollowButtonState(followBtn, isFollowing, sessionUid, targetUid);
-            }
-          } catch (e) {
-            followBtn.style.display = 'none';
+          const btn = document.getElementById(`comments-btn-${postId}`);
+          if (btn) {
+            btn.innerHTML = `💬 comments (${card.comments.length})`;
           }
+
+          renderCommentList(postId);
         }
+        input.value = '';
+      } catch (err) {
+        alert(`Could not post comment: ${err.message}`);
+      }
+    };
 
-        let profileData = null;
-        try {
-          // 1. Fetch Profile Data
-          const profileRes = await fetch(`/api/users/${targetUid}/profile`);
-          if (profileRes.ok) {
-            profileData = await profileRes.json();
-            const fullName = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
-            
-            document.getElementById('profileName').textContent = fullName || profileData.username || 'Athlete';
-            document.getElementById('profileUsernameDisplay').textContent = '@' + (profileData.username || 'athlete');
-            document.getElementById('profileAvatar').src = profileData.profilePicture || `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
-            
-            // Bio
-            document.getElementById('profileBioText').textContent = profileData.bio || 'Triathlon enthusiast sharing training progress.';
-            document.getElementById('editBioInput').value = profileData.bio || '';
+    window.toggleBioEdit = function (show) {
+      document.getElementById('bioDisplayView').style.display = show ? 'none' : 'flex';
+      document.getElementById('bioEditView').style.display = show ? 'flex' : 'none';
+    };
 
-            // Info Details
-            document.getElementById('userDetailAge').textContent = profileData.age || 'N/A';
-            document.getElementById('userDetailWeight').textContent = profileData.weight || 'N/A';
-            const expMap = { 1: 'Beg', 2: 'Int', 3: 'Adv' };
-            document.getElementById('userDetailExp').textContent = expMap[profileData.experienceLevel] || 'Beg';
+    window.openUserInfoModal = function () {
+      const data = window.__currentProfileData || {};
+      document.getElementById('modalFirstName').value = data.firstName || '';
+      document.getElementById('modalLastName').value = data.lastName || '';
+      document.getElementById('modalAge').value = data.age || '';
+      document.getElementById('modalWeight').value = data.weight || '';
+      document.getElementById('modalExp').value = data.experienceLevel || 1;
+      document.getElementById('editUserInfoModal').classList.remove('hidden');
+    };
 
-            // Store profile data for the edit-info modal
-            window.__currentProfileData = profileData;
+    window.closeUserInfoModal = function () {
+      document.getElementById('editUserInfoModal').classList.add('hidden');
+    };
 
-            if (isOwner) {
-              sessionStorage.setItem('pgFirstName', profileData.firstName || '');
-              sessionStorage.setItem('pgLastName', profileData.lastName || '');
-              sessionStorage.setItem('pgUsername', profileData.username || '');
-              sessionStorage.setItem('pgAvatar', profileData.profilePicture || '');
-            }
-          }
-          
-          await loadFollowDetails(targetUid);
+    window.saveProfileBio = async function () {
+      const sessionUid = sessionStorage.getItem('firebaseUid');
+      const bio = document.getElementById('editBioInput').value.trim();
+      await updateProfileData(sessionUid, { bio }, () => {
+        document.getElementById('profileBioText').textContent = bio || 'No bio provided.';
+        toggleBioEdit(false);
+      });
+    };
 
-          // 3. Load Posts
-          const postsRes = await fetch('/api/posts');
-          if (postsRes.ok) {
-            const posts = await postsRes.json();
-            const userPosts = Array.isArray(posts) ? posts.filter(p => p.userId === targetUid) : [];
-            document.getElementById('postCount').textContent = userPosts.length;
-            const container = document.getElementById('userPosts');
-            
-            if (userPosts.length === 0) {
-              container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
-            } else {
-              container.innerHTML = '';
-              
-              const displayName = profileData ? ([profileData.firstName, profileData.lastName].filter(Boolean).join(' ') || profileData.username || 'Athlete') : 'Athlete';
-              const username = profileData ? (profileData.username || targetUid) : targetUid;
-              const avatarUrl = profileData ? (profileData.profilePicture || `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`) : `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+    window.saveUserInfo = async function () {
+      const sessionUid = sessionStorage.getItem('firebaseUid');
+      const firstName = document.getElementById('modalFirstName').value.trim();
+      const lastName = document.getElementById('modalLastName').value.trim();
+      const age = document.getElementById('modalAge').value;
+      const weight = document.getElementById('modalWeight').value;
+      const experienceLevel = document.getElementById('modalExp').value;
 
-              userPosts.forEach(post => {
-                const card = document.createElement('article');
-                card.className = 'post-card';
-                card.id = `post-card-${post.id}`;
-                card.comments = post.comments || [];
-                card.dataset.expanded = "false";
-                
-                let deleteButtonHtml = '';
-                if (isOwner) {
-                  deleteButtonHtml = `
-                    <button onclick="deletePost('${post.id}')" style="background: transparent; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; padding: 6px 12px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" aria-label="Delete post">
-                      🗑️ Delete
-                    </button>
-                  `;
-                }
+      if (!firstName || !lastName) { alert('Name and surname cannot be empty.'); return; }
 
-                const usid = post.userId || post.username || 'none';
-                const postDisplayName = post.displayName || 'Athlete';
-                const postAvatarUrl = post.profilePicture || `https://i.pravatar.cc/150?u=${encodeURIComponent(usid)}`;
+      await updateProfileData(sessionUid, { firstName, lastName, age, weight, experienceLevel }, () => {
+        const fullName = firstName + ' ' + lastName;
+        document.getElementById('profileName').textContent = fullName;
+        sessionStorage.setItem('pgFirstName', firstName);
+        sessionStorage.setItem('pgLastName', lastName);
 
-                let statsHtml = '';
-                if (post.trainingDetails) {
-                  const type = post.trainingDetails.type || 'Workout';
-                  const emoji = getDisciplineEmoji(type);
-                  const dur = post.trainingDetails.duration_minutes || post.trainingDetails.duration || 0;
-                  const dist = post.trainingDetails.distance_km || post.trainingDetails.distance;
-                  const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
-                  statsHtml = `
-                    <div class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
-                      <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
-                      <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
-                    </div>
-                  `;
-                } else if (post.trainingId) {
-                  statsHtml = `
-                    <div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
-                      <span style="font-size: 0.95rem; color: var(--muted);">Loading training details...</span>
-                    </div>
-                  `;
-                }
+        document.getElementById('userDetailAge').textContent = age || 'N/A';
+        document.getElementById('userDetailWeight').textContent = weight || 'N/A';
+        const expMap = { 1: 'Beg', 2: 'Int', 3: 'Adv' };
+        document.getElementById('userDetailExp').textContent = expMap[experienceLevel] || 'Beg';
 
-                const currentUid = getCurrentUserId();
-                const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => like.uid === currentUid);
-                const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
-                const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
-
-                const titleHtml = post.title
-                  ? `<h3>${post.title}</h3>`
-                  : `<h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>`;
-
-                const imageHtml = post.imageUrl
-                  ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" onclick="window.openImageLightbox('${post.imageUrl}')" />`
-                  : '';
-
-                card.innerHTML = `
-                  <header style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
-                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${usid}'">
-                      <img class="avatar post-avatar-img" src="${postAvatarUrl}" alt="${postDisplayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
-                      <div class="post-author" style="display: flex; flex-direction: column; gap: 2px;">
-                        <strong class="post-author-name" style="font-size: 1rem; color: var(--text); line-height: 1.2;">${postDisplayName}</strong>
-                        <span class="post-author-username" style="font-size: 0.85rem; color: var(--muted);" data-time-ago="${formatTimeAgo(post.createdAt)}">@${usid} · ${formatTimeAgo(post.createdAt)}</span>
-                      </div>
-                    </div>
-                    ${deleteButtonHtml}
-                  </header>
-                  ${titleHtml}
-                  <p style="margin: 0 0 14px; line-height: 1.7;">${post.content || ''}</p>
-                  ${imageHtml}
-                  ${statsHtml}
-                  <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
-                    <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
-                      ❤️ <span class="like-count">${post.likes || 0}</span>
-                    </button>
-                    <button onclick="toggleComments('${post.id}')" class="comments-toggle-btn" id="comments-btn-${post.id}">
-                      💬 comments (${post.comments ? post.comments.length : 0})
-                    </button>
-                  </div>
-                  <div id="comments-container-${post.id}" class="comments-container">
-                    <div class="comment-input-area">
-                      <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
-                      <button class="comment-submit-btn" onclick="submitComment('${post.id}')">Post</button>
-                    </div>
-                    <div id="comment-list-${post.id}" class="comment-list">
-                    </div>
-                  </div>
-                `;
-                container.appendChild(card);
-                
-                // Load subcomponents
-                renderCommentList(post.id);
-                
-                const authorId = post.userId || post.username;
-                if (authorId) {
-                  setTimeout(() => fetchAndRenderPostAuthor(authorId, post.id), 0);
-                }
-                
-                if (post.trainingId && !post.trainingDetails) {
-                  setTimeout(() => fetchAndRenderAttachedTraining(post.userId, post.trainingId, post.id), 0);
-                }
-              });
-            }
-          }
-        } catch (err) {
-          console.error('Failed to load active profile metrics:', err);
-        }
+        window.__currentProfileData = Object.assign({}, window.__currentProfileData, { firstName, lastName, age, weight, experienceLevel });
 
         updateProfileSidebar();
+        closeUserInfoModal();
+      });
+    };
+
+    const closeUserInfoModalBtn = document.getElementById('closeUserInfoModalBtn');
+    const saveUserInfoBtn = document.getElementById('saveUserInfoBtn');
+    const editUserInfoModal = document.getElementById('editUserInfoModal');
+    if (closeUserInfoModalBtn) closeUserInfoModalBtn.addEventListener('click', closeUserInfoModal);
+    if (saveUserInfoBtn) saveUserInfoBtn.addEventListener('click', saveUserInfo);
+    if (editUserInfoModal) {
+      editUserInfoModal.addEventListener('click', (e) => {
+        if (e.target === editUserInfoModal) closeUserInfoModal();
+      });
+    }
+
+    async function updateProfileData(uid, payload, onSuccess) {
+      if (!uid) return;
+      try {
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch(`/api/users/${uid}/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', ...authHeaders },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`Status: ${res.status}`);
+        onSuccess();
+      } catch (err) {
+        alert(`Could not update profile: ${err.message}`);
+      }
+    }
+
+    const defaultAvatar = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%23e2e8f0'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4' fill='%2394a3b8'/></svg>`;
+
+    function createPostCard(post, sessionUid) {
+      const card = document.createElement('article');
+      card.className = 'post-card';
+      card.id = `post-card-${post.id}`;
+      card.comments = post.comments || [];
+      card.dataset.expanded = "false";
+
+      const usid = post.userId || post.username || 'none';
+      const displayName = post.displayName || 'Athlete';
+      const avatarUrl = post.profilePicture || defaultAvatar;
+
+      let deleteButtonHtml = '';
+      if (post.userId === sessionUid) {
+        deleteButtonHtml = `
+            <button onclick="deletePost('${post.id}')" style="background: transparent; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; padding: 6px 12px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" aria-label="Delete post">
+              🗑️ Delete
+            </button>
+          `;
       }
 
-      // Setup avatar upload listeners for the main container hover/click
-      const avatarContainer = document.getElementById('avatarContainer');
-      const avatarOverlay = document.getElementById('avatarOverlay');
-      const avatarFileInput = document.getElementById('avatarFileInput');
+      let likedByText = '';
+      if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
+        const names = post.likedBy.map(like => like.displayName || like.uid);
+        likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
+            ❤️: ${names.join(', ')}
+          </div>`;
+      }
 
-      if (avatarContainer && avatarOverlay && avatarFileInput) {
-        avatarContainer.addEventListener('mouseenter', () => {
-          const sessionUid = sessionStorage.getItem('firebaseUid');
-          const urlParams = new URLSearchParams(window.location.search);
-          const targetUid = urlParams.get('uid') || sessionUid;
-          if (sessionUid && targetUid === sessionUid) {
-            avatarOverlay.style.display = 'flex';
+      const currentUid = getCurrentUserId();
+      const hasLiked = Array.isArray(post.likedBy) && post.likedBy.some(like => like.uid === currentUid);
+      const likeAction = hasLiked ? `unlikePost('${post.id}')` : `likePost('${post.id}')`;
+      const likeStyle = hasLiked ? 'background-color: rgba(249, 115, 22, 0.15); color: var(--primary); border: 1px solid var(--primary);' : 'background-color: var(--surface); color: rgba(256, 256, 256, 0.7); border: 1px solid var(--surface-strong);';
+
+      const titleHtml = post.title
+        ? `<h3>${post.title}</h3>`
+        : `<h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>`;
+
+      const imageHtml = post.imageUrl
+        ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" onclick="window.openImageLightbox('${post.imageUrl}')" />`
+        : '';
+
+      let statsHtml = '';
+      if (post.trainingDetails) {
+        const type = post.trainingDetails.type || 'Workout';
+        const emoji = getDisciplineEmoji(type);
+        const dur = post.trainingDetails.duration_minutes || post.trainingDetails.duration || 0;
+        const dist = post.trainingDetails.distance_km || post.trainingDetails.distance;
+        const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
+        statsHtml = `
+            <div class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
+              <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
+              <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
+            </div>
+          `;
+      } else if (post.trainingId) {
+        statsHtml = `
+            <div id="workout-details-${post.id}" class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
+              <span style="font-size: 0.95rem; color: var(--muted);">Loading training details...</span>
+            </div>
+          `;
+      }
+
+      card.innerHTML = `
+          <header style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+            <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${usid}'">
+              <img class="avatar post-avatar-img" src="${avatarUrl}" alt="${displayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
+              <div class="post-author" style="display: flex; flex-direction: column; gap: 2px;">
+                <strong class="post-author-name" style="font-size: 1rem; color: var(--text); line-height: 1.2;">${displayName}</strong>
+                <span class="post-author-username" style="font-size: 0.85rem; color: var(--muted);" data-time-ago="${formatTimeAgo(post.createdAt)}">@${usid} · ${formatTimeAgo(post.createdAt)}</span>
+              </div>
+            </div>
+            ${deleteButtonHtml}
+          </header>
+          ${titleHtml}
+          <p>${post.content || ''}</p>
+          ${imageHtml}
+          ${statsHtml}
+          ${likedByText}
+          <div class="post-meta" style="display: flex; align-items: center; gap: 16px;">
+            <button onclick="${likeAction}" style="background: transparent; border: none; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; ${likeStyle}">
+              ❤️ <span class="like-count">${post.likes || 0}</span>
+            </button>
+            <button onclick="toggleComments('${post.id}')" class="comments-toggle-btn" id="comments-btn-${post.id}">
+              💬 comments (${post.comments ? post.comments.length : 0})
+            </button>
+          </div>
+          <div id="comments-container-${post.id}" class="comments-container">
+            <div class="comment-input-area">
+              <input type="text" id="comment-input-${post.id}" class="comment-input" placeholder="Write a comment..." onkeydown="if(event.key === 'Enter') submitComment('${post.id}')" />
+              <button class="comment-submit-btn" onclick="submitComment('${post.id}')">Post</button>
+            </div>
+            <div id="comment-list-${post.id}" class="comment-list">
+            </div>
+          </div>
+        `;
+      return card;
+    }
+
+    // -----------------------------
+    // CORE LOAD & AVATAR UPLOAD
+    // -----------------------------
+    async function loadUserProfile() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlUid = urlParams.get('uid');
+      const sessionUid = sessionStorage.getItem('firebaseUid');
+
+      if (!sessionUid) {
+        window.location.replace('login.html');
+        return;
+      }
+
+      const targetUid = urlUid || sessionUid;
+      const isOwner = sessionUid && targetUid === sessionUid;
+
+      // Toggle Edit Buttons Visibility
+      ['bioEditBtn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = isOwner ? 'flex' : 'none';
+      });
+
+
+      // Follow Button Logic
+      const followBtn = document.getElementById('profileFollowBtn');
+      if (isOwner) {
+        followBtn.style.display = 'none';
+      } else if (sessionUid) {
+        try {
+          const followingRes = await fetch(`/api/following/${sessionUid}`);
+          if (followingRes.ok) {
+            const data = await followingRes.json();
+            const isFollowing = (data.following || []).some(f => f.followingId === targetUid);
+            updateFollowButtonState(followBtn, isFollowing, sessionUid, targetUid);
           }
-        });
-        avatarContainer.addEventListener('mouseleave', () => {
-          avatarOverlay.style.display = 'none';
-        });
-        avatarContainer.addEventListener('click', () => {
-          const sessionUid = sessionStorage.getItem('firebaseUid');
-          const urlParams = new URLSearchParams(window.location.search);
-          const targetUid = urlParams.get('uid') || sessionUid;
-          if (sessionUid && targetUid === sessionUid) {
-            avatarFileInput.click();
+        } catch (e) {
+          followBtn.style.display = 'none';
+        }
+      }
+
+      let profileData = null;
+      try {
+        // 1. Fetch Profile Data
+        const profileRes = await fetch(`/api/users/${targetUid}/profile`);
+        if (profileRes.ok) {
+          profileData = await profileRes.json();
+          const fullName = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
+
+          document.getElementById('profileName').textContent = fullName || profileData.username || 'Athlete';
+          document.getElementById('profileUsernameDisplay').textContent = '@' + (profileData.username || 'athlete');
+          document.getElementById('profileAvatar').src = profileData.profilePicture || `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+
+          // Bio
+          document.getElementById('profileBioText').textContent = profileData.bio || 'Triathlon enthusiast sharing training progress.';
+          document.getElementById('editBioInput').value = profileData.bio || '';
+
+          // Info Details
+          document.getElementById('userDetailAge').textContent = profileData.age || 'N/A';
+          document.getElementById('userDetailWeight').textContent = profileData.weight || 'N/A';
+          const expMap = { 1: 'Beg', 2: 'Int', 3: 'Adv' };
+          document.getElementById('userDetailExp').textContent = expMap[profileData.experienceLevel] || 'Beg';
+
+          // Store profile data for the edit-info modal
+          window.__currentProfileData = profileData;
+
+          if (isOwner) {
+            sessionStorage.setItem('pgFirstName', profileData.firstName || '');
+            sessionStorage.setItem('pgLastName', profileData.lastName || '');
+            sessionStorage.setItem('pgUsername', profileData.username || '');
+            sessionStorage.setItem('pgAvatar', profileData.profilePicture || '');
           }
-        });
+        }
 
-        avatarFileInput.addEventListener('change', async (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
+        await loadFollowDetails(targetUid);
 
-          const sessionUid = sessionStorage.getItem('firebaseUid');
-          if (!sessionUid) return;
+        // 3. Load Posts
+        const postsRes = await fetch(`/api/posts?userId=${encodeURIComponent(targetUid)}`);
+        if (postsRes.ok) {
+          const posts = await postsRes.json();
+          const userPosts = Array.isArray(posts) ? posts : [];
+          document.getElementById('postCount').textContent = userPosts.length;
+          const container = document.getElementById('userPosts');
 
-          try {
-            avatarOverlay.textContent = 'Uploading...';
-            avatarOverlay.style.display = 'flex';
+          if (userPosts.length === 0) {
+            container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
+          } else {
+            container.innerHTML = '';
 
-            if (!isFirebaseReady()) {
-              throw new Error('Firebase is not ready/initialized.');
-            }
-            const storage = firebase.storage();
-            const storageRef = storage.ref();
-            const fileRef = storageRef.child(`avatars/${sessionUid}/${Date.now()}_${file.name}`);
-            
-            await fileRef.put(file);
-            const downloadUrl = await fileRef.getDownloadURL();
+            userPosts.forEach(post => {
+              const card = createPostCard(post, sessionUid);
+              container.appendChild(card);
 
-            await updateProfileData(sessionUid, { profilePicture: downloadUrl }, () => {
-              document.getElementById('profileAvatar').src = downloadUrl;
-              sessionStorage.setItem('pgAvatar', downloadUrl);
-              updateProfileSidebar();
-              alert('Profile picture updated successfully!');
+              // Load subcomponents
+              renderCommentList(post.id);
+
+              const authorId = post.userId || post.username;
+              if (authorId) {
+                setTimeout(() => fetchAndRenderPostAuthor(authorId, post.id), 0);
+              }
+
+              if (post.trainingId && !post.trainingDetails) {
+                setTimeout(() => fetchAndRenderAttachedTraining(post.userId, post.trainingId, post.id), 0);
+              }
             });
-          } catch (err) {
-            alert(`Failed to upload image: ${err.message}`);
-          } finally {
-            avatarOverlay.textContent = 'Change Photo';
-            avatarOverlay.style.display = 'none';
-            avatarFileInput.value = '';
           }
-        });
+        }
+      } catch (err) {
+        console.error('Failed to load active profile metrics:', err);
       }
 
-      window.logoutUser = function logoutUser() {
-        if (isFirebaseReady()) {
-          firebase.auth().signOut().then(function() {
-            sessionStorage.clear();
-            window.location.replace('login.html');
+      updateProfileSidebar();
+    }
+
+    // Setup avatar upload listeners for the main container hover/click
+    const avatarContainer = document.getElementById('avatarContainer');
+    const avatarOverlay = document.getElementById('avatarOverlay');
+    const avatarFileInput = document.getElementById('avatarFileInput');
+
+    if (avatarContainer && avatarOverlay && avatarFileInput) {
+      avatarContainer.addEventListener('mouseenter', () => {
+        const sessionUid = sessionStorage.getItem('firebaseUid');
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetUid = urlParams.get('uid') || sessionUid;
+        if (sessionUid && targetUid === sessionUid) {
+          avatarOverlay.style.display = 'flex';
+        }
+      });
+      avatarContainer.addEventListener('mouseleave', () => {
+        avatarOverlay.style.display = 'none';
+      });
+      avatarContainer.addEventListener('click', () => {
+        const sessionUid = sessionStorage.getItem('firebaseUid');
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetUid = urlParams.get('uid') || sessionUid;
+        if (sessionUid && targetUid === sessionUid) {
+          avatarFileInput.click();
+        }
+      });
+
+      avatarFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const sessionUid = sessionStorage.getItem('firebaseUid');
+        if (!sessionUid) return;
+
+        try {
+          avatarOverlay.textContent = 'Uploading...';
+          avatarOverlay.style.display = 'flex';
+
+          if (!isFirebaseReady()) {
+            throw new Error('Firebase is not ready/initialized.');
+          }
+          const storage = firebase.storage();
+          const storageRef = storage.ref();
+          const fileRef = storageRef.child(`avatars/${sessionUid}/${Date.now()}_${file.name}`);
+
+          await fileRef.put(file);
+          const downloadUrl = await fileRef.getDownloadURL();
+
+          await updateProfileData(sessionUid, { profilePicture: downloadUrl }, () => {
+            document.getElementById('profileAvatar').src = downloadUrl;
+            sessionStorage.setItem('pgAvatar', downloadUrl);
+            updateProfileSidebar();
+            alert('Profile picture updated successfully!');
           });
+        } catch (err) {
+          alert(`Failed to upload image: ${err.message}`);
+        } finally {
+          avatarOverlay.textContent = 'Change Photo';
+          avatarOverlay.style.display = 'none';
+          avatarFileInput.value = '';
+        }
+      });
+    }
+
+    window.logoutUser = function logoutUser() {
+      if (isFirebaseReady()) {
+        firebase.auth().signOut().then(function () {
+          sessionStorage.clear();
+          window.location.replace('login.html');
+        });
+      } else {
+        sessionStorage.clear();
+        window.location.replace('login.html');
+      }
+    };
+
+    if (isFirebaseReady()) {
+      firebase.auth().onAuthStateChanged(function (user) {
+        if (user) {
+          sessionStorage.setItem('firebaseUid', user.uid);
+          sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
         } else {
           sessionStorage.clear();
           window.location.replace('login.html');
         }
-      };
-
-      if (isFirebaseReady()) {
-        firebase.auth().onAuthStateChanged(function(user) {
-          if (user) {
-            sessionStorage.setItem('firebaseUid', user.uid);
-            sessionStorage.setItem('firebaseDisplayName', user.displayName || user.email);
-          } else {
-            sessionStorage.clear();
-            window.location.replace('login.html');
-          }
-          loadUserProfile();
-        });
-      } else {
         loadUserProfile();
-      }
-    </script>
+      });
+    } else {
+      loadUserProfile();
+    }
+  </script>
 </body>
+
 </html>
