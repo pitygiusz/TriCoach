@@ -252,6 +252,32 @@
       window.__currentFollowingIds = [];
       window.__currentFollowerIds = [];
 
+      function formatTimeAgo(timestamp) {
+        if (!timestamp) return 'Just now';
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHr = Math.floor(diffMin / 60);
+        const diffDays = Math.floor(diffHr / 24);
+
+        if (diffSec < 60) return 'Just now';
+        if (diffMin < 60) return `${diffMin}m ago`;
+        if (diffHr < 24) return `${diffHr}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        return date.toLocaleDateString();
+      }
+
+      function getDisciplineEmoji(type) {
+        if (!type) return '🏃';
+        const t = type.toLowerCase();
+        if (t === 'swim' || t === 'swimming') return '🏊';
+        if (t === 'ride' || t === 'bike' || t === 'cycling') return '🚴';
+        if (t === 'run' || t === 'running') return '🏃';
+        return '🏋️';
+      }
+
       // -----------------------------
       // FIREBASE & API INITIALIZATION
       // -----------------------------
@@ -545,11 +571,12 @@
           }
         }
 
+        let profileData = null;
         try {
           // 1. Fetch Profile Data
           const profileRes = await fetch(`/api/users/${targetUid}/profile`);
           if (profileRes.ok) {
-            const profileData = await profileRes.json();
+            profileData = await profileRes.json();
             const fullName = [profileData.firstName, profileData.lastName].filter(Boolean).join(' ');
             
             document.getElementById('profileName').textContent = fullName || profileData.username || 'Athlete';
@@ -591,9 +618,15 @@
               container.innerHTML = '<div class="empty-state">No posts yet. Share your training!</div>';
             } else {
               container.innerHTML = '';
+              
+              const displayName = profileData ? ([profileData.firstName, profileData.lastName].filter(Boolean).join(' ') || profileData.username || 'Athlete') : 'Athlete';
+              const username = profileData ? (profileData.username || targetUid) : targetUid;
+              const avatarUrl = profileData ? (profileData.profilePicture || `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`) : `https://i.pravatar.cc/150?u=${encodeURIComponent(targetUid)}`;
+
               userPosts.forEach(post => {
                 const card = document.createElement('article');
                 card.className = 'post-card';
+                card.id = `post-card-${post.id}`;
                 
                 let deleteButtonHtml = '';
                 if (isOwner) {
@@ -604,11 +637,44 @@
                   `;
                 }
 
+                let statsHtml = '';
+                if (post.trainingDetails) {
+                  const type = post.trainingDetails.type || 'Workout';
+                  const emoji = getDisciplineEmoji(type);
+                  const dur = post.trainingDetails.duration_minutes || post.trainingDetails.duration || 0;
+                  const dist = post.trainingDetails.distance_km || post.trainingDetails.distance;
+                  const distanceText = dist ? ` · ${parseFloat(dist).toFixed(2)} km` : '';
+                  statsHtml = `
+                    <div class="workout-card-inline" style="background: var(--surface); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 4px;">
+                      <span style="font-weight: 600; color: var(--accent); text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Attached Training</span>
+                      <span style="font-size: 0.95rem; color: var(--text);">${emoji} ${type.toUpperCase()} · ⏱️ ${dur} mins${distanceText}</span>
+                    </div>
+                  `;
+                }
+
+                const titleHtml = post.title
+                  ? `<h3>${post.title}</h3>`
+                  : `<h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>`;
+
+                const imageHtml = post.imageUrl
+                  ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" />`
+                  : '';
+
                 card.innerHTML = `
-                  <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; gap: 16px;">
-                    <p style="margin: 0; font-size: 1.15rem; flex: 1;">${post.content || ''}</p>
+                  <header style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+                    <div style="display: flex; align-items: center; gap: 12px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${targetUid}'">
+                      <img class="avatar post-avatar-img" src="${avatarUrl}" alt="${displayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
+                      <div class="post-author" style="display: flex; flex-direction: column; gap: 2px;">
+                        <strong class="post-author-name" style="font-size: 1rem; color: var(--text); line-height: 1.2;">${displayName}</strong>
+                        <span class="post-author-username" style="font-size: 0.85rem; color: var(--muted);">@${username} · ${formatTimeAgo(post.createdAt)}</span>
+                      </div>
+                    </div>
                     ${deleteButtonHtml}
-                  </div>
+                  </header>
+                  ${titleHtml}
+                  <p style="margin: 0 0 14px; line-height: 1.7;">${post.content || ''}</p>
+                  ${imageHtml}
+                  ${statsHtml}
                   <div class="post-meta" style="margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 8px; display: flex; align-items: center; gap: 16px;">
                     <span>❤️ ${post.likes || 0} likes</span>
                   </div>

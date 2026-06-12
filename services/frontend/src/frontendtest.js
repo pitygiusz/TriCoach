@@ -185,12 +185,17 @@ async function fetchAndRenderPostAuthor(userId, postId) {
 
     const nameEl = document.querySelector(`#post-card-${postId} .post-author-name`);
     const avatarEl = document.querySelector(`#post-card-${postId} .post-avatar-img`);
+    const usernameEl = document.querySelector(`#post-card-${postId} .post-author-username`);
 
     if (nameEl && res.firstName && res.lastName) {
       nameEl.textContent = `${res.firstName} ${res.lastName}`;
     }
     if (avatarEl && res.profilePicture) {
       avatarEl.src = res.profilePicture;
+    }
+    if (usernameEl && res.username) {
+      const timeAgo = usernameEl.getAttribute('data-time-ago') || '';
+      usernameEl.textContent = `@${res.username}${timeAgo ? ' · ' + timeAgo : ''}`;
     }
   } catch (err) {
     console.warn(`[Profile Proxy Error] Could not resolve user ${userId} for post ${postId}:`, err.message);
@@ -269,15 +274,15 @@ function createPostCard(post) {
     : `<h3>${post.trainingId ? '🏃 Training update' : 'New post'}</h3>`;
 
   const imageHtml = post.imageUrl
-    ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" style="width:100%; border-radius:8px; margin:10px 0; display:block;" />`
+    ? `<img class="post-image" src="${post.imageUrl}" alt="${post.title || 'Post image'}" />`
     : '';
 
   card.innerHTML = `
     <header style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
-      <img class="avatar post-avatar-img" src="${avatarUrl}" alt="${displayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
-      <div class="post-author" style="display: flex; flex-direction: column; gap: 2px;">
+      <img class="avatar post-avatar-img" src="${avatarUrl}" alt="${displayName}" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); cursor: pointer;" onclick="window.location.href='profile.html?uid=${usid}'" />
+      <div class="post-author" style="display: flex; flex-direction: column; gap: 2px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${usid}'">
         <strong class="post-author-name" style="font-size: 1rem; color: var(--text); line-height: 1.2;">${displayName}</strong>
-        <span style="font-size: 0.85rem; color: var(--muted);">@${usid} · ${formatTimeAgo(post.createdAt)}</span>
+        <span class="post-author-username" style="font-size: 0.85rem; color: var(--muted);" data-time-ago="${formatTimeAgo(post.createdAt)}">@${usid} · ${formatTimeAgo(post.createdAt)}</span>
       </div>
     </header>
     ${titleHtml}
@@ -533,7 +538,7 @@ submitPostBtn.addEventListener('click', async () => {
       user_id:          getCurrentUserId(),
       content,
       title:            title || null,
-      imageUrl:        imageUrl,
+      image_url:        imageUrl,
       training_id:      trainingId,
       training_details: trainingDetails,
     });
@@ -614,10 +619,10 @@ window.renderCommentList = function renderCommentList(postId) {
     const timeAgo = formatTimeAgo(comment.createdAt);
 
     item.innerHTML = `
-      <img class="avatar" id="comment-avatar-${postId}-${index}" src="${avatarUrl}" alt="${author}" />
+      <img class="avatar" id="comment-avatar-${postId}-${index}" src="${avatarUrl}" alt="${author}" style="cursor: pointer;" onclick="window.location.href='profile.html?uid=${authorId}'" />
       <div class="comment-content-wrap">
         <div class="comment-header">
-          <strong id="comment-name-${postId}-${index}">${author}</strong>
+          <strong id="comment-name-${postId}-${index}" style="cursor: pointer;" onclick="window.location.href='profile.html?uid=${authorId}'">${author}</strong>
           <span>${timeAgo}</span>
         </div>
         <p>${comment.content || ''}</p>
