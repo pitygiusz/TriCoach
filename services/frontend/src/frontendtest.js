@@ -8,8 +8,6 @@ const menuPanel           = document.getElementById('menuPanel');
 const newPostBtn          = document.getElementById('newPostBtn');
 const draftsBtn           = document.getElementById('draftsBtn');
 const settingsBtn         = document.getElementById('settingsBtn');
-const toggle              = document.getElementById('toggle');
-const profileBtn          = document.getElementById('profileBtn');
 const overlay             = document.getElementById('overlay');
 
 const defaultAvatar = `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='%23e2e8f0'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z' fill='%2394a3b8'/></svg>`;
@@ -481,49 +479,6 @@ async function loadPosts() {
   }
 }
 
-window.followUserByUsername = async function followUserByUsername() {
-  const usernameInput = document.getElementById('followUsernameInput');
-  const username = usernameInput ? usernameInput.value.trim() : '';
-  if (!username) {
-    alert('Please enter a username to follow!');
-    return;
-  }
-
-  const currentUid = getCurrentUserId();
-
-  try {
-    // 1. Resolve username to UID
-    const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username)}`);
-    if (!userRes.ok) {
-      if (userRes.status === 404) {
-        throw new Error(`User "${username}" not found.`);
-      }
-      throw new Error(`Failed to lookup user. Status: ${userRes.status}`);
-    }
-    const targetUser = await userRes.json();
-
-    if (targetUser.uid === currentUid) {
-      alert("You cannot follow yourself!");
-      return;
-    }
-
-    // 2. Send follow request
-    await makeApiRequest('POST', '/api/follow', {
-      follower_id: currentUid,
-      following_id: targetUser.uid,
-    });
-
-    alert(`Successfully followed @${username}!`);
-    if (usernameInput) usernameInput.value = '';
-    
-    // Refresh sidebar and feed
-    updateProfileSidebar();
-    loadPosts();
-  } catch (err) {
-    alert(`Could not follow user: ${err.message}`);
-  }
-};
-
 // ─── Workouts dropdown ────────────────────────────────────────────────────────
 let loadedWorkoutsList = [];
 
@@ -552,18 +507,9 @@ async function fetchWorkouts() {
 }
 
 // ─── Sidebar & menu ───────────────────────────────────────────────────────────
-function toggleSidebar() {
-  document.getElementById('sidebarHid').classList.toggle('open');
-  overlay.classList.toggle('visible');
-}
-
 function openMenu() {
   menuPanel.classList.toggle('hidden');
 }
-
-toggle.addEventListener('click', toggleSidebar);
-overlay?.addEventListener('click', toggleSidebar);
-profileBtn.addEventListener('click', () => { window.location.href = 'profile.html'; });
 
 newPostBtn.addEventListener('click',  () => { createPostModal.classList.remove('hidden'); fetchWorkouts(); });
 const workoutsMenuBtn = document.getElementById('workoutsMenuBtn');
@@ -585,126 +531,6 @@ if (aiPlannerMenuBtn) {
 draftsBtn.addEventListener('click',   () => alert('Show draft posts.'));
 settingsBtn.addEventListener('click', () => alert('Open settings.'));
 
-// ─── Update profile sidebar & dynamic photos ─────────────────────────────────
-async function updateProfileSidebar() {
-  const uid = sessionStorage.getItem('firebaseUid') || document.body.dataset.uid;
-  let name = sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
-  let avatarUrl = sessionStorage.getItem('pgAvatar');
-  
-  // Grab live database info if logged in to avoid old session tokens
-  if (uid && !sessionStorage.getItem('sidebarNameLoaded')) {
-    try {
-      const res = await fetch(`/api/users/${uid}/profile`);
-      if (res.ok) {
-        const uData = await res.json();
-        name = `${uData.firstName} ${uData.lastName}`;
-        sessionStorage.setItem('firebaseDisplayName', name);
-        sessionStorage.setItem('sidebarNameLoaded', 'true');
-        if (uData.profilePicture) {
-            sessionStorage.setItem('pgAvatar', uData.profilePicture);
-            avatarUrl = uData.profilePicture;
-        }
-      }
-    } catch(e){}
-  }
-
-  const avatar = avatarUrl || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
-
-  // Update profile card in sidebar
-  const profileCard = document.getElementById('profileCard');
-  if (profileCard) {
-    profileCard.innerHTML = `
-      <button class="profileBtn" id="profileBtn" aria-label="View profile" onclick="window.location.href='profile.html'">
-        <img src="${avatar}" alt="${name}" />
-      </button>
-      <div>
-        <strong>${name}</strong>
-        <span>${uid ? '@' + uid : 'Not logged in'}</span>
-      </div>
-    `;
-  }
-  
-  // Update main page toggle button photo dynamically
-  const toggleImg = document.querySelector('#toggle img');
-  if (toggleImg) {
-    toggleImg.src = avatar;
-    toggleImg.alt = name;
-  }
-
-  // Load friends
-  if (uid) {
-    fetchFriendsList(uid);
-  }
-}
-
-// ─── Fetch and Render Friends List (Mutual Follows) ───────────────────────────
-async function fetchFriendsList(uid) {
-  const friendsListEl = document.getElementById('friendsList');
-  if (!friendsListEl) return;
-
-  try {
-    // Fetch followers and following lists independently via existing API
-    // Using makeApiRequest guarantees auth headers are passed properly
-    const [followersData, followingData] = await Promise.all([
-      makeApiRequest('GET', `/api/followers/${uid}`).catch(() => []),
-      makeApiRequest('GET', `/api/following/${uid}`).catch(() => [])
-    ]);
-
-    const followers = Array.isArray(followersData) ? followersData : (followersData.followers || []);
-    const following = Array.isArray(followingData) ? followingData : (followingData.following || []);
-
-    const followerIds = followers.map(f => f.followerId || f.uid || f.id || f);
-    const followingIds = following.map(f => f.followingId || f.uid || f.id || f);
-
-    // Filter to find the overlap (Mutual followers)
-    const mutualIds = [...new Set(followingIds.filter(id => followerIds.includes(id)))];
-
-    if (mutualIds.length === 0) {
-      friendsListEl.innerHTML = '<li>No friends yet. Follow someone!</li>';
-      return;
-    }
-
-    friendsListEl.innerHTML = '';
-    
-    // Fetch profile data for the mutual IDs to display correct images and usernames
-    const profiles = await Promise.all(
-      mutualIds.map(friendId => 
-        makeApiRequest('GET', `/api/users/${friendId}/profile`)
-          .catch(() => ({ uid: friendId, username: 'Unknown', profilePicture: null }))
-      )
-    );
-
-    profiles.forEach(friend => {
-      if (friend.username === 'Unknown') return; // Skip if we failed to load this profile
-
-      const li = document.createElement('li');
-      li.style.display = 'flex';
-      li.style.alignItems = 'center';
-      li.style.gap = '10px';
-      li.style.cursor = 'pointer';
-      li.style.padding = '6px 0';
-      li.style.overflow = 'hidden'; // Ensures the flex child doesn't overflow container
-      li.onclick = () => window.location.href = `profile.html?uid=${friend.uid}`;
-
-      const friendAvatar = friend.profilePicture || `https://i.pravatar.cc/40?u=${encodeURIComponent(friend.uid)}`;
-
-      li.innerHTML = `
-        <img src="${friendAvatar}" alt="${friend.username}" style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
-        <span style="color: var(--text); font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${friend.username}</span>
-      `;
-      friendsListEl.appendChild(li);
-    });
-
-    if (friendsListEl.innerHTML === '') {
-       friendsListEl.innerHTML = '<li>No friends yet. Follow someone!</li>';
-    }
-  } catch (err) {
-    console.warn('Could not load friends list:', err);
-    friendsListEl.innerHTML = '<li>Could not load friends.</li>';
-  }
-}
-
-updateProfileSidebar();
 
 // ─── Post modal ───────────────────────────────────────────────────────────────
 openCreatePostBtn.addEventListener('click', async () => {

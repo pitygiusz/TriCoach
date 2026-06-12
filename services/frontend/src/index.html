@@ -79,7 +79,7 @@
 
       <header class="topbar">
         <button class="toggle-btn" id="toggle" aria-label="Toggle sidebar">
-          <img src="https://i.pravatar.cc/48?img=47" alt="Profile" />
+          <img src="https://i.pravatar.cc/48?img=47" alt="Profile" id="toggleAvatar" />
         </button>
 
         <button id="openCreatePostBtn" class="action-pill active">New Post</button>
@@ -119,57 +119,7 @@
 
     </div>
 
-    <aside class="sidebar" id="sidebarHid">
-      <div class="sidebar-card" id="profileSidebarCard">
-        <h2>Profile</h2>
-        <div class="profile-card" id="profileCard">
-          <button class="profileBtn" id="profileBtn" onclick="window.location.href='profile.html'"
-            aria-label="View profile">
-            <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
-          </button>
-          <div>
-            <strong>Jane Doe</strong>
-            <span>@janedoe</span>
-          </div>
-        </div>
-        <div id="profileAuthButtons" style="margin-top: 14px; display: flex; gap: 8px;"></div>
-      </div>
-
-      <div class="sidebar-card" id="progressSidebarCard">
-        <h2>Progress</h2>
-        <ul id="progressOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI History</li>
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='achievements.html'">🏆 Achievements</li>
-        </ul>
-      </div>
-
-      <div class="sidebar-card" id="plannerSidebarCard">
-        <h2>Planner</h2>
-        <ul id="plannerOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race
-            Simulator
-          </li>
-          <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-planner.html'">📅 AI Training
-            Plans
-          </li>
-        </ul>
-      </div>
-
-      <div class="sidebar-card" id="friendsSidebarCard">
-        <h2>Friends</h2>
-        <div style="margin-bottom: 12px; display: flex; gap: 8px;">
-          <input type="text" id="followUsernameInput" placeholder="Username..."
-            style="flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
-          <button onclick="followUserByUsername()" class="action-pill active"
-            style="padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer;">Follow</button>
-        </div>
-        <ul id="friendsList"
-          style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--muted); font-size: 0.95rem;">
-          <li>No followed athletes yet</li>
-        </ul>
-      </div>
-    </aside>
+    <aside class="sidebar" id="sidebarHid"></aside>
 
   </div>
 
@@ -236,6 +186,7 @@
     </div>
   </div>
 
+  <script src="shell.js"></script>
   <script src="frontendtest.js"></script>
 </body>
 

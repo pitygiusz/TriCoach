@@ -14,7 +14,7 @@
               <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
             </button>
             <div>
-              <strong>Jane Doe</strong>
+              <strong style="cursor: pointer;" onclick="window.location.href='profile.html'">Jane Doe</strong>
               <span>@janedoe</span>
             </div>
           </div>
@@ -264,6 +264,9 @@
       if (usernameInput) usernameInput.value = '';
       
       window.updateProfileSidebar();
+      if (typeof window.loadUserProfile === 'function') {
+        window.loadUserProfile();
+      }
     } catch (err) {
       alert(`Could not follow user: ${err.message}`);
     }
@@ -343,7 +346,7 @@
           <img src="${avatar}" alt="${name}" />
         </button>
         <div>
-          <strong>${name}</strong>
+          <strong style="cursor: pointer;" onclick="window.location.href='profile.html'">${name}</strong>
           <span>${uid ? '@' + uid : 'Not logged in'}</span>
         </div>
       `;
@@ -358,4 +361,60 @@
       window.fetchFriendsList(uid);
     }
   };
+
+  window.followUser = async function(followerId, followingId) {
+    try {
+      const authHeaders = await window.getAuthHeaders();
+      const res = await fetch('/api/follow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ follower_id: followerId, following_id: followingId })
+      });
+      if (!res.ok) throw new Error(`Status: ${res.status}`);
+      alert('Successfully followed user!');
+      window.updateProfileSidebar();
+      if (typeof window.loadUserProfile === 'function') {
+        window.loadUserProfile();
+      }
+    } catch (err) {
+      alert(`Could not follow user: ${err.message}`);
+    }
+  };
+
+  window.unfollowUser = async function(followerId, followingId) {
+    try {
+      const authHeaders = await window.getAuthHeaders();
+      const res = await fetch('/api/unfollow', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
+        body: JSON.stringify({ follower_id: followerId, following_id: followingId })
+      });
+      if (!res.ok) throw new Error(`Status: ${res.status}`);
+      alert('Successfully unfollowed user!');
+      window.updateProfileSidebar();
+      if (typeof window.loadUserProfile === 'function') {
+        window.loadUserProfile();
+      }
+    } catch (err) {
+      alert(`Could not unfollow user: ${err.message}`);
+    }
+  };
+
+  window.updateFollowButtonState = function(btn, isFollowing, sessionUid, targetUid) {
+    if (isFollowing) {
+      btn.textContent = 'Unfollow';
+      btn.style.background = '#ef4444'; // Soft/bright reddish tone
+      btn.style.border = 'none';
+      btn.style.color = 'white';
+      btn.onclick = () => window.unfollowUser(sessionUid, targetUid);
+    } else {
+      btn.textContent = 'Follow';
+      btn.style.background = '#f97316'; // Orange Follow button
+      btn.style.border = 'none';
+      btn.style.color = 'white';
+      btn.onclick = () => window.followUser(sessionUid, targetUid);
+    }
+    btn.style.display = 'inline-block';
+  };
 })();
+

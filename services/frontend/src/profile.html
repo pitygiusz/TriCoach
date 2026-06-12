@@ -139,7 +139,12 @@
                                 <h2 id="profileName" style="margin: 0; font-size: 1.8rem; color: var(--text); max-width: 300px;" class="truncate-text">Loading...</h2>
                             </div>
 
-                            <span id="profileUsernameDisplay" style="color: var(--muted); font-size: 1.2rem;">@loading</span>
+                            <span id="profileUsernameDisplay" style="color: var(--muted); font-size: 1.2rem; display: block; margin-bottom: 8px;">@loading</span>
+                            <div id="mainProfileButtons" style="display: none; gap: 8px; flex-wrap: wrap;">
+                                <button onclick="openUserInfoModal()" class="action-pill active" style="padding: 6px 12px; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: none;">📝 Change Info</button>
+                                <button onclick="triggerAvatarUpload()" class="action-pill active" style="padding: 6px 12px; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: none;">🖼️ Change Photo</button>
+                                <button onclick="logoutUser()" class="action-pill" style="padding: 6px 12px; font-size: 0.85rem; font-weight: 500; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--text);">🚪 Logout</button>
+                            </div>
                         </div>
                     </div>
 
@@ -189,50 +194,10 @@
             </main>
         </div>
         
-        <aside class="sidebar" id="sidebarHid">
-          <div class="sidebar-card" id="profileSidebarCard">
-            <h2>Profile</h2>
-            <div class="profile-card" id="sidebarProfileCard">
-              <button class="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
-                <img src="https://i.pravatar.cc/80?img=47" alt="Profile" />
-              </button>
-              <div style="min-width: 0; flex: 1;">
-                <strong id="sidebarNameText" class="truncate-text" style="max-width: 100%;">Loading...</strong>
-                <span id="sidebarUsernameText" class="truncate-text" style="max-width: 100%; font-size: 0.9rem; color: var(--muted);">@loading</span>
-              </div>
-            </div>
-            <div id="profileAuthButtons" style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;"></div>
-          </div>
-    
-          <div class="sidebar-card" id="progressSidebarCard">
-            <h2>Progress</h2>
-            <ul id="progressOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
-              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='workouts.html'">🏃 My Workouts</li>
-              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-analysis.html'">🔮 AI History</li>
-              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='achievements.html'">🏆 Achievements</li>
-            </ul>
-          </div>
-
-          <div class="sidebar-card" id="plannerSidebarCard">
-            <h2>Planner</h2>
-            <ul id="plannerOptionsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px;">
-              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-race.html'">🏁 AI Race</li>
-              <li style="cursor:pointer;color:var(--text);" onclick="window.location.href='ai-planner.html'">📅 AI Planner</li>
-            </ul>
-          </div>
-          
-          <div class="sidebar-card" id="friendsSidebarCard">
-            <h2>Friends</h2>
-            <div class="friends-search-row">
-              <input type="text" id="followUsernameInput" placeholder="Username..." style="flex: 1; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); font-family: inherit; font-size: 0.9rem;" />
-              <button onclick="followUserByUsername()" class="action-pill active" style="padding: 8px 16px; border-radius: 12px; border: none; font-size: 0.9rem; font-weight: bold; cursor: pointer;">Follow</button>
-            </div>
-            <ul id="friendsList" style="list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--muted); font-size: 0.95rem;">
-              <li>No followed athletes yet</li>
-            </ul>
-          </div>
-        </aside>
+        <aside class="sidebar" id="sidebarHid"></aside>
     </div>
+
+    <script src="shell.js"></script>
 
     <div id="overlay" class="overlay"></div>
 
@@ -308,29 +273,7 @@
         console.warn('🔥 Firebase init error:', e.message);
       }
 
-      const sidebarProfileCard = document.getElementById('sidebarProfileCard');
-      const profileAuthButtons = document.getElementById('profileAuthButtons');
-
-      // -----------------------------
-      // MOBILE SIDEBAR TOGGLE
-      // -----------------------------
-      (function setupSidebarToggle() {
-        const toggleBtn = document.getElementById('toggle');
-        const overlay = document.getElementById('overlay');
-        const sidebarEl = document.getElementById('sidebarHid');
-        if (toggleBtn) {
-          toggleBtn.addEventListener('click', () => {
-            if (sidebarEl) sidebarEl.classList.toggle('open');
-            if (overlay) overlay.classList.toggle('visible');
-          });
-        }
-        if (overlay) {
-          overlay.addEventListener('click', () => {
-            if (sidebarEl) sidebarEl.classList.remove('open');
-            overlay.classList.remove('visible');
-          });
-        }
-      })();
+      // (Sidebar handles setup via shell.js)
 
       function isFirebaseReady() {
         try {
@@ -362,93 +305,6 @@
       }
 
       // -----------------------------
-      // FOLLOW FUNCTIONALITY
-      // -----------------------------
-      async function followUser(followerId, followingId) {
-        try {
-          const authHeaders = await getAuthHeaders();
-          const res = await fetch('/api/follow', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({ follower_id: followerId, following_id: followingId })
-          });
-          if (!res.ok) throw new Error(`Status: ${res.status}`);
-          alert('Successfully followed user!');
-          loadUserProfile();
-        } catch (err) {
-          alert(`Could not follow user: ${err.message}`);
-        }
-      }
-
-      async function unfollowUser(followerId, followingId) {
-        try {
-          const authHeaders = await getAuthHeaders();
-          const res = await fetch('/api/unfollow', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({ follower_id: followerId, following_id: followingId })
-          });
-          if (!res.ok) throw new Error(`Status: ${res.status}`);
-          alert('Successfully unfollowed user!');
-          loadUserProfile();
-        } catch (err) {
-          alert(`Could not unfollow user: ${err.message}`);
-        }
-      }
-
-      window.followUserByUsername = async function followUserByUsername() {
-        const usernameInput = document.getElementById('followUsernameInput');
-        const username = usernameInput ? usernameInput.value.trim() : '';
-        if (!username) {
-          alert('Please enter a username to follow!');
-          return;
-        }
-        const currentUid = getCurrentUserId();
-        try {
-          const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username)}`);
-          if (!userRes.ok) throw new Error(`User "${username}" not found.`);
-          
-          const targetUser = await userRes.json();
-          if (targetUser.uid === currentUid) {
-            alert("You cannot follow yourself!");
-            return;
-          }
-
-          const authHeaders = await getAuthHeaders();
-          const res = await fetch('/api/follow', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders },
-            body: JSON.stringify({ follower_id: currentUid, following_id: targetUser.uid })
-          });
-          if (!res.ok) throw new Error(`Status: ${res.status}`);
-
-          alert(`Successfully followed @${username}!`);
-          if (usernameInput) usernameInput.value = '';
-          updateProfileSidebar();
-          loadUserProfile();
-        } catch (err) {
-          alert(`Could not follow user: ${err.message}`);
-        }
-      };
-
-      function updateFollowButtonState(btn, isFollowing, sessionUid, targetUid) {
-        if (isFollowing) {
-          btn.textContent = 'Unfollow';
-          btn.style.background = '#ef4444'; // Soft/bright reddish tone
-          btn.style.border = 'none';
-          btn.style.color = 'white';
-          btn.onclick = () => unfollowUser(sessionUid, targetUid);
-        } else {
-          btn.textContent = 'Follow';
-          btn.style.background = '#f97316'; // Orange Follow button
-          btn.style.border = 'none';
-          btn.style.color = 'white';
-          btn.onclick = () => followUser(sessionUid, targetUid);
-        }
-        btn.style.display = 'inline-block';
-      }
-
-      // -----------------------------
       // UI & SIDEBAR UPDATES
       // -----------------------------
       window.triggerAvatarUpload = function() {
@@ -457,72 +313,6 @@
             input.click();
         }
       };
-
-      async function updateProfileSidebar() {
-        const uid = sessionStorage.getItem('firebaseUid');
-        const pgFirstName = sessionStorage.getItem('pgFirstName');
-        const pgLastName = sessionStorage.getItem('pgLastName');
-        const pgUsername = sessionStorage.getItem('pgUsername');
-        
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlUid = urlParams.get('uid');
-        const targetUid = urlUid || uid;
-        const isOwner = uid && targetUid === uid;
-        
-        const pgFullName = [pgFirstName, pgLastName].filter(Boolean).join(' ');
-        const name = pgFullName || sessionStorage.getItem('firebaseDisplayName') || 'Athlete';
-        const displayUsername = pgUsername ? '@' + pgUsername : (uid ? '@' + uid.substring(0, 8) : 'Not logged in');
-        const avatar = sessionStorage.getItem('pgAvatar') || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
-
-        const toggleAvatar = document.getElementById('toggleAvatar');
-        if (toggleAvatar) toggleAvatar.src = avatar;
-
-        if (sidebarProfileCard) {
-          sidebarProfileCard.innerHTML = `
-            <button class="profileBtn" onclick="window.location.href='profile.html'" aria-label="View profile">
-              <img src="${avatar}" alt="${name}" />
-            </button>
-            <div style="min-width: 0; flex: 1;">
-              <strong class="truncate-text" style="max-width: 100%;">${name}</strong>
-              <span class="truncate-text" style="max-width: 100%; font-size: 0.9rem; color: var(--muted);">${displayUsername}</span>
-            </div>
-          `;
-        }
-
-        if (profileAuthButtons) {
-          if (uid && isOwner) {
-            profileAuthButtons.innerHTML = `
-              <button onclick="openUserInfoModal()" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500;">📝 Change Info</button>
-              <button onclick="triggerAvatarUpload()" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500; margin-top: 8px;">🖼️ Change Photo</button>
-              <button onclick="logoutUser()" style="width: 100%; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-strong); color: var(--text); cursor: pointer; font-size: 0.85rem; font-weight: 500; margin-top: 8px;">🚪 Logout</button>
-            `;
-          } else {
-            profileAuthButtons.innerHTML = '';
-          }
-        }
-
-        const friendsList = document.getElementById('friendsList');
-        if (friendsList && uid) {
-            try {
-              const res = await fetch(`/api/users/${uid}/friends`);
-              if (res.ok) {
-                const data = await res.json();
-                const friends = data.friends || [];
-                if (friends.length > 0) {
-                  friendsList.innerHTML = friends.map(friend => {
-                    const friendAvatar = friend.profilePicture || `https://i.pravatar.cc/40?u=${encodeURIComponent(friend.uid)}`;
-                    return `<li style="display: flex; align-items: center; gap: 10px; cursor: pointer;" onclick="window.location.href='profile.html?uid=${friend.uid}'">
-                      <img src="${friendAvatar}" alt="${friend.username}" style="width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
-                      <span class="truncate-text" style="color: var(--text); font-weight: 500;">${friend.username}</span>
-                    </li>`;
-                  }).join('');
-                } else {
-                  friendsList.innerHTML = '<li style="font-size:0.9rem; color:var(--muted);">No followed athletes yet</li>';
-                }
-              }
-            } catch (e) {}
-        }
-      }
 
       async function loadFollowDetails(uid) {
         try {
@@ -725,6 +515,11 @@
             const el = document.getElementById(id);
             if(el) el.style.display = isOwner ? 'flex' : 'none';
         });
+
+        const mainProfileButtons = document.getElementById('mainProfileButtons');
+        if (mainProfileButtons) {
+          mainProfileButtons.style.display = isOwner ? 'flex' : 'none';
+        }
 
         // Follow Button Logic
         const followBtn = document.getElementById('profileFollowBtn');

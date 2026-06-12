@@ -42,6 +42,23 @@
         </button>
       </div>
 
+      <div id="workoutsStatsContainer" class="post-card" style="margin-top: 16px; margin-bottom: 16px; display: none;">
+        <div style="display: flex; justify-content: space-around; text-align: center; gap: 16px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 100px;">
+            <span style="display: block; color: var(--muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Total Workouts</span>
+            <strong id="statsCount" style="font-size: 1.6rem; color: var(--text); font-family: 'Outfit', sans-serif;">0</strong>
+          </div>
+          <div style="flex: 1; min-width: 100px; border-left: 1px solid var(--border); padding-left: 16px;">
+            <span style="display: block; color: var(--muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Total Duration</span>
+            <strong id="statsDuration" style="font-size: 1.6rem; color: var(--text); font-family: 'Outfit', sans-serif;">0 mins</strong>
+          </div>
+          <div style="flex: 1; min-width: 100px; border-left: 1px solid var(--border); padding-left: 16px;">
+            <span style="display: block; color: var(--muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Total Distance</span>
+            <strong id="statsDistance" style="font-size: 1.6rem; color: var(--text); font-family: 'Outfit', sans-serif;">0.00 km</strong>
+          </div>
+        </div>
+      </div>
+
       <main class="feed">
         <div id="workoutsContainer" class="posts-container">
           <div class="empty-state">Loading your workouts…</div>
@@ -148,9 +165,23 @@
         const workouts = data.workouts || [];
         
         if (workouts.length === 0) {
+          document.getElementById('workoutsStatsContainer').style.display = 'none';
           workoutsContainer.innerHTML = `<div class="empty-state">No workouts logged under this filter discipline yet.</div>`;
           return;
         }
+
+        // Calculate and update stats
+        let totalDuration = 0;
+        let totalDistance = 0;
+        workouts.forEach(w => {
+          totalDuration += w.duration_minutes || 0;
+          totalDistance += parseFloat(w.distance_km) || 0;
+        });
+
+        document.getElementById('statsCount').textContent = workouts.length;
+        document.getElementById('statsDuration').textContent = `${totalDuration} mins`;
+        document.getElementById('statsDistance').textContent = `${totalDistance.toFixed(2)} km`;
+        document.getElementById('workoutsStatsContainer').style.display = 'block';
 
         workoutsContainer.innerHTML = '';
         workouts.forEach(w => {
@@ -169,7 +200,9 @@
                   <span>${date}</span>
                 </div>
               </div>
-              <button onclick="deleteWorkout('${w.id}')" style="background: transparent; border: none; font-size: 1.25rem; padding: 4px 8px; color: var(--muted); cursor: pointer;" aria-label="Delete workout">🗑️</button>
+              <button onclick="deleteWorkout('${w.id}')" style="background: transparent; border: 1px solid var(--border); border-radius: 8px; font-size: 0.9rem; padding: 6px 12px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;" aria-label="Delete workout">
+                🗑️ Delete
+              </button>
             </header>
             <p style="font-size: 1.15rem; margin-bottom: 8px; margin-top: 12px;">
               Logged <strong>${w.duration_minutes}</strong> minutes of activity${distanceText}.
@@ -178,6 +211,7 @@
           workoutsContainer.appendChild(card);
         });
       } catch (err) {
+        document.getElementById('workoutsStatsContainer').style.display = 'none';
         workoutsContainer.innerHTML = `<div class="error-state">Could not load workouts: ${err.message}</div>`;
       }
     }
