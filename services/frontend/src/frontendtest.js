@@ -533,7 +533,7 @@ submitPostBtn.addEventListener('click', async () => {
       user_id:          getCurrentUserId(),
       content,
       title:            title || null,
-      image_url:        imageUrl,
+      imageUrl:        imageUrl,
       training_id:      trainingId,
       training_details: trainingDetails,
     });
