@@ -50,7 +50,6 @@ const submitTrainingBtn    = document.getElementById('submitTrainingBtn');
   }
 })();
 
-// ─── Firebase Auth (Compat SDK loaded via <script> tags) ─────────────────────
 function isFirebaseReady() {
   try {
     return typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0;
@@ -188,7 +187,7 @@ function createPostCard(post) {
   let likedByText = '';
   if (Array.isArray(post.likedBy) && post.likedBy.length > 0) {
     const names = post.likedBy.map(like => typeof like === 'object' && like !== null ? like.username : like);
-    likedText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
+    likedByText = `<div class="liked-by-list" style="font-size: 0.85rem; color: var(--muted); margin-top: 10px; border-top: 1px dashed var(--border); padding-top: 8px;">
       ❤️ Liked by: ${names.join(', ')}
     </div>`;
   }
@@ -247,7 +246,7 @@ function createPostCard(post) {
         💬 comments (${post.comments ? post.comments.length : 0})
       </button>
     </div>
-    ${likedText}
+    ${likedByText}
     <div id="comments-container-${post.id}" class="comments-container">
       <div id="comment-list-${post.id}" class="comment-list">
       </div>
@@ -304,7 +303,7 @@ async function fetchAndRenderAttachedTraining(userId, trainingId, postId) {
   }
 }
 
-// Fetch and render dynamic full name and profile picture based strictly on userId
+// Fetch dynamic full name and profile picture from PostgreSQL based strictly on the strictly scoped userId
 async function fetchAndRenderAuthor(userId, postId) {
   try {
     const res = await fetch(`/api/users/${userId}/profile`);
@@ -323,7 +322,6 @@ async function fetchAndRenderAuthor(userId, postId) {
       }
     }
   } catch (err) {
-    // Suppresses error noise in dev tools console for orphaned / test entries
     console.warn(`Could not load profile for user ${userId}`, err);
   }
 }
@@ -359,9 +357,9 @@ function renderPosts(posts) {
   postsContainer.innerHTML = '';
   posts.forEach(p => {
     postsContainer.appendChild(createPostCard(p));
-    renderCommentList(p.id);
+    renderCommentListComments(p.id);
     
-    // Dynamically query user profile and training info asynchronously without blocking the main feed
+    // Asynchronously update name and avatar without slowing down the feed
     setTimeout(() => fetchAndRenderAuthor(p.userId, p.id), 0);
     if (p.trainingId && !p.trainingDetails) {
       setTimeout(() => fetchAndRenderAttachedTraining(p.userId, p.trainingId, p.id), 0);
@@ -369,11 +367,15 @@ function renderPosts(posts) {
   });
 }
 
+// Render comments immediately on post card generation
+function renderListComments(postId) {
+  renderCommentListCommentsLogic(postId);
+}
+
 // ─── Load posts on startup with timeout ───────────────────────────────────────
-// Use a race with AbortController so the UI doesn't hang forever
 async function loadPosts() {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
     const uid = getCurrentUserId();
@@ -395,7 +397,6 @@ async function loadPosts() {
     renderPosts(postsArray);
   } catch (err) {
     clearTimeout(timeout);
-    // Show the empty state instead of an error so the page is usable
     postsContainer.innerHTML = '<div class="empty-state">No posts yet — follow some athletes to see updates!</div>';
     console.warn('loadPosts:', err.message);
   }
@@ -412,7 +413,6 @@ window.followUserByUsername = async function followUserByUsername() {
   const currentUid = getCurrentUserId();
 
   try {
-    // 1. Resolve username to UID
     const userRes = await fetch(`/api/users/by-username/${encodeURIComponent(username)}`);
     if (!userRes.ok) {
       if (userRes.status === 404) {
@@ -427,7 +427,6 @@ window.followUserByUsername = async function followUserByUsername() {
       return;
     }
 
-    // 2. Send follow request
     await makeApiRequest('POST', '/api/follow', {
       follower_id: currentUid,
       following_id: targetUser.uid,
@@ -436,7 +435,6 @@ window.followUserByUsername = async function followUserByUsername() {
     alert(`Successfully followed @${username}!`);
     if (usernameInput) usernameInput.value = '';
     
-    // Refresh sidebar and feed
     updateProfileSidebar();
     loadPosts();
   } catch (err) {
@@ -530,7 +528,6 @@ async function updateProfileSidebar() {
 
   const avatar = avatarUrl || `https://i.pravatar.cc/80?u=${encodeURIComponent(uid || 'default')}`;
 
-  // Update profile card in sidebar
   const profileCard = document.getElementById('profileCard');
   if (profileCard) {
     profileCard.innerHTML = `
@@ -544,14 +541,12 @@ async function updateProfileSidebar() {
     `;
   }
   
-  // Update main page toggle button photo dynamically
   const toggleImg = document.querySelector('#toggle img');
   if (toggleImg) {
     toggleImg.src = avatar;
     toggleImg.alt = name;
   }
 
-  // Load friends
   if (uid) {
     fetchFriendsList(uid);
   }
@@ -563,8 +558,6 @@ async function fetchFriendsList(uid) {
   if (!friendsListEl) return;
 
   try {
-    // Fetch followers and following lists independently via existing API
-    // Using makeApiRequest guarantees auth headers are passed properly
     const [followersData, followingData] = await Promise.all([
       makeApiRequest('GET', `/api/followers/${uid}`).catch(() => []),
       makeApiRequest('GET', `/api/following/${uid}`).catch(() => [])
@@ -576,7 +569,6 @@ async function fetchFriendsList(uid) {
     const followerIds = followers.map(f => f.followerId || f.uid || f.id || f);
     const followingIds = following.map(f => f.followingId || f.uid || f.id || f);
 
-    // Filter to find the overlap (Mutual followers)
     const mutualIds = [...new Set(followingIds.filter(id => followerIds.includes(id)))];
 
     if (mutualIds.length === 0) {
@@ -586,16 +578,16 @@ async function fetchFriendsList(uid) {
 
     friendsListEl.innerHTML = '';
     
-    // Fetch profile data for the mutual IDs to display correct images and usernames
+    // Resolve profile fields directly from users table (firstName, lastName, profilePicture)
     const profiles = await Promise.all(
       mutualIds.map(friendId => 
         makeApiRequest('GET', `/api/users/${friendId}/profile`)
-          .catch(() => ({ uid: friendId, username: 'Unknown', profilePicture: null }))
+          .catch(() => ({ uid: friendId, firstName: 'Unknown', profilePicture: null }))
       )
     );
 
     profiles.forEach(friend => {
-      if (friend.username === 'Unknown') return; // Skip if we failed to load this profile
+      if (friend.firstName === 'Unknown') return; 
 
       const li = document.createElement('li');
       li.style.display = 'flex';
@@ -603,14 +595,15 @@ async function fetchFriendsList(uid) {
       li.style.gap = '10px';
       li.style.cursor = 'pointer';
       li.style.padding = '6px 0';
-      li.style.overflow = 'hidden'; // Ensures the flex child doesn't overflow container
+      li.style.overflow = 'hidden'; 
       li.onclick = () => window.location.href = `profile.html?uid=${friend.uid}`;
 
       const friendAvatar = friend.profilePicture || `https://i.pravatar.cc/40?u=${encodeURIComponent(friend.uid)}`;
+      const friendName = `${friend.firstName || ''} ${friend.lastName || ''}`.trim() || 'Athlete';
 
       li.innerHTML = `
-        <img src="${friendAvatar}" alt="${friend.username}" style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
-        <span style="color: var(--text); font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${friend.username}</span>
+        <img src="${friendAvatar}" alt="${friendName}" style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border);" />
+        <span style="color: var(--text); font-weight: 500; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${friendName}</span>
       `;
       friendsListEl.appendChild(li);
     });
@@ -701,7 +694,6 @@ submitTrainingBtn.addEventListener('click', async () => {
     trainingDistance.value = '';
     createTrainingModal.classList.add('hidden');
 
-    // Silently refresh the workouts dropdown so it's ready when the post modal opens
     await fetchWorkouts();
     alert('Training logged!');
   } catch (err) {
@@ -723,7 +715,6 @@ window.renderCommentList = function renderCommentList(postId) {
     return;
   }
 
-  // Render first 3 comments if collapsed, otherwise render all comments
   const commentsToRender = expanded ? comments : comments.slice(0, 3);
 
   listContainer.innerHTML = '';
@@ -746,7 +737,6 @@ window.renderCommentList = function renderCommentList(postId) {
     listContainer.appendChild(item);
   });
 
-  // If collapsed and comments > 3, show a subtle hint
   if (!expanded && comments.length > 3) {
     const hint = document.createElement('div');
     hint.className = 'empty-state';
@@ -758,10 +748,13 @@ window.renderCommentList = function renderCommentList(postId) {
     listContainer.appendChild(hint);
   }
 
-  // Scroll to bottom only if expanded
   if (expanded) {
     listContainer.scrollTop = listContainer.scrollHeight;
   }
+};
+
+window.renderListCommentsLogic = function renderListCommentsLogic(postId) {
+  renderCommentList(postId);
 };
 
 window.toggleComments = async function toggleComments(postId) {
@@ -797,17 +790,13 @@ window.submitComment = async function submitComment(postId) {
       if (!card.comments) card.comments = [];
       card.comments.push(newComment);
       
-      // Auto-expand on new comment so they see their posted comment
-      card.dataset.embeddings = "true";
       card.dataset.expanded = "true";
       
-      // Update button counter
       const btn = document.getElementById(`comments-btn-${postId}`);
       if (btn) {
         btn.innerHTML = `💬 comments (${card.comments.length})`;
       }
 
-      // Re-render
       renderCommentList(postId);
     }
     input.value = '';
