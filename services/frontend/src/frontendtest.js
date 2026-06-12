@@ -805,20 +805,5 @@ window.submitComment = async function submitComment(postId) {
   }
 };
 
-async function loadPosts() {
-    const uid = getCurrentUserId();
-    const isLoggedIn =
-        sessionStorage.getItem('firebaseUid') ||
-        document.body.dataset.uid;
-
-    console.log({
-        uid,
-        isLoggedIn,
-        url: isLoggedIn ? `/api/feed/${uid}` : '/api/posts'
-    });
-
-  
-}
-
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 loadPosts();

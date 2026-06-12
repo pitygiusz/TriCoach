@@ -206,16 +206,7 @@ app.get('/api/feed/:userId', async (req: Request, res: Response) => {
   try {
     const r = await axios.get(`${SERVICES.social}/feed/${req.params.userId}`, { params: req.query });
     res.status(r.status).json(r.data);
-  } catch (e: any) {
-    console.error("Feed gateway error:", {
-        target: `${SERVICES.social}/feed/${req.params.userId}`,
-        status: e.response?.status,
-        data: e.response?.data
-    });
-
-    res.status(e.response?.status || 500)
-       .json(e.response?.data || { error: e.message });
-}
+  } catch (e: any) { res.status(e.response?.status || 500).json({ error: e.message }); }
 });
 
 app.post('/api/posts/:postId/like', async (req: Request, res: Response) => {
