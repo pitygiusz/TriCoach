@@ -199,6 +199,25 @@ async function fetchAndRenderPostAuthor(userId, postId) {
   }
 }
 
+async function fetchAndRenderCommentAuthor(userId, postId, commentIndex) {
+  try {
+    const res = await makeApiRequest('GET', `/api/users/${userId}/profile`);
+    if (!res) return;
+
+    const nameEl = document.getElementById(`comment-name-${postId}-${commentIndex}`);
+    const avatarEl = document.getElementById(`comment-avatar-${postId}-${commentIndex}`);
+
+    if (nameEl && res.firstName && res.lastName) {
+      nameEl.textContent = `${res.firstName} ${res.lastName}`;
+    }
+    if (avatarEl && res.profilePicture) {
+      avatarEl.src = res.profilePicture;
+    }
+  } catch (err) {
+    console.warn(`[Profile Proxy Error] Could not resolve user ${userId} for comment ${commentIndex} on post ${postId}:`, err.message);
+  }
+}
+
 function createPostCard(post) {
   const card = document.createElement('article');
   
@@ -364,7 +383,7 @@ function renderPosts(posts) {
     postsContainer.appendChild(createPostCard(p));
     renderCommentList(p.id);
 
-    // Dispatch asynchronous user profile resolution
+    // Dispatch asynchronous user profile resolution for the post author
     const authorId = p.userId || p.username;
     if (authorId) {
       setTimeout(() => fetchAndRenderPostAuthor(authorId, p.id), 0);
@@ -759,24 +778,31 @@ window.renderCommentList = function renderCommentList(postId) {
   const commentsToRender = expanded ? comments : comments.slice(0, 3);
 
   listContainer.innerHTML = '';
-  commentsToRender.forEach(comment => {
+  commentsToRender.forEach((comment, index) => {
     const item = document.createElement('div');
     item.className = 'comment-card';
-    const author = comment.displayName || comment.userId || 'Anonymous';
-    const avatarUrl = comment.profilePicture || `https://i.pravatar.cc/32?u=${encodeURIComponent(comment.userId)}`;
+    
+    const authorId = comment.userId || comment.username;
+    const author = comment.displayName || authorId || 'Anonymous';
+    const avatarUrl = comment.profilePicture || `https://i.pravatar.cc/32?u=${encodeURIComponent(authorId || 'default')}`;
     const timeAgo = formatTimeAgo(comment.createdAt);
 
     item.innerHTML = `
-      <img class="avatar" src="${avatarUrl}" alt="${author}" />
+      <img class="avatar" id="comment-avatar-${postId}-${index}" src="${avatarUrl}" alt="${author}" />
       <div class="comment-content-wrap">
         <div class="comment-header">
-          <strong>${author}</strong>
+          <strong id="comment-name-${postId}-${index}">${author}</strong>
           <span>${timeAgo}</span>
         </div>
         <p>${comment.content || ''}</p>
       </div>
     `;
     listContainer.appendChild(item);
+
+    // Dispatch asynchronous user profile resolution for the comment
+    if (authorId) {
+      setTimeout(() => fetchAndRenderCommentAuthor(authorId, postId, index), 0);
+    }
   });
 
   // If collapsed and comments > 3, show a subtle hint
