@@ -180,13 +180,13 @@ async function makeApiRequest(method, endpoint, data = null) {
 
 // ─── Feed ─────────────────────────────────────────────────────────────────────
 
-async function createPostCard(post) {
+function createPostCard(post) {
   const card = document.createElement('article');
   let name = 'Athlete';
   const usid = post.username || post.userId || 'none';
-  const res = await fetch(`/api/users/${usid}/profile`);
+  const res = fetch(`/api/users/${usid}/profile`);
     if (res.ok) {
-      const uData = await res.json();
+      const uData = res.json();
       name = `${uData.firstName} ${uData.lastName}`;
       if (uData.profilePicture) {
             pfpc = uData.profilePicture;
